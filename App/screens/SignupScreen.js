@@ -162,6 +162,14 @@ export default function SignupScreen() {
     console.log("Date type:", typeof date);
     console.log("Is Date instance:", date instanceof Date);
 
+    const formatDateForBackend = (date) => {
+      if (!date) return "";
+      const day = date.getDate().toString().padStart(2, "0");
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+
     // Ensure we have a valid Date object for date_of_birth
     let dateOfBirthToSend;
 
@@ -181,7 +189,7 @@ export default function SignupScreen() {
       password,
       phone: phoneNumber,
       gender: gender,
-      date_of_birth: "05-08-2001", // This will now work
+      date_of_birth: formatDateForBackend(date), // Properly formatted
       address,
       bio,
       occupation,
@@ -377,7 +385,7 @@ export default function SignupScreen() {
 
                 <CustomDatePicker
                   value={date}
-                  onChange={(date) => setDate(date)}
+                  onChange={(selectedDate) => setDate(selectedDate)}
                 />
                 <Text style={styles.label}>Gender</Text>
                 <TouchableOpacity
