@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Afro Dating",
+    "slug": "afrodating",
+    "version": "1.0.0",
+    "platforms": ["ios", "android", "web"],
+    "orientation": "portrait",
+    "icon": "./App/assets/images/logo.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./App/assets/images/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./App/assets/images/logo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./App/assets/images/logo.png",
+      "bundler": "metro",
+      "output": "static",
+      "startUrl": "/",
+      "scope": "/",
+      "lang": "en",
+      "name": "Afro Dating",
+      "shortName": "Afro Dating",
+      "display": "standalone",
+      "themeColor": "#ffffff",
+      "backgroundColor": "#ffffff",
+      "description": "Connect with amazing people",
+      "orientation": "portrait",
+      "preferRelatedApplications": false
+    },
+    "plugins": [
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "web": {
+            "bundler": "metro"
+          }
+        }
+      ]
+    ]
+  }
+}

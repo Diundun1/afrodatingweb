@@ -1,0 +1,376 @@
+import React, { useState, useEffect, useRef } from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { Platform, AppState, StatusBar } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SplashScreen from "expo-splash-screen";
+import { useFonts } from "expo-font";
+
+// Import your screens
+import WelcomeScreen1 from "./App/screens/WelcomeScreen1";
+import LoginScreen from "./App/screens/LoginScreen";
+import WelcomeScreen2 from "./App/screens/WelcomeScreen2";
+import SignupScreen from "./App/screens/SignupScreen";
+import SignupDetailsScreen from "./App/screens/SignupDetailsScreen";
+import OTPScreen from "./App/screens/OTPScreen";
+import ExploreScreen from "./App/screens/ExploreScreen";
+import ProfileScreen from "./App/screens/ProfileScreen";
+import AccountInfoScreen from "./App/screens/AccountInfoScreen";
+import ChatScreen from "./App/screens/ChatScreen";
+import EditAccountScreen from "./App/screens/EditAccountScreen";
+import ProfileDetailScreen from "./App/screens/ProfileDetailScreen";
+import MyFavouriteScreen from "./App/screens/MyFavouriteScreen";
+import FilterScreen from "./App/screens/FilterScreen";
+
+// Import the PWA installation component
+import InstallPWAButton from "./App/components/InstallPWAButton";
+import PremiumScreen from "./App/screens/PremiumScreen";
+import PaymentWebview from "./App/screens/PaymentWebview";
+
+const Stack = createNativeStackNavigator();
+
+// Service Worker registration
+const registerServiceWorker = async () => {
+  if (Platform.OS === "web" && "serviceWorker" in navigator) {
+    try {
+      // Clean up any existing service workers
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (let registration of registrations) {
+        await registration.unregister();
+      }
+
+      // Simple registration
+      const registration = await navigator.serviceWorker.register(
+        "/service-worker.js",
+        {
+          scope: "/",
+          updateViaCache: "none",
+        }
+      );
+
+      console.log("✅ Service Worker registered successfully:", registration);
+
+      // Check if service worker is actually controlling the page
+      if (navigator.serviceWorker.controller) {
+        console.log("✅ Service Worker is controlling the page");
+      } else {
+        console.log(
+          "⚠️ Service Worker registered but not controlling the page"
+        );
+      }
+
+      return registration;
+    } catch (error) {
+      console.error("❌ Service Worker registration failed:", error);
+      return null;
+    }
+  } else {
+    console.log("❌ Service Workers not supported in this browser");
+    return null;
+  }
+};
+
+// Check if PWA is installed
+const isPWAInstalled = () => {
+  if (Platform.OS === "web") {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true ||
+      document.referrer.includes("android-app://")
+    );
+  }
+  return false;
+};
+
+const requestWebNotificationPermission = async () => {
+  try {
+    if (typeof Notification === "undefined") {
+      console.log("This environment does not support notifications");
+      return false;
+    }
+
+    if (Notification.permission === "granted") {
+      console.log("Notification permission already granted");
+      return true;
+    }
+
+    if (Notification.permission === "denied") {
+      console.log("Notification permission was denied");
+      return false;
+    }
+
+    const permission = await Notification.requestPermission();
+
+    if (permission === "granted") {
+      console.log("Notification permission granted!");
+
+      if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification("Welcome to Afro Dating! 🎉", {
+            body: "You will now receive notifications for new messages and calls.",
+            icon: "https://test.unigate.com.ng/testfiles/icon.png",
+            tag: "welcome",
+          });
+        } catch (error) {
+          console.log("Could not show welcome notification:", error);
+        }
+      }
+
+      return true;
+    } else {
+      console.log("Notification permission denied");
+      return false;
+    }
+  } catch (error) {
+    console.error("Error requesting notification permission:", error);
+    return false;
+  }
+};
+
+export default function App() {
+  const [loaded] = useFonts({
+    Roboto_Light: require("./assets/fonts/Roboto-Light.ttf"),
+    Roboto_Regular: require("./assets/fonts/Roboto-Regular.ttf"),
+    Roboto_Medium: require("./assets/fonts/Roboto-Medium.ttf"),
+    Roboto_Bold: require("./assets/fonts/Roboto-Bold.ttf"),
+  });
+
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [isPWA, setIsPWA] = useState(false);
+  const navigationRef = useRef();
+
+  // Service Worker registration for PWA
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      // Check if already running as PWA
+      setIsPWA(isPWAInstalled());
+
+      // Add manifest link if not exists
+      if (!document.querySelector('link[rel="manifest"]')) {
+        const manifestLink = document.createElement("link");
+        manifestLink.rel = "manifest";
+        manifestLink.href = "/manifest.json";
+        document.head.appendChild(manifestLink);
+        console.log("✅ Added manifest.json");
+      }
+
+      // Register service worker
+      registerServiceWorker().then((registration) => {
+        if (registration) {
+          console.log("PWA setup complete");
+        }
+      });
+
+      // Listen for PWA installation
+      window.addEventListener("appinstalled", (event) => {
+        console.log("PWA was installed");
+        setIsPWA(true);
+      });
+
+      // Cleanup function for web
+      return () => {
+        window.removeEventListener("appinstalled", () => {});
+      };
+    } else {
+      // Set status bar for native apps (not web)
+      StatusBar.setBarStyle("light-content");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+
+      // Request notification permission after 2 seconds (web only)
+      if (Platform.OS === "web") {
+        setTimeout(() => {
+          const checkNotificationPermission = async () => {
+            try {
+              const hasBeenAsked = await AsyncStorage.getItem(
+                "notificationDealDOne"
+              );
+
+              if (!hasBeenAsked && Notification.permission === "default") {
+                setShowNotificationModal(true);
+              }
+            } catch (error) {
+              console.error("Error checking notification status:", error);
+              if (Notification.permission === "default") {
+                setShowNotificationModal(true);
+              }
+            }
+          };
+          checkNotificationPermission();
+        }, 2000);
+      }
+    }
+    // Removed the problematic return statement with subscription
+  }, [loaded]);
+
+  // Event listeners for chat and navigation
+  useEffect(() => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const handleOpenChatRoom = (event) => {
+        const { roomId, messageId } = event.detail;
+        if (navigationRef.current?.isReady?.()) {
+          navigationRef.current.navigate("ChatScreen", {
+            roomIdxccd: roomId,
+            focusMessageId: messageId,
+          });
+        }
+      };
+
+      const handleOpenChat = (event) => {
+        const data = event.detail;
+        if (navigationRef.current?.isReady?.() && data.roomId) {
+          navigationRef.current.navigate("ChatScreen", {
+            roomIdxccd: data.roomId,
+          });
+        }
+      };
+
+      window.addEventListener("openChatRoom", handleOpenChatRoom);
+      window.addEventListener("openChat", handleOpenChat);
+
+      return () => {
+        window.removeEventListener("openChatRoom", handleOpenChatRoom);
+        window.removeEventListener("openChat", handleOpenChat);
+      };
+    }
+  }, []);
+
+  const handleAllowNotifications = async () => {
+    try {
+      setShowNotificationModal(false);
+      await AsyncStorage.setItem("notificationDealDOne", "asked");
+      const permissionGranted = await requestWebNotificationPermission();
+      console.log("Permission granted:", permissionGranted);
+    } catch (error) {
+      console.error("Error in handleAllowNotifications:", error);
+      setShowNotificationModal(false);
+    }
+  };
+
+  const handleDenyNotifications = async () => {
+    await AsyncStorage.setItem("notificationDealDOne", "asked");
+    setShowNotificationModal(false);
+  };
+
+  if (!loaded) {
+    return null;
+  }
+
+  return (
+    <>
+      <NavigationContainer ref={navigationRef}>
+        <Stack.Navigator
+          screenOptions={{ headerShown: false }}
+          initialRouteName="WelcomeScreen">
+          <Stack.Screen name="WelcomeScreen" component={WelcomeScreen1} />
+          <Stack.Screen name="WelcomeScreen2" component={WelcomeScreen2} />
+          <Stack.Screen name="SignupScreen" component={SignupScreen} />
+          <Stack.Screen name="LoginScreen" component={LoginScreen} />
+          <Stack.Screen name="OTPScreen" component={OTPScreen} />
+          <Stack.Screen name="ExploreScreen" component={ExploreScreen} />
+          <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+          <Stack.Screen
+            name="AccountInfoScreen"
+            component={AccountInfoScreen}
+          />
+          <Stack.Screen name="ChatScreen" component={ChatScreen} />
+          <Stack.Screen
+            name="EditAccountScreen"
+            component={EditAccountScreen}
+          />
+          <Stack.Screen
+            name="MyFavouriteScreen"
+            component={MyFavouriteScreen}
+          />
+          <Stack.Screen name="FilterScreen" component={FilterScreen} />
+          <Stack.Screen name="PremiumScreen" component={PremiumScreen} />
+          <Stack.Screen name="PaymentWebview" component={PaymentWebview} />
+          <Stack.Screen
+            name="ProfileDetailScreen"
+            component={ProfileDetailScreen}
+          />
+          <Stack.Screen
+            name="SignupDetailsScreen"
+            component={SignupDetailsScreen}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+
+      {/* PWA Installation Prompt - Only shows on web */}
+      {/**      <InstallPWAButton /> */}
+      {/* Notification Permission Modal - Only shows on web */}
+      {Platform.OS === "web" && showNotificationModal && (
+        <div style={styles.notificationModal}>
+          <div style={styles.notificationContent}>
+            <h3>Enable Notifications</h3>
+            <p>
+              Get notified about new messages, matches, and important updates.
+            </p>
+            <div style={styles.notificationButtons}>
+              <button
+                onClick={handleAllowNotifications}
+                style={styles.allowButton}>
+                Allow
+              </button>
+              <button
+                onClick={handleDenyNotifications}
+                style={styles.denyButton}>
+                Not Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+const styles = {
+  notificationModal: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10000,
+  },
+  notificationContent: {
+    backgroundColor: "white",
+    padding: 24,
+    borderRadius: 12,
+    maxWidth: 400,
+    width: "90%",
+    textAlign: "center",
+  },
+  notificationButtons: {
+    display: "flex",
+    gap: 12,
+    marginTop: 20,
+  },
+  allowButton: {
+    backgroundColor: "#FF6B6B",
+    color: "white",
+    border: "none",
+    padding: "12px 24px",
+    borderRadius: 8,
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
+  denyButton: {
+    backgroundColor: "#f0f0f0",
+    color: "#333",
+    border: "none",
+    padding: "12px 24px",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+};

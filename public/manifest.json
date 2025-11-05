@@ -1,0 +1,27 @@
+{
+  "short_name": "Afro Dating",
+  "name": "Afro Dating - Find Your Perfect Match",
+  "description": "Connect with people nearby and find your perfect match with Afro Dating",
+  "icons": [
+    {
+      "src": "/assets/favicons/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/favicons/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FF6B6B",
+  "scope": "/",
+  "orientation": "portrait",
+  "categories": ["social", "dating", "lifestyle"],
+  "lang": "en"
+}
