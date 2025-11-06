@@ -35,29 +35,12 @@ export default function ProfileScreen({}) {
       icon: "person-outline",
       screen: "AccountInfoScreen",
     },
+
     {
       id: 2,
-      title: "Contact List",
-      icon: "people-outline",
-      screen: "ContactList",
-    },
-    {
-      id: 3,
-      title: "Language",
-      icon: "language-outline",
-      screen: "Language",
-    },
-    {
-      id: 4,
       title: "General Setting",
       icon: "settings-outline",
-      screen: "GeneralSetting",
-    },
-    {
-      id: 5,
-      title: "Change Password",
-      icon: "lock-closed-outline",
-      screen: "ChangePassword",
+      screen: "GeneralSettings",
     },
   ];
 

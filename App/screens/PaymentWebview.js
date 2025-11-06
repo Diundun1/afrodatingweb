@@ -125,7 +125,7 @@ const PaymentWebview = ({ route }) => {
 
     // Navigate to success screen with verification data
     setTimeout(() => {
-      navigation.replace("paymentDoneScreen/paymentDoneScreen", {
+      navigation.replace("ProfileScreen", {
         paymentData: paymentData,
         verifyUrl: verifyUrl,
       });
@@ -138,7 +138,7 @@ const PaymentWebview = ({ route }) => {
 
     // Navigate to failure screen
     setTimeout(() => {
-      navigation.replace("failedPaymentScreen", {
+      navigation.replace("ProfileScreen", {
         errorData: errorData,
       });
     }, 1000);

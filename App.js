@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Platform, AppState, StatusBar } from "react-native";
+import {
+  Platform,
+  AppState,
+  StatusBar,
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
@@ -21,11 +30,12 @@ import EditAccountScreen from "./App/screens/EditAccountScreen";
 import ProfileDetailScreen from "./App/screens/ProfileDetailScreen";
 import MyFavouriteScreen from "./App/screens/MyFavouriteScreen";
 import FilterScreen from "./App/screens/FilterScreen";
+import PremiumScreen from "./App/screens/PremiumScreen";
+import PaymentWebview from "./App/screens/PaymentWebview";
+import GeneralSettings from "./App/screens/GeneralSettings";
 
 // Import the PWA installation component
 import InstallPWAButton from "./App/components/InstallPWAButton";
-import PremiumScreen from "./App/screens/PremiumScreen";
-import PaymentWebview from "./App/screens/PaymentWebview";
 
 const Stack = createNativeStackNavigator();
 
@@ -205,7 +215,6 @@ export default function App() {
         }, 2000);
       }
     }
-    // Removed the problematic return statement with subscription
   }, [loaded]);
 
   // Event listeners for chat and navigation
@@ -274,6 +283,7 @@ export default function App() {
           <Stack.Screen name="OTPScreen" component={OTPScreen} />
           <Stack.Screen name="ExploreScreen" component={ExploreScreen} />
           <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+          <Stack.Screen name="GeneralSettings" component={GeneralSettings} />
           <Stack.Screen
             name="AccountInfoScreen"
             component={AccountInfoScreen}
@@ -302,75 +312,109 @@ export default function App() {
       </NavigationContainer>
 
       {/* PWA Installation Prompt - Only shows on web */}
-      {/**      <InstallPWAButton /> */}
+      {/** <InstallPWAButton /> */}
+
       {/* Notification Permission Modal - Only shows on web */}
       {Platform.OS === "web" && showNotificationModal && (
-        <div style={styles.notificationModal}>
-          <div style={styles.notificationContent}>
-            <h3>Enable Notifications</h3>
-            <p>
-              Get notified about new messages, matches, and important updates.
-            </p>
-            <div style={styles.notificationButtons}>
-              <button
-                onClick={handleAllowNotifications}
-                style={styles.allowButton}>
-                Allow
-              </button>
-              <button
-                onClick={handleDenyNotifications}
-                style={styles.denyButton}>
-                Not Now
-              </button>
-            </div>
-          </div>
-        </div>
+        <Modal
+          visible={showNotificationModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={handleDenyNotifications}>
+          <View style={styles.notificationModal}>
+            <View style={styles.notificationContent}>
+              <Text style={styles.notificationTitle}>Enable Notifications</Text>
+              <Text style={styles.notificationText}>
+                Get notified about new messages, matches, and important updates.
+              </Text>
+              <View style={styles.notificationButtons}>
+                <TouchableOpacity
+                  onPress={handleAllowNotifications}
+                  style={styles.allowButton}>
+                  <Text style={styles.allowButtonText}>Allow</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleDenyNotifications}
+                  style={styles.denyButton}>
+                  <Text style={styles.denyButtonText}>Not Now</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       )}
     </>
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
   notificationModal: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 10000,
+    padding: 20,
   },
   notificationContent: {
     backgroundColor: "white",
     padding: 24,
     borderRadius: 12,
     maxWidth: 400,
-    width: "90%",
+    width: "100%",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  notificationTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1F2937",
+    marginBottom: 12,
     textAlign: "center",
   },
+  notificationText: {
+    fontSize: 16,
+    color: "#6B7280",
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 22,
+  },
   notificationButtons: {
-    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
     gap: 12,
-    marginTop: 20,
   },
   allowButton: {
-    backgroundColor: "#FF6B6B",
-    color: "white",
-    border: "none",
-    padding: "12px 24px",
+    flex: 1,
+    backgroundColor: "#7B61FF",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    cursor: "pointer",
-    fontWeight: "bold",
+    alignItems: "center",
+  },
+  allowButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
   denyButton: {
-    backgroundColor: "#f0f0f0",
-    color: "#333",
-    border: "none",
-    padding: "12px 24px",
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    cursor: "pointer",
+    alignItems: "center",
   },
-};
+  denyButtonText: {
+    color: "#374151",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+});

@@ -129,7 +129,7 @@ const PremiumScreen = () => {
       }
 
       const response = await fetch(
-        "https://closematch-backend-seix.onrender.com/api/v1/subscription/subscribe",
+        "https://closematch-backend-seix.onrender.com/api/v1/payments/subscribe",
         {
           method: "POST",
           headers: {

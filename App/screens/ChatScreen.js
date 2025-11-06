@@ -81,9 +81,13 @@ export default function ChatScreen() {
   const scrollViewRef = useRef();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Hooks
-  const { socketRef, isConnected } = useSocket();
+  // Hooks with error handling
+  const socketContext = useSocket();
   const navigation = useNavigation();
+
+  // Safe socket access
+  const socketRef = socketContext?.socketRef || { current: null };
+  const isConnected = socketContext?.isConnected || false;
 
   // Update state helper
   const updateState = (updates) => {
@@ -124,15 +128,6 @@ export default function ChatScreen() {
 
   // Fetch chats with proper error handling
   const fetchChats = async (showRefreshing = false) => {
-    if (!socketRef?.current) {
-      updateState({
-        error: "Socket not connected",
-        loading: false,
-        refreshing: false,
-      });
-      return;
-    }
-
     try {
       updateState(
         showRefreshing ? { refreshing: true } : { loading: true, error: null }
@@ -181,11 +176,13 @@ export default function ChatScreen() {
         throw new Error("Could not identify user to chat with");
       }
 
-      // Join socket room
-      socketRef.current.emit("joinRoom", roomId);
+      // Join socket room if socket is available
+      if (socketRef.current) {
+        socketRef.current.emit("joinRoom", roomId);
+      }
 
       // Navigate to chat screen
-      navigation.navigate("message/messageScreen", {
+      navigation.navigate("MessageScreen", {
         otherUserId,
         roomIdxccd: roomId,
       });
@@ -250,10 +247,9 @@ export default function ChatScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchChats();
-    }, [socketRef?.current])
+    }, [])
   );
 
-  // UI Components
   const ChatListItem = ({ chat, onPress, onDelete }) => (
     <TouchableOpacity
       style={styles.chatListItem}
@@ -268,8 +264,29 @@ export default function ChatScreen() {
               {chat.lastMessageTime}
             </NunitoTitle>
           </View>
-          <NunitoTitle style={styles.chatLastMessage} numberOfLines={1}>
-            {chat.lastMessage}
+
+          {/* Updated last message section */}
+          <NunitoTitle
+            numberOfLines={1}
+            style={[
+              chat.unreadMessageCount > 0
+                ? styles.unreadMessage
+                : styles.readMessage,
+              { width: "100%", justifyContent: "center" },
+            ]}>
+            {chat.lastMessage.includes("https://test.unigate.com.ng") ? (
+              <Text style={styles.callSessionText}>
+                <Ionicons
+                  name="videocam"
+                  size={16}
+                  color="#fff"
+                  style={{ marginTop: 10, lineHeight: 20 }}
+                />{" "}
+                Call Session
+              </Text>
+            ) : (
+              chat.lastMessage
+            )}
           </NunitoTitle>
         </View>
       </View>
@@ -330,20 +347,30 @@ export default function ChatScreen() {
     </View>
   );
 
+  const SocketWarning = () => (
+    <View style={styles.socketWarning}>
+      <Ionicons name="wifi-outline" size={16} color="#F59E0B" />
+      <NunitoTitle style={styles.socketWarningText}>
+        Real-time updates unavailable
+      </NunitoTitle>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerButton}></View>
         <NunitoTitle style={styles.headerTitle}>Chat</NunitoTitle>
-        <TouchableOpacity style={styles.headerButton}>
-          <Ionicons name="search" size={24} color="#7B61FF" />
-        </TouchableOpacity>
+        <View style={styles.headerButton}></View>
       </View>
 
+      {/* Socket Connection Warning */}
+      {/**      {!isConnected && <SocketWarning />}
+       */}
       {/* Search Bar */}
-      <SearchBar />
-
+      {/**      <SearchBar />
+       */}
       {/* Stats */}
       <View style={styles.statsContainer}>
         <NunitoTitle style={styles.statsTitle}>Messages</NunitoTitle>
@@ -415,6 +442,22 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 8,
   },
+  socketWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FEF3C7",
+    padding: 8,
+    marginHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  socketWarningText: {
+    fontSize: 12,
+    color: "#92400E",
+    marginLeft: 4,
+    fontWeight: "500",
+  },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -436,6 +479,7 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     margin: 16,
+    marginBottom: 0,
   },
   statsTitle: {
     fontSize: 15,
@@ -443,7 +487,7 @@ const styles = StyleSheet.create({
   },
   statsSubtitle: {
     color: "#6B7280",
-    marginTop: 4,
+    marginTop: -15,
     fontSize: 13,
   },
   scrollView: {
@@ -488,6 +532,7 @@ const styles = StyleSheet.create({
   },
   chatsList: {
     paddingBottom: 20,
+    marginTop: 0,
   },
   chatListItem: {
     flexDirection: "row",
@@ -515,8 +560,10 @@ const styles = StyleSheet.create({
   chatHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
+    alignItems: "flex-end",
+    // backgroundColor: "red",
+    marginBottom: -15,
+    width: "100%",
   },
   chatName: {
     fontSize: 16,
@@ -536,15 +583,45 @@ const styles = StyleSheet.create({
   unreadBadge: {
     backgroundColor: "#7B61FF",
     borderRadius: 12,
-    minWidth: 20,
-    height: 20,
+
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 6,
   },
   unreadCount: {
     color: "#fff",
     fontSize: 10,
     fontWeight: "700",
+    marginBottom: -5,
+    padding: 3,
+  },
+
+  // Message text styles
+  unreadMessage: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1F2937",
+    lineHeight: 20,
+  },
+  readMessage: {
+    fontSize: 14,
+    color: "#6B7280",
+    lineHeight: 20,
+  },
+
+  // Call session style
+  callSessionText: {
+    fontStyle: "italic",
+    fontWeight: "800",
+    backgroundColor: "#7B61FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    color: "#fff",
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "flex-start",
+    alignContent: "center",
   },
 });
