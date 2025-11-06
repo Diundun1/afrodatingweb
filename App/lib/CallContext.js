@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState } from "react";
-import MyStatusBar from "../components/myStatusBar";
 import { View } from "react-native";
 
 const CallContext = createContext();

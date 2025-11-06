@@ -36,6 +36,9 @@ import GeneralSettings from "./App/screens/GeneralSettings";
 
 // Import the PWA installation component
 import InstallPWAButton from "./App/components/InstallPWAButton";
+import MessageScreen from "./App/screens/MessageScreen";
+import { CallProvider } from "./App/lib/CallContext";
+import { SocketProvider } from "./App/lib/SocketContext";
 
 const Stack = createNativeStackNavigator();
 
@@ -273,42 +276,50 @@ export default function App() {
   return (
     <>
       <NavigationContainer ref={navigationRef}>
-        <Stack.Navigator
-          screenOptions={{ headerShown: false }}
-          initialRouteName="WelcomeScreen">
-          <Stack.Screen name="WelcomeScreen" component={WelcomeScreen1} />
-          <Stack.Screen name="WelcomeScreen2" component={WelcomeScreen2} />
-          <Stack.Screen name="SignupScreen" component={SignupScreen} />
-          <Stack.Screen name="LoginScreen" component={LoginScreen} />
-          <Stack.Screen name="OTPScreen" component={OTPScreen} />
-          <Stack.Screen name="ExploreScreen" component={ExploreScreen} />
-          <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-          <Stack.Screen name="GeneralSettings" component={GeneralSettings} />
-          <Stack.Screen
-            name="AccountInfoScreen"
-            component={AccountInfoScreen}
-          />
-          <Stack.Screen name="ChatScreen" component={ChatScreen} />
-          <Stack.Screen
-            name="EditAccountScreen"
-            component={EditAccountScreen}
-          />
-          <Stack.Screen
-            name="MyFavouriteScreen"
-            component={MyFavouriteScreen}
-          />
-          <Stack.Screen name="FilterScreen" component={FilterScreen} />
-          <Stack.Screen name="PremiumScreen" component={PremiumScreen} />
-          <Stack.Screen name="PaymentWebview" component={PaymentWebview} />
-          <Stack.Screen
-            name="ProfileDetailScreen"
-            component={ProfileDetailScreen}
-          />
-          <Stack.Screen
-            name="SignupDetailsScreen"
-            component={SignupDetailsScreen}
-          />
-        </Stack.Navigator>
+        <SocketProvider>
+          <CallProvider>
+            <Stack.Navigator
+              screenOptions={{ headerShown: false }}
+              initialRouteName="WelcomeScreen">
+              <Stack.Screen name="WelcomeScreen" component={WelcomeScreen1} />
+              <Stack.Screen name="WelcomeScreen2" component={WelcomeScreen2} />
+              <Stack.Screen name="SignupScreen" component={SignupScreen} />
+              <Stack.Screen name="MessageScreen" component={MessageScreen} />
+              <Stack.Screen name="LoginScreen" component={LoginScreen} />
+              <Stack.Screen name="OTPScreen" component={OTPScreen} />
+              <Stack.Screen name="ExploreScreen" component={ExploreScreen} />
+              <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+              <Stack.Screen
+                name="GeneralSettings"
+                component={GeneralSettings}
+              />
+              <Stack.Screen
+                name="AccountInfoScreen"
+                component={AccountInfoScreen}
+              />
+              <Stack.Screen name="ChatScreen" component={ChatScreen} />
+              <Stack.Screen
+                name="EditAccountScreen"
+                component={EditAccountScreen}
+              />
+              <Stack.Screen
+                name="MyFavouriteScreen"
+                component={MyFavouriteScreen}
+              />
+              <Stack.Screen name="FilterScreen" component={FilterScreen} />
+              <Stack.Screen name="PremiumScreen" component={PremiumScreen} />
+              <Stack.Screen name="PaymentWebview" component={PaymentWebview} />
+              <Stack.Screen
+                name="ProfileDetailScreen"
+                component={ProfileDetailScreen}
+              />
+              <Stack.Screen
+                name="SignupDetailsScreen"
+                component={SignupDetailsScreen}
+              />
+            </Stack.Navigator>
+          </CallProvider>
+        </SocketProvider>
       </NavigationContainer>
 
       {/* PWA Installation Prompt - Only shows on web */}
