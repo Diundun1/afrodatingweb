@@ -19,16 +19,21 @@ import { useNavigation } from "@react-navigation/native";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Safe component imports with fallbacks
+// Use Text as fallback for Nunito components
+const NunitoText = Text;
+const NunitoTitle = Text;
+
+// Safe status bar
 const SafeMyStatusBar = () => (
   <View style={{ height: Platform.OS === "ios" ? 44 : 0 }} />
 );
 
-// Safe hook imports
-let useSocket, useCall;
+// CORRECT SOCKET CONTEXT IMPORT
+let useSocket;
 try {
   useSocket = require("../lib/SocketContext").useSocket;
 } catch (e) {
+  console.warn("SocketContext not found, using fallback");
   useSocket = () => ({
     socketRef: { current: null },
     isConnected: false,
@@ -36,35 +41,53 @@ try {
   });
 }
 
+// CORRECT CALL CONTEXT IMPORT
+let useCall;
 try {
   useCall = require("../lib/CallContext").useCall;
 } catch (e) {
+  console.warn("CallContext not found, using fallback");
   useCall = () => ({
     setInCall: () => {},
     setParticipant: () => {},
   });
 }
 
-// Safe function imports
+// CORRECT NOTIFICATION IMPORT
 let sendMessageNotification;
 try {
   sendMessageNotification =
-    require("../components/RegisterForPushNotificationsAsync").sendMessageNotification;
+    require("../lib/RegisterForPushNotificationsAsync").sendMessageNotification;
 } catch (e) {
+  console.warn("Notifications not available");
   sendMessageNotification = async () =>
     console.log("Notifications not available");
 }
 
-// Safe component imports
-let NunitoText, NunitoTitle;
-try {
-  const NunitoComponents = require("../components/NunitoComponents");
-  NunitoText = NunitoComponents.NunitoText || Text;
-  NunitoTitle = NunitoComponents.NunitoTitle || Text;
-} catch (e) {
-  NunitoText = Text;
-  NunitoTitle = Text;
-}
+// Helper function to check if time is within 2 minutes
+const isTimeWithinTwoMinutes = (messageTimeStr, currentTimeStr) => {
+  try {
+    const parseTime = (timeStr) => {
+      const [time, period] = timeStr.split(" ");
+      const [hours, minutes] = time.split(":").map(Number);
+      let hour = hours;
+      if (period === "PM" && hours !== 12) hour += 12;
+      if (period === "AM" && hours === 12) hour = 0;
+      return hour * 60 + minutes;
+    };
+
+    const messageMinutes = parseTime(messageTimeStr);
+    const currentMinutes = parseTime(currentTimeStr);
+
+    let diff = Math.abs(currentMinutes - messageMinutes);
+    if (diff > 720) diff = 1440 - diff; // Handle cross-midnight
+
+    return diff <= 2; // Within 2 minutes
+  } catch (error) {
+    console.error("Time parsing error:", error);
+    return false;
+  }
+};
 
 const MessageScreen = ({ route }) => {
   const navigation = useNavigation();
@@ -84,8 +107,11 @@ const MessageScreen = ({ route }) => {
   const [isProcessingCall, setIsProcessingCall] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
 
-  const { socketRef, onMessageReceived, isConnected } = useSocket();
+  // const { socketRef, onMessageReceived, isConnected } = useSocket();
   const spinAnim = useRef(new Animated.Value(0)).current;
+
+  const { socket, socketRef, isConnected, onMessageReceived, emit } =
+    useSocket();
 
   // Refs
   const messagesRef = useRef([]);
@@ -128,7 +154,26 @@ const MessageScreen = ({ route }) => {
     socketRef.current.on("userTyping", onUserTyping);
     socketRef.current.on("userStoppedTyping", onUserStoppedTyping);
 
+    // Handle incoming call invitations
+    const onCallInvitation = (data) => {
+      console.log("📞 Received call invitation:", data);
+
+      // Navigate to incoming call screen
+      navigation.navigate("incomingCall/incomingCallScreen", {
+        callerName: data.callerName || "Unknown Caller",
+        partnerId: data.callerId,
+        callUrl: data.callUrl,
+        room: data.room,
+        callType: data.callType || "video",
+        isCaller: false,
+      });
+    };
+
+    socketRef.current.on("callInvitation", onCallInvitation);
+
     const cleanupMsg = onMessageReceived((data) => {
+      console.log("chat_message received:", data);
+
       const isDuplicate = Array.from(optimisticMessagesRef.current).some(
         (optId) =>
           data.clientTimestamp === optId || data.message === inputMessage
@@ -153,6 +198,7 @@ const MessageScreen = ({ route }) => {
       cleanupMsg && cleanupMsg();
       socketRef.current?.off("userTyping", onUserTyping);
       socketRef.current?.off("userStoppedTyping", onUserStoppedTyping);
+      socketRef.current?.off("callInvitation", onCallInvitation);
       socketRef.current?.emit("leaveRoom", { room: roomIdxccd, userId });
     };
   }, [isConnected, userId, roomIdxccd]);
@@ -211,7 +257,7 @@ const MessageScreen = ({ route }) => {
     });
   };
 
-  // Main chat fetching effect
+  // Main chat fetching effect with call detection
   useEffect(() => {
     if (!roomIdxccd) {
       setLoading(false);
@@ -245,7 +291,6 @@ const MessageScreen = ({ route }) => {
         const dynamicOtherUserId =
           parts[1] === loggedInUserId ? parts[2] : parts[1];
 
-        // Add timeout to prevent hanging requests
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -302,6 +347,81 @@ const MessageScreen = ({ route }) => {
         });
 
         setLoading(false);
+
+        // 🆕 NOTIFICATION CHECK - Trigger notification for new messages
+        const latestMessage = messages[0];
+        if (!latestMessage) return;
+
+        // Skip if we've already processed this message
+        if (latestMessage._id === lastProcessedMessageId) return;
+        lastProcessedMessageId = latestMessage._id;
+
+        // 🆕 SEND NOTIFICATION FOR NEW MESSAGES
+        if (latestMessage.sender_id._id !== loggedInUserId) {
+          const isCallLink = latestMessage.message?.match(
+            /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+          );
+
+          if (!isCallLink) {
+            await sendMessageNotification(
+              data.data.chatPartner.name || "Someone",
+              latestMessage.message,
+              latestMessage._id,
+              roomIdxccd
+            );
+            console.log("📱 Notification sent for new message");
+          }
+        }
+
+        // 🎯 CALL NOTIFICATION CHECK
+        const linkMatch = latestMessage.message.match(
+          /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+        );
+
+        if (linkMatch) {
+          const messageTime = new Date(
+            latestMessage.createdAt || latestMessage.sent_at
+          );
+          const currentTime = new Date();
+          const timeDifference = (currentTime - messageTime) / 1000 / 60;
+
+          if (timeDifference > 2) return;
+
+          const callUrl = linkMatch[0];
+          const roomId = roomIdxccd;
+          const loggedInUser = loggedInUserId;
+
+          // Extract participants from roomId
+          const parts = roomId.split("_");
+          const user1Id = parts[1];
+          const user2Id = parts[2];
+
+          let recipientId;
+          if (user1Id === loggedInUser) {
+            recipientId = user2Id;
+          } else if (user2Id === loggedInUser) {
+            recipientId = user1Id;
+          } else {
+            return;
+          }
+
+          if (recipientId && latestMessage.sender_id._id !== loggedInUser) {
+            navigation.navigate("incomingCall/incomingCallScreen", {
+              callerName: data.data.chatPartner.name || "Unknown Caller",
+              partnerId: latestMessage.sender_id._id,
+              callUrl,
+              room: roomId,
+              callType: "video",
+              isCaller: true,
+            });
+
+            await Promise.all([
+              AsyncStorage.setItem("callUrl", callUrl),
+              AsyncStorage.setItem("partnerId", latestMessage.sender_id._id),
+              AsyncStorage.setItem("partnerName", data.data.chatPartner.name),
+            ]);
+          }
+        }
       } catch (error) {
         if (isMounted) {
           console.error("Error fetching chat room:", error.message);
@@ -314,23 +434,24 @@ const MessageScreen = ({ route }) => {
     // Initial fetch
     fetchChatRoom();
 
-    // Reduce polling to every 5 seconds to reduce network load
-    intervalId = setInterval(fetchChatRoom, 5000);
+    // Poll every 3 seconds for real-time updates
+    intervalId = setInterval(fetchChatRoom, 3000);
 
     return () => {
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [roomIdxccd]);
+  }, [roomIdxccd, navigation]);
 
   // Send message function
+
+  // In your MessageScreen component, update the socket usage:
+
+  // const { socket, socketRef, isConnected, onMessageReceived, emit } = useSocket();
+
+  // Update your sendMessage function to use the new emit method:
   const sendMessage = () => {
-    if (
-      !inputMessage.trim() ||
-      !socketRef?.current ||
-      !partnerData ||
-      !userId
-    ) {
+    if (!inputMessage.trim() || !partnerData || !userId) {
       Alert.alert(
         "Error",
         "Cannot send message. Please check your connection."
@@ -338,7 +459,7 @@ const MessageScreen = ({ route }) => {
       return;
     }
 
-    if (!socketRef.current.connected) {
+    if (!isConnected) {
       Alert.alert(
         "Connection Error",
         "Socket not connected — message not sent."
@@ -371,8 +492,14 @@ const MessageScreen = ({ route }) => {
     setInputMessage("");
 
     try {
-      socketRef.current.emit("sendMessage", payload);
+      // ✅ USE THE NEW EMIT METHOD
+      const success = emit("sendMessage", payload);
 
+      if (!success) {
+        throw new Error("Failed to emit message");
+      }
+
+      // Handle confirmation
       const handleMessageSent = (data) => {
         optimisticMessagesRef.current.delete(clientTimestamp);
         setMessages((prev) =>
@@ -384,10 +511,14 @@ const MessageScreen = ({ route }) => {
         );
       };
 
-      socketRef.current.off("messageSent", handleMessageSent);
-      socketRef.current.on("messageSent", handleMessageSent);
+      // Listen for confirmation using the direct socket
+      if (socket) {
+        socket.off("messageSent", handleMessageSent);
+        socket.on("messageSent", handleMessageSent);
+      }
 
-      socketRef.current.emit("stopTyping", {
+      // Stop typing using emit
+      emit("stopTyping", {
         room: roomIdxccd,
         recipient: partnerData._id,
         userId,
@@ -397,10 +528,14 @@ const MessageScreen = ({ route }) => {
     } catch (error) {
       console.error("Error sending message:", error);
       Alert.alert("Error", "Failed to send message. Please try again.");
+
+      // Remove optimistic message on error
+      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
+      optimisticMessagesRef.current.delete(clientTimestamp);
     }
   };
 
-  // Call functions
+  // Update video call function to use emit
   const onVideoCall = async () => {
     if (!partnerData) {
       Alert.alert("Error", "Cannot start call. Partner data not loaded.");
@@ -411,17 +546,227 @@ const MessageScreen = ({ route }) => {
       setIsProcessingCall(true);
       const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
 
-      Alert.alert("Info", "Call feature would be implemented here");
+      const url = `https://test.unigate.com.ng/w/vc.php?nexroomid=${roomIdxccd}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
+
+      console.log("Fetching video call URL:", url);
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+
+      const response = await res.json();
+      console.log("Video call response:", response);
+
+      if (response.success && response.final_url) {
+        console.log("Final video call URL:", response.final_url);
+        setCallUrl(response.final_url);
+
+        // Store call data
+        await Promise.all([
+          AsyncStorage.setItem("callUrl", response.final_url),
+          AsyncStorage.setItem("partnerId", partnerData._id),
+          AsyncStorage.setItem("partnerName", partnerData.name),
+        ]);
+
+        // ✅ EMIT CALL INVITATION USING NEW METHOD
+        const callPayload = {
+          room: roomIdxccd,
+          recipientId: partnerData._id,
+          callerId: loggedInUserId,
+          callerName: partnerData.name,
+          callUrl: response.final_url,
+          callType: "video",
+          timestamp: Date.now(),
+        };
+
+        console.log("📞 Emitting video call invitation:", callPayload);
+        emit("callInvitation", callPayload);
+
+        // Send call link as message using emit
+        const callMessage = `${response.final_url}`;
+        const clientTimestamp = Date.now();
+        const optimisticId = `call_link_${clientTimestamp}`;
+
+        const payload = {
+          room: roomIdxccd,
+          recipient: partnerData._id,
+          message: callMessage,
+          clientTimestamp: clientTimestamp,
+        };
+
+        // Optimistic UI update
+        const newMessage = {
+          id: optimisticId,
+          message: callMessage,
+          isSender: true,
+          isSeen: false,
+          messageTime: formatMessageTime(),
+          fromServer: false,
+          clientTimestamp: clientTimestamp,
+        };
+
+        optimisticMessagesRef.current.add(clientTimestamp);
+        setMessages((prev) => [newMessage, ...prev]);
+
+        // Emit message using new method
+        emit("sendMessage", payload);
+
+        // Handle confirmation
+        const handleMessageSent = (data) => {
+          console.log("📤 Server confirmed call link sent:", data);
+          optimisticMessagesRef.current.delete(clientTimestamp);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === optimisticId
+                ? { ...msg, id: data.id || msg.id, fromServer: true }
+                : msg
+            )
+          );
+        };
+
+        // Listen for confirmation
+        if (socket) {
+          socket.off("messageSent", handleMessageSent);
+          socket.on("messageSent", handleMessageSent);
+        }
+
+        // Navigate to call screen
+        navigation.navigate("videoCall/videoCallScreen", {
+          callUrl: response.final_url,
+          partnerId: partnerData._id,
+          partnerName: partnerData.name,
+          isCaller: true,
+        });
+
+        setInCall(true);
+        setParticipant(partnerData.name);
+      } else {
+        Alert.alert("Call Failed", "Unable to create video call room.");
+      }
     } catch (e) {
-      console.error("Call error:", e);
-      Alert.alert("Error", "Failed to start call. Please try again.");
+      console.error("Video call error:", e);
+      Alert.alert(
+        "Call Failed",
+        "Unable to initiate video call. Please try again."
+      );
     } finally {
       setIsProcessingCall(false);
     }
   };
-
+  // Voice Call function
   const onVoiceCall = async () => {
-    Alert.alert("Info", "Voice call feature would be implemented here");
+    if (!partnerData) {
+      Alert.alert("Error", "Cannot start call. Partner data not loaded.");
+      return;
+    }
+
+    try {
+      setIsProcessingCall(true);
+      const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
+
+      const url = `https://test.unigate.com.ng/w/vvc.php?nexroomid=${roomIdxccd}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
+
+      console.log("Fetching voice call URL:", url);
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+
+      const response = await res.json();
+      console.log("Voice call response:", response);
+
+      if (response.success && response.final_url) {
+        console.log("Final voice call URL:", response.final_url);
+        setCallUrl(response.final_url);
+
+        // Store call data
+        await Promise.all([
+          AsyncStorage.setItem("callUrl", response.final_url),
+          AsyncStorage.setItem("partnerId", partnerData._id),
+          AsyncStorage.setItem("partnerName", partnerData.name),
+        ]);
+
+        // ✅ EMIT CALL INVITATION TO RECIPIENT
+        if (socketRef?.current) {
+          const callPayload = {
+            room: roomIdxccd,
+            recipientId: partnerData._id,
+            callerId: loggedInUserId,
+            callerName: partnerData.name,
+            callUrl: response.final_url,
+            callType: "voice",
+            timestamp: Date.now(),
+          };
+
+          console.log("📞 Emitting voice call invitation:", callPayload);
+          socketRef.current.emit("callInvitation", callPayload);
+        }
+
+        // Send call link as message
+        const callMessage = `${response.final_url}`;
+        const clientTimestamp = Date.now();
+        const optimisticId = `call_link_${clientTimestamp}`;
+
+        const payload = {
+          room: roomIdxccd,
+          recipient: partnerData._id,
+          message: callMessage,
+          clientTimestamp: clientTimestamp,
+        };
+
+        // Optimistic UI update
+        const newMessage = {
+          id: optimisticId,
+          message: callMessage,
+          isSender: true,
+          isSeen: false,
+          messageTime: formatMessageTime(),
+          fromServer: false,
+          clientTimestamp: clientTimestamp,
+        };
+
+        optimisticMessagesRef.current.add(clientTimestamp);
+        setMessages((prev) => [newMessage, ...prev]);
+
+        // Emit message
+        socketRef.current.emit("sendMessage", payload);
+
+        // Handle confirmation
+        const handleMessageSent = (data) => {
+          console.log("📤 Server confirmed call link sent:", data);
+          optimisticMessagesRef.current.delete(clientTimestamp);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === optimisticId
+                ? { ...msg, id: data.id || msg.id, fromServer: true }
+                : msg
+            )
+          );
+        };
+
+        socketRef.current.off("messageSent", handleMessageSent);
+        socketRef.current.on("messageSent", handleMessageSent);
+
+        // Navigate to call screen
+        navigation.navigate("videoCall/videoCallScreen", {
+          callUrl: response.final_url,
+          partnerId: partnerData._id,
+          partnerName: partnerData.name,
+          isCaller: true,
+        });
+
+        setInCall(true);
+        setParticipant(partnerData.name);
+      } else {
+        Alert.alert("Call Failed", "Unable to create voice call room.");
+      }
+    } catch (e) {
+      console.error("Voice call error:", e);
+      Alert.alert(
+        "Call Failed",
+        "Unable to initiate voice call. Please try again."
+      );
+    } finally {
+      setIsProcessingCall(false);
+    }
   };
 
   // Render individual message item
@@ -451,10 +796,63 @@ const MessageScreen = ({ route }) => {
                   },
                 ]}
                 onPress={() => {
-                  Alert.alert(
-                    "Call",
-                    "Call functionality would be implemented here"
+                  const match = item.message.match(
+                    /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
                   );
+                  if (match) {
+                    const callUrl = match[0];
+
+                    // Check if the call has expired
+                    const messageTimeStr = item.messageTime;
+                    const currentTime = new Date();
+                    const currentTimeStr = currentTime.toLocaleTimeString(
+                      "en-US",
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      }
+                    );
+
+                    console.log("Message time:", messageTimeStr);
+                    console.log("Current time:", currentTimeStr);
+
+                    const isWithinTimeLimit = isTimeWithinTwoMinutes(
+                      messageTimeStr,
+                      currentTimeStr
+                    );
+
+                    console.log("Is within 2 minutes:", isWithinTimeLimit);
+
+                    if (!isWithinTimeLimit) {
+                      Alert.alert(
+                        "Call Expired",
+                        "This call link has expired. Calls are only valid for 2 minutes.",
+                        [{ text: "OK", style: "default" }]
+                      );
+                      return;
+                    }
+
+                    console.log("Call link is within 2 minutes - proceeding");
+                    const isCaller = item.isSender;
+
+                    if (isCaller) {
+                      navigation.navigate("videoCall/videoCallScreen", {
+                        callUrl,
+                        partnerId: partnerData?._id,
+                        partnerName: partnerData?.name,
+                        isCaller: true,
+                      });
+                    } else {
+                      navigation.navigate("incomingCall/incomingCallScreen", {
+                        callUrl,
+                        callerId: partnerData?._id,
+                        callerName: partnerData?.name,
+                        room: roomIdxccd,
+                        isCaller: false,
+                      });
+                    }
+                  }
                 }}>
                 <Ionicons name="videocam" size={16} color="#fff" />
                 <NunitoText style={styles.callText}>
@@ -548,6 +946,21 @@ const MessageScreen = ({ route }) => {
           </View>
         )}
 
+        {/* Processing Call Banner */}
+        {isProcessingCall && (
+          <View style={styles.processingBanner}>
+            <ActivityIndicator size="small" color="#4ade80" />
+            <View style={styles.processingTextContainer}>
+              <NunitoText style={styles.processingTitle}>
+                Setting up your call room...
+              </NunitoText>
+              <NunitoText style={styles.processingSubtitle}>
+                Ensure your network is stable
+              </NunitoText>
+            </View>
+          </View>
+        )}
+
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -556,7 +969,14 @@ const MessageScreen = ({ route }) => {
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
 
-          <Image source={defaultImage} style={styles.userImage} />
+          <Image
+            source={
+              partnerData?.profile_pic?.length
+                ? { uri: partnerData.profile_pic[0] }
+                : defaultImage
+            }
+            style={styles.userImage}
+          />
 
           <View style={styles.userInfo}>
             {partnerData?.name ? (
@@ -565,7 +985,7 @@ const MessageScreen = ({ route }) => {
                   {partnerData.name}
                 </NunitoTitle>
                 <NunitoText style={styles.userStatus}>
-                  {typingUser ? `${partnerData.name} is typing...` : "Online"}
+                  {typingUser ? `${typingUser} is typing...` : "Online"}
                 </NunitoText>
               </>
             ) : (
@@ -615,6 +1035,9 @@ const MessageScreen = ({ route }) => {
             contentContainerStyle={styles.messagesContainer}
             inverted
             showsVerticalScrollIndicator={false}
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+            }}
           />
         )}
 
@@ -713,10 +1136,31 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: "500",
   },
+  processingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fef3c7",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderColor: "#fcd34d",
+  },
+  processingTextContainer: {
+    marginLeft: 12,
+  },
+  processingTitle: {
+    color: "#111",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  processingSubtitle: {
+    color: "#555",
+    fontSize: 13,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 6,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: "#fff",
     borderBottomWidth: 1,

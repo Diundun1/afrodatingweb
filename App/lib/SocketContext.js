@@ -13,7 +13,11 @@ import { sendMessageNotification } from "../components/RegisterForPushNotificati
 const SocketContext = createContext(null);
 
 export function useSocket() {
-  return useContext(SocketContext);
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error("useSocket must be used within a SocketProvider");
+  }
+  return context;
 }
 
 export function SocketProvider({ children }) {
@@ -28,6 +32,11 @@ export function SocketProvider({ children }) {
     error: (msg, data) => console.error(`❌ ${msg}`, data || ""),
     success: (msg, data) => console.log(`✅ ${msg}`, data || ""),
     event: (name, data) => console.log(`📡 EVENT: ${name}`, data || ""),
+  };
+
+  // ✅ ADD THIS: Get the actual socket instance
+  const getSocket = () => {
+    return socketRef.current;
   };
 
   const handleMessageNotification = async (notificationData) => {
@@ -136,8 +145,7 @@ export function SocketProvider({ children }) {
         const userId = await AsyncStorage.getItem("loggedInUserId");
 
         if (!token || !userId) {
-          logger.error("Missing token or userId — xcannot connect socket.");
-          //  navigation.replace("(tabs)");
+          logger.error("Missing token or userId — cannot connect socket.");
           return;
         }
 
@@ -152,6 +160,10 @@ export function SocketProvider({ children }) {
           if (!isMounted) return;
           setIsConnected(true);
           logger.success("Socket connected", { id: socket.id });
+
+          // ✅ Join user room after connection
+          socket.emit("joinUserRoom", { userId });
+          logger.info("Joined user room", { userId });
         });
 
         socket.on("disconnect", (reason) => {
@@ -164,6 +176,7 @@ export function SocketProvider({ children }) {
           logger.error("Connection error", err.message);
         });
 
+        // Message event handlers
         socket.on("messageNotification", (notificationData) => {
           console.log("messageNotification event received:", notificationData);
           handleMessageNotification(notificationData);
@@ -179,20 +192,27 @@ export function SocketProvider({ children }) {
           handleChatMessage(messageData);
         });
 
+        // ✅ ADD THESE EVENT HANDLERS FOR MESSAGE CONFIRMATION
+        socket.on("messageSent", (data) => {
+          logger.success("Message sent confirmation", data);
+        });
+
+        socket.on("messageDelivered", (data) => {
+          logger.success("Message delivered", data);
+        });
+
+        // Debug all events
         socket.onAny((eventName, ...args) => {
-          console.log(`Socket event: ${eventName}`, args);
+          console.log(`📡 Socket event: ${eventName}`, args);
         });
 
         socket.io.on("reconnect", () => {
           logger.success("Reconnected to server");
+          // Rejoin rooms after reconnection
           socket.emit("joinUserRoom", { userId });
         });
 
-        socket.on("connect", () => {
-          socket.emit("joinUserRoom", { userId });
-          logger.info("Joined user room", { userId });
-        });
-
+        // Test function for debugging
         if (typeof window !== "undefined") {
           window.testNotification = () => {
             handleMessageNotification({
@@ -205,6 +225,13 @@ export function SocketProvider({ children }) {
               timestamp: new Date().toISOString(),
               type: "message",
             });
+          };
+
+          // ✅ ADD: Test socket function
+          window.testSocket = () => {
+            if (socket.connected) {
+              socket.emit("test", { message: "Test from client" });
+            }
           };
         }
       } catch (err) {
@@ -225,18 +252,37 @@ export function SocketProvider({ children }) {
   }, []);
 
   const onMessageReceived = (handler) => {
-    if (!socketRef.current) return;
+    if (!socketRef.current) return () => {};
     const handleMessage = (data) => {
-      logger.message("in", data);
+      logger.event("chat_message received", data);
       handler(data);
     };
     socketRef.current.on("chat_message", handleMessage);
     return () => socketRef.current.off("chat_message", handleMessage);
   };
 
+  // ✅ ADD: Function to emit messages
+  const emit = (event, data, callback) => {
+    if (!socketRef.current || !socketRef.current.connected) {
+      logger.error(`Cannot emit ${event} - socket not connected`);
+      return false;
+    }
+
+    logger.event(`Emitting ${event}`, data);
+    socketRef.current.emit(event, data, callback);
+    return true;
+  };
+
   return (
     <SocketContext.Provider
-      value={{ socketRef, isConnected, onMessageReceived }}>
+      value={{
+        socket: socketRef.current, // ✅ ADD: Direct socket access
+        socketRef,
+        isConnected,
+        onMessageReceived,
+        emit, // ✅ ADD: Helper function for emitting
+        getSocket, // ✅ ADD: Function to get socket instance
+      }}>
       {children}
     </SocketContext.Provider>
   );
