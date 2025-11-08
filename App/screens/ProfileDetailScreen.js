@@ -22,7 +22,7 @@ const { width, height } = Dimensions.get("window");
 export default function ProfileDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const userId = route.params?.userId;
+  const userId = route.params?.user;
 
   const [isExpanded, setIsExpanded] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;

@@ -151,7 +151,9 @@ export default function ExploreScreen({ navigation }) {
   };
 
   const handleCardPress = (userId) => {
-    const user = users.find((u) => u.id === userId);
+    const usernx = users.find((u) => u.id === userId);
+    const user = usernx.id;
+    console.log(user);
     navigation.navigate("ProfileDetailScreen", { user });
   };
 
