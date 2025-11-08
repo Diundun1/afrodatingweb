@@ -111,7 +111,7 @@ export default function IncomingCallScreen({ route }) {
       console.log("Playing ringtone for incoming call...");
 
       const { sound } = await Audio.Sound.createAsync(
-        require("../assets/audio/ringtone.mp3"),
+        require("https://unigate.com.ng/ringtones/ringtone.mp3"),
         {
           isLooping: true,
           volume: 1.0,
