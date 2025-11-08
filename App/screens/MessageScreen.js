@@ -159,7 +159,7 @@ const MessageScreen = ({ route }) => {
       console.log("📞 Received call invitation:", data);
 
       // Navigate to incoming call screen
-      navigation.navigate("incomingCall/incomingCallScreen", {
+      navigation.navigate("IncomingCallScreen", {
         callerName: data.callerName || "Unknown Caller",
         partnerId: data.callerId,
         callUrl: data.callUrl,
@@ -406,7 +406,7 @@ const MessageScreen = ({ route }) => {
           }
 
           if (recipientId && latestMessage.sender_id._id !== loggedInUser) {
-            navigation.navigate("incomingCall/incomingCallScreen", {
+            navigation.navigate("IncomingCallScreen", {
               callerName: data.data.chatPartner.name || "Unknown Caller",
               partnerId: latestMessage.sender_id._id,
               callUrl,
@@ -630,7 +630,7 @@ const MessageScreen = ({ route }) => {
         }
 
         // Navigate to call screen
-        navigation.navigate("videoCall/videoCallScreen", {
+        navigation.navigate("VideoCallScreen", {
           callUrl: response.final_url,
           partnerId: partnerData._id,
           partnerName: partnerData.name,
@@ -746,7 +746,7 @@ const MessageScreen = ({ route }) => {
         socketRef.current.on("messageSent", handleMessageSent);
 
         // Navigate to call screen
-        navigation.navigate("videoCall/videoCallScreen", {
+        navigation.navigate("VideoCallScreen", {
           callUrl: response.final_url,
           partnerId: partnerData._id,
           partnerName: partnerData.name,
@@ -837,14 +837,14 @@ const MessageScreen = ({ route }) => {
                     const isCaller = item.isSender;
 
                     if (isCaller) {
-                      navigation.navigate("videoCall/videoCallScreen", {
+                      navigation.navigate("VideoCallScreen", {
                         callUrl,
                         partnerId: partnerData?._id,
                         partnerName: partnerData?.name,
                         isCaller: true,
                       });
                     } else {
-                      navigation.navigate("incomingCall/incomingCallScreen", {
+                      navigation.navigate("IncomingCallScreen", {
                         callUrl,
                         callerId: partnerData?._id,
                         callerName: partnerData?.name,
