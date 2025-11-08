@@ -39,6 +39,8 @@ import InstallPWAButton from "./App/components/InstallPWAButton";
 import MessageScreen from "./App/screens/MessageScreen";
 import { CallProvider } from "./App/lib/CallContext";
 import { SocketProvider } from "./App/lib/SocketContext";
+import IncomingCallScreen from "./App/screens/IncomingCallScreen";
+import VideoCallScreen from "./App/screens/VideoCallScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -288,6 +290,14 @@ export default function App() {
               <Stack.Screen name="LoginScreen" component={LoginScreen} />
               <Stack.Screen name="OTPScreen" component={OTPScreen} />
               <Stack.Screen name="ExploreScreen" component={ExploreScreen} />
+              <Stack.Screen
+                name="IncomingCallScreen"
+                component={IncomingCallScreen}
+              />
+              <Stack.Screen
+                name="VideoCallScreen"
+                component={VideoCallScreen}
+              />
               <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
               <Stack.Screen
                 name="GeneralSettings"
