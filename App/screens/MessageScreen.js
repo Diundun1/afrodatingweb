@@ -937,14 +937,14 @@ const MessageScreen = ({ route }) => {
         <SafeMyStatusBar />
 
         {/* Connection Status */}
-        {!isConnected && (
+        {/** {!isConnected && (
           <View style={styles.connectionBanner}>
             <Ionicons name="wifi-outline" size={16} color="#F59E0B" />
             <NunitoText style={styles.connectionText}>
               Connecting to server...
             </NunitoText>
           </View>
-        )}
+        )} */}
 
         {/* Processing Call Banner */}
         {isProcessingCall && (
