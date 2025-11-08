@@ -17,19 +17,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
 
-// Improved fallback for useCall hook
-let useCall = () => ({
-  setInCall: () => console.log("setInCall fallback"),
-  setParticipant: () => console.log("setParticipant fallback"),
-});
-
+let useCall;
 try {
-  const callContext = require("../lib/CallContext");
-  if (callContext && callContext.useCall) {
-    useCall = callContext.useCall;
-  }
+  useCall = require("../lib/CallContext").useCall;
 } catch (e) {
   console.warn("CallContext not found, using fallback");
+  useCall = () => ({
+    setInCall: () => {},
+    setParticipant: () => {},
+  });
 }
 
 export default function VideoCallScreen() {
@@ -47,13 +43,7 @@ export default function VideoCallScreen() {
   const [loading, setLoading] = useState(true);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
-
-  // Use the hook safely - this will now use the fallback if context is not available
-  const callContext = useCall();
-  const { setInCall, setParticipant } = callContext || {
-    setInCall: () => {},
-    setParticipant: () => {},
-  };
+  const { setInCall, setParticipant } = useCall();
 
   useEffect(() => {
     const loadCallData = async () => {
@@ -65,10 +55,8 @@ export default function VideoCallScreen() {
         if (storedCallUrl) {
           setCallUrl(storedCallUrl);
           setPartnerName(storedPartnerName || "Partner");
-
-          // Safely call context methods
-          if (setInCall) setInCall(true);
-          if (setParticipant) setParticipant(storedPartnerName || "Partner");
+          setInCall(true);
+          setParticipant(storedPartnerName || "Partner");
 
           // Request permissions immediately
           await requestPermissions();
@@ -253,9 +241,8 @@ export default function VideoCallScreen() {
       console.log("Error clearing storage", e);
     }
 
-    // Safely call context methods
-    if (setInCall) setInCall(false);
-    if (setParticipant) setParticipant("");
+    setInCall(false);
+    setParticipant("");
     navigation.goBack();
   };
 
