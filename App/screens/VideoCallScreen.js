@@ -11,12 +11,22 @@ import {
 } from "react-native";
 import { MaterialIcons, Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { useCall } from "../lib/SocketContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
+
+let useCall;
+try {
+  useCall = require("../lib/CallContext").useCall;
+} catch (e) {
+  console.warn("CallContext not found, using fallback");
+  useCall = () => ({
+    setInCall: () => {},
+    setParticipant: () => {},
+  });
+}
 
 export default function VideoCallScreen() {
   const navigation = useNavigation();
