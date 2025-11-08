@@ -280,7 +280,7 @@ const InstallPWAButton = () => {
               backdropFilter: "blur(10px)",
             }}>
             <img
-              src="/assets/images/logo.png"
+              src="/favicon.ico"
               style={{ width: "60%", borderRadius: 10 }}
             />
           </div>
@@ -467,10 +467,7 @@ const InstallPWAButton = () => {
             justifyContent: "center",
             backdropFilter: "blur(10px)",
           }}>
-          <img
-            src="/assets/images/logo.png"
-            style={{ width: "60%", borderRadius: 10 }}
-          />
+          <img src="/favicon.ico" style={{ width: "60%", borderRadius: 10 }} />
         </div>
 
         <h2 style={{ fontSize: 24, fontWeight: "bold", marginBottom: 12 }}>

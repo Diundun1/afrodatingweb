@@ -60,7 +60,7 @@ export default function ProfileScreen({}) {
 
       // 1️⃣ Fetch user details
       const userResponse = await fetch(
-        "https://closematch-backend-seix.onrender.com/api/v1/users/me",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
         {
           method: "GET",
           headers: {
@@ -101,7 +101,7 @@ export default function ProfileScreen({}) {
 
       // 4️⃣ Optionally fetch all profile pictures (if needed)
       const profilePicResponse = await fetch(
-        `https://closematch-backend-seix.onrender.com/api/v1/users/${userId}/profile-pictures`,
+        `https://backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}/profile-pictures`,
         {
           method: "GET",
           headers: {

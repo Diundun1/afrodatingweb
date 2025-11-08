@@ -295,7 +295,7 @@ const MessageScreen = ({ route }) => {
         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         const response = await fetch(
-          `https://closematch-backend-seix.onrender.com/api/v1/messages/chat-room/${dynamicOtherUserId}`,
+          `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-room/${dynamicOtherUserId}`,
           {
             headers: {
               "Content-Type": "application/json",

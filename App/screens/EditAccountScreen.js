@@ -58,7 +58,7 @@ export default function EditAccountScreen({ navigation }) {
       }
 
       const response = await fetch(
-        "https://closematch-backend-seix.onrender.com/api/v1/users/me",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
         {
           method: "GET",
           headers: {
@@ -138,7 +138,7 @@ export default function EditAccountScreen({ navigation }) {
       };
 
       const response = await fetch(
-        `https://closematch-backend-seix.onrender.com/api/v1/users/${userId}`,
+        `https://backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
         {
           method: "PUT",
           headers: {

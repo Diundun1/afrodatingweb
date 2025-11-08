@@ -26,7 +26,7 @@ const SwipeableCard = ({
 
     try {
       const response = await fetch(
-        "https://closematch-backend-seix.onrender.com/api/v1/match/like-or-dislike",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
           method: "POST",
           headers: {

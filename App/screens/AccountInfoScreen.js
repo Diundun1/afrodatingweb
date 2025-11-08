@@ -29,7 +29,7 @@ export default function AccountInfoScreen({ navigation }) {
       }
 
       const response = await fetch(
-        "https://closematch-backend-seix.onrender.com/api/v1/users/me",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
         {
           method: "GET",
           headers: {

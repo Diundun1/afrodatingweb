@@ -150,7 +150,7 @@ export function SocketProvider({ children }) {
         }
 
         const socket = initializeSocket(
-          "https://closematch-backend-seix.onrender.com/messaging",
+          "https://backend-afrodate-8q6k.onrender.com/messaging",
           token
         );
 

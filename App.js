@@ -10,6 +10,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Dimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
@@ -41,8 +42,11 @@ import { CallProvider } from "./App/lib/CallContext";
 import { SocketProvider } from "./App/lib/SocketContext";
 import IncomingCallScreen from "./App/screens/IncomingCallScreen";
 import VideoCallScreen from "./App/screens/VideoCallScreen";
+import RestrictScreen from "./App/components/RestricScreen";
 
 const Stack = createNativeStackNavigator();
+
+const { width } = Dimensions.get("window");
 
 // Service Worker registration
 const registerServiceWorker = async () => {
@@ -275,6 +279,10 @@ export default function App() {
     return null;
   }
 
+  if (width > 420) {
+    return <RestrictScreen />;
+  }
+
   return (
     <>
       <NavigationContainer ref={navigationRef}>
@@ -333,7 +341,7 @@ export default function App() {
       </NavigationContainer>
 
       {/* PWA Installation Prompt - Only shows on web */}
-      {/** <InstallPWAButton /> */}
+      <InstallPWAButton />
 
       {/* Notification Permission Modal - Only shows on web */}
       {Platform.OS === "web" && showNotificationModal && (

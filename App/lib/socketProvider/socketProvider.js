@@ -234,7 +234,7 @@ export function SocketProvider({ children }) {
         logger.info("Initializing socket connection...");
 
         const socket = initializeSocket(
-          "https://closematch-backend-seix.onrender.com/messaging",
+          "https://backend-afrodate-8q6k.onrender.com/messaging",
           token
         );
 

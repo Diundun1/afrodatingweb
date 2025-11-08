@@ -45,7 +45,7 @@ export default function MyFavouriteScreen() {
       if (!token) throw new Error("No auth token found");
 
       const response = await fetch(
-        "https://closematch-backend-seix.onrender.com/api/v1/users/me",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -99,7 +99,7 @@ export default function MyFavouriteScreen() {
       if (!token) throw new Error("No auth token found");
 
       const response = await fetch(
-        "https://closematch-backend-seix.onrender.com/api/v1/users/you-liked",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/you-liked",
         { headers: { Authorization: `Bearer ${token}` } }
       );
       //  const fetchDataXcc = await response.json();
@@ -122,7 +122,7 @@ export default function MyFavouriteScreen() {
         uniqueUserIds.map(async (userId) => {
           try {
             const userRes = await fetch(
-              `https://closematch-backend-seix.onrender.com/api/v1/users/${userId}`,
+              `https://backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             if (!userRes.ok) {

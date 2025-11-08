@@ -49,7 +49,7 @@ const PremiumScreen = () => {
         }
 
         const response = await fetch(
-          "https://closematch-backend-seix.onrender.com/api/v1/plans",
+          "https://backend-afrodate-8q6k.onrender.com/api/v1/plans",
           {
             method: "GET",
             headers: {
@@ -129,7 +129,7 @@ const PremiumScreen = () => {
       }
 
       const response = await fetch(
-        "https://closematch-backend-seix.onrender.com/api/v1/payments/subscribe",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/payments/subscribe",
         {
           method: "POST",
           headers: {

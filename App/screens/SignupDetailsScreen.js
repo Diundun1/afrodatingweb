@@ -126,7 +126,7 @@ export default function SignupDetailsScreen({ navigation }) {
 
     try {
       const response = await fetch(
-        "https://closematch-backend-seix.onrender.com/api/v1/auth/register",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/register",
         {
           method: "POST",
           headers: {
