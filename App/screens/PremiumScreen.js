@@ -129,7 +129,7 @@ const PremiumScreen = () => {
       }
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/payments/subscribe",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/payment/subscribe",
         {
           method: "POST",
           headers: {
@@ -146,10 +146,10 @@ const PremiumScreen = () => {
       try {
         const data = JSON.parse(text);
 
-        if (response.ok && data.authorization_url) {
+        if (response.ok && data.redirectUrl) {
           setIsPaymentUrlArrived(false);
           navigation.navigate("PaymentWebview", {
-            paymentUrl: data.authorization_url,
+            paymentUrl: data.redirectUrl,
             title: "Complete Payment",
           });
         } else {

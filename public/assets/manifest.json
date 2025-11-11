@@ -1,14 +1,14 @@
 {
-  "short_name": "CloseDating",
-  "name": "CloseDating App",
+  "short_name": "AfroDating",
+  "name": "AfroDating App",
   "icons": [
     {
-      "src": "./favicons/icon-192x192.png",
+      "src": "/favicon.ico",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "./favicons/icon-512x512.png",
+      "src": "/favicon.ico",
       "type": "image/png",
       "sizes": "512x512"
     }

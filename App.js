@@ -21,7 +21,6 @@ import WelcomeScreen1 from "./App/screens/WelcomeScreen1";
 import LoginScreen from "./App/screens/LoginScreen";
 import WelcomeScreen2 from "./App/screens/WelcomeScreen2";
 import SignupScreen from "./App/screens/SignupScreen";
-import SignupDetailsScreen from "./App/screens/SignupDetailsScreen";
 import OTPScreen from "./App/screens/OTPScreen";
 import ExploreScreen from "./App/screens/ExploreScreen";
 import ProfileScreen from "./App/screens/ProfileScreen";
@@ -330,10 +329,6 @@ export default function App() {
               <Stack.Screen
                 name="ProfileDetailScreen"
                 component={ProfileDetailScreen}
-              />
-              <Stack.Screen
-                name="SignupDetailsScreen"
-                component={SignupDetailsScreen}
               />
             </Stack.Navigator>
           </CallProvider>

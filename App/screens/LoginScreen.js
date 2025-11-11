@@ -68,13 +68,18 @@ export default function LoginScreen() {
 
       console.log("Response status:", response.status);
 
-      // Check if response is OK before parsing
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const data = await response.json();
       console.log("Response data:", data);
+
+      // Check if response is OK after parsing the data
+      if (!response.ok) {
+        // Use the error message from the response data
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            `HTTP error! status: ${response.status}`
+        );
+      }
 
       if (data.token) {
         await AsyncStorage.setItem("userToken", data.token);
@@ -86,7 +91,8 @@ export default function LoginScreen() {
       }
     } catch (error) {
       console.log("Login error:", error);
-      setNotif("Something went wrong. Please try again.");
+      // Use the actual error message from the backend
+      setNotif(error.message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }

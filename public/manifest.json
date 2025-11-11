@@ -4,13 +4,13 @@
   "description": "Connect with people nearby and find your perfect match with Afro Dating",
   "icons": [
     {
-      "src": "/assets/favicons/icon-192x192.png",
+      "src": "/eccfavicon.ico",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/assets/favicons/icon-512x512.png",
+      "src": "/ecfavicon.ico",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"

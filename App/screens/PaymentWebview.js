@@ -12,19 +12,14 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  useNavigation,
-  useRoute,
-  useLocalSearchParams,
-} from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
 const { width, height } = Dimensions.get("window");
 
 const PaymentWebview = ({ route }) => {
   const navigation = useNavigation();
-  const params = useLocalSearchParams();
 
-  const { paymentUrl, title = "Payment" } = params;
+  const { paymentUrl, title = "Payment" } = route.params;
 
   const [loading, setLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState(null);

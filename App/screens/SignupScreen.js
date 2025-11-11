@@ -153,52 +153,29 @@ export default function SignupScreen() {
   };
 
   const registerUser = async () => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      setNotif("All fields are required");
+      // return;
+    }
 
     setLoading(true);
-
-    // Debug: Check what we have
-    console.log("Date value:", date);
-    console.log("Date type:", typeof date);
-    console.log("Is Date instance:", date instanceof Date);
-
-    const formatDateForBackend = (date) => {
-      if (!date) return "";
-      const day = date.getDate().toString().padStart(2, "0");
-      const month = (date.getMonth() + 1).toString().padStart(2, "0");
-      const year = date.getFullYear();
-      return `${day}-${month}-${year}`;
-    };
-
-    // Ensure we have a valid Date object for date_of_birth
-    let dateOfBirthToSend;
-
-    if (date instanceof Date && !isNaN(date.getTime())) {
-      // If it's already a valid Date object
-      dateOfBirthToSend = date;
-    } else {
-      // Fallback - use a reasonable default (25 years ago)
-      dateOfBirthToSend = new Date();
-      dateOfBirthToSend.setFullYear(dateOfBirthToSend.getFullYear() - 25);
-      console.log("Using fallback date:", dateOfBirthToSend);
-    }
 
     const requestBody = {
       name: fullName,
       email,
       password,
-      phone: phoneNumber,
-      gender: gender,
-      date_of_birth: formatDateForBackend(date), // Properly formatted
+      gender,
+      date_of_birth: date,
       address,
-      bio,
-      occupation,
-      country: country,
       latitude,
       longitude,
+      bio,
+      occupation,
+      country,
       degree,
-      religion: religion.toLowerCase(),
-      marital_status: maritalStatus.toLowerCase(),
+      religion,
+      marital_status: maritalStatus,
+      phoneNumber,
       location:
         latitude && longitude
           ? {
@@ -208,57 +185,140 @@ export default function SignupScreen() {
           : null,
     };
 
-    console.log("Raw JSON being sent to backend:");
-    console.log(JSON.stringify(requestBody, null, 2));
+    console.log("Request:", requestBody);
 
     try {
       const response = await fetch(
         "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/register",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         }
       );
 
+      // Get the response text first
       const responseText = await response.text();
-
-      console.log("Status Code:", response.status);
-      console.log("Raw Response:", responseText);
-
-      setNotif(responseText.error);
-
-      if (response.status === 400) {
-        setNotif("User already exists");
-      }
+      console.log("Raw response:", responseText);
 
       let data;
       try {
-        data = JSON.parse(responseText);
-        console.log("Parsed Response:", data);
-      } catch (err) {
-        console.log("Failed to parse JSON:", err.message);
-        data = { message: "Unexpected response from server" };
+        // Try to parse as JSON
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError);
+        data = {
+          message: "Server returned invalid JSON",
+          rawResponse: responseText,
+        };
       }
 
+      console.log("Parsed data:", data);
+      console.log("Response status:", response.status);
+
+      // Handle different status codes
       if (response.status === 201) {
+        // Success
         setNotif("Registration successful");
-        navigation.replace("LoginScreen");
+        setTimeout(() => {
+          navigation.replace("LoginScreen");
+        }, 1500);
       } else {
-        setNotif(data.message || "Something went wrong. Try again.");
-        Alert.alert(
-          "Error",
-          data.message || "Something went wrong. Try again."
-        );
+        // All error cases (400, 500, etc.)
+        const errorMessage = getErrorMessage(response.status, data);
+        setNotif(errorMessage);
       }
     } catch (error) {
-      console.log("Network/Fetch error:", error.message);
-      setNotif("Network error. Please try again");
+      console.error("Network error:", error);
+
+      if (
+        error.name === "TypeError" &&
+        error.message.includes("Failed to fetch")
+      ) {
+        setNotif("Network error. Please check your connection and try again.");
+      } else {
+        setNotif("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to extract error messages based on status code
+  const getErrorMessage = (status, data) => {
+    switch (status) {
+      case 400:
+        return (
+          data.error || // "User already exists."
+          data.message ||
+          data.details?.[0]?.message ||
+          "Bad request. Please check your input."
+        );
+
+      case 401:
+        return (
+          data.error ||
+          data.message ||
+          "Authentication failed. Please try again."
+        );
+
+      case 403:
+        return (
+          data.error ||
+          data.message ||
+          "Access forbidden. You don't have permission for this action."
+        );
+
+      case 404:
+        return (
+          data.error ||
+          data.message ||
+          "Resource not found. Please try again later."
+        );
+
+      case 409:
+        return (
+          data.error || // This is likely where "User already exists" falls
+          data.message ||
+          "Conflict. This resource already exists."
+        );
+
+      case 422:
+        return (
+          data.error ||
+          data.message ||
+          data.details?.[0]?.message ||
+          "Validation failed. Please check your input."
+        );
+
+      case 429:
+        return (
+          data.error ||
+          data.message ||
+          "Too many requests. Please wait and try again."
+        );
+
+      case 500:
+        return (
+          data.error || data.message || "Server error. Please try again later."
+        );
+
+      case 502:
+      case 503:
+      case 504:
+        return (
+          data.error ||
+          data.message ||
+          "Service temporarily unavailable. Please try again later."
+        );
+
+      default:
+        return (
+          data.error ||
+          data.message ||
+          data.details?.[0]?.message ||
+          `Request failed with status ${status}`
+        );
     }
   };
 
@@ -324,7 +384,7 @@ export default function SignupScreen() {
                 <Text style={styles.label}>Address</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter your address"
+                  placeholder="Enter State/District"
                   value={address}
                   placeholderTextColor={"#7b7b7b75"}
                   onChangeText={setAddress}
@@ -408,18 +468,18 @@ export default function SignupScreen() {
                     <View style={styles.dropdown}>
                       <TouchableOpacity
                         style={styles.dropdownOption}
-                        onPress={() => handleGenderSelect("Male")}>
-                        <Text style={styles.dropdownText}>Male</Text>
+                        onPress={() => handleGenderSelect("male")}>
+                        <Text style={styles.dropdownText}>male</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.dropdownOption}
-                        onPress={() => handleGenderSelect("Female")}>
-                        <Text style={styles.dropdownText}>Female</Text>
+                        onPress={() => handleGenderSelect("female")}>
+                        <Text style={styles.dropdownText}>female</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.dropdownOption}
-                        onPress={() => handleGenderSelect("Other")}>
-                        <Text style={styles.dropdownText}>Other</Text>
+                        onPress={() => handleGenderSelect("other")}>
+                        <Text style={styles.dropdownText}>other</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -618,6 +678,7 @@ const styles = StyleSheet.create({
   dropdownText: {
     fontSize: 14,
     color: "#333",
+    textTransform: "capitalize",
   },
   nextBtn: {
     backgroundColor: "#7B61FF",

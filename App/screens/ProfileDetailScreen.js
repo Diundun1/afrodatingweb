@@ -55,6 +55,117 @@ export default function ProfileDetailScreen() {
     checkIfUserIsLiked();
   }, [userId]);
 
+  // Separate API call functions for button clicks
+  const handleLikeButton = async (userId) => {
+    console.log("Like button pressed for user:", userId);
+
+    const token = await AsyncStorage.getItem("userToken");
+    const action = "like";
+
+    try {
+      const response = await fetch(
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            userId: userId,
+            action: action,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(
+          `HTTP error! Status: ${response.status}, Response: ${text}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Like action successful:", data);
+
+      // Remove the card after successful like
+      removeCard(userId);
+      setNotif(`You liked ${users.find((user) => user.id === userId)?.name}!`);
+    } catch (error) {
+      console.error("Error sending like action:", error.message);
+      let errorMessage = "Failed to register like. Please try again.";
+
+      try {
+        const jsonStart = error.message.indexOf("{");
+        if (jsonStart !== -1) {
+          const jsonString = error.message.substring(jsonStart);
+          const errorData = JSON.parse(jsonString);
+          errorMessage = errorData.message || errorMessage;
+        }
+      } catch (parseError) {
+        console.log("Could not parse error message:", parseError);
+      }
+
+      setNotif(errorMessage);
+    }
+  };
+
+  const handleDislikeButton = async (userId) => {
+    console.log("Dislike button pressed for user:", userId);
+
+    const token = await AsyncStorage.getItem("userToken");
+    const action = "dislike";
+
+    try {
+      const response = await fetch(
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            userId: userId,
+            action: action,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(
+          `HTTP error! Status: ${response.status}, Response: ${text}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Dislike action successful:", data);
+
+      // Remove the card after successful dislike
+      removeCard(userId);
+      setNotif(
+        `You passed on ${users.find((user) => user.id === userId)?.name}`
+      );
+    } catch (error) {
+      console.error("Error sending dislike action:", error.message);
+      let errorMessage = "Failed to register dislike. Please try again.";
+
+      try {
+        const jsonStart = error.message.indexOf("{");
+        if (jsonStart !== -1) {
+          const jsonString = error.message.substring(jsonStart);
+          const errorData = JSON.parse(jsonString);
+          errorMessage = errorData.message || errorMessage;
+        }
+      } catch (parseError) {
+        console.log("Could not parse error message:", parseError);
+      }
+
+      setNotif(errorMessage);
+    }
+  };
+
   // Calculate distance between two points using Haversine formula
   const calculateDistance = (coords1, coords2) => {
     if (!coords1 || !coords2) {
