@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_NAME = "afrodating-cache-v2";
+const CACHE_NAME = "Diundun-cache-v2";
 const urlsToCache = ["/", "/index.html"];
 
 self.addEventListener("install", (event) => {
@@ -113,22 +113,22 @@ self.addEventListener("push", function (event) {
     data = event.data?.json() || {};
   } catch (e) {
     data = {
-      title: "Afro Dating",
+      title: "Diundun",
       body: event.data?.text() || "You have a new notification",
     };
   }
 
   const options = {
     body: data.body || "You have a new notification",
-    icon: "https://test.unigate.com.ng/testfiles/icon.png",
-    badge: "https://test.unigate.com.ng/testfiles/icon.png",
-    tag: "closematch-notification",
+    icon: "/favicon.ico",
+    badge: "/favicon.ico",
+    tag: "diundun-notification",
     data: data,
   };
 
   event.waitUntil(
     self.registration
-      .showNotification(data.title || "Afro Dating", options)
+      .showNotification(data.title || "Diundun", options)
       .then(() => {
         console.log("Notification shown successfully");
       })

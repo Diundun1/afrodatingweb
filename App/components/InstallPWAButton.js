@@ -286,7 +286,7 @@ const InstallPWAButton = () => {
           </div>
 
           <h2 style={{ fontSize: 24, fontWeight: "bold", marginBottom: 12 }}>
-            Install Afro Dating on iOS
+            Install Diundun on iOS
           </h2>
 
           <p
@@ -471,7 +471,7 @@ const InstallPWAButton = () => {
         </div>
 
         <h2 style={{ fontSize: 24, fontWeight: "bold", marginBottom: 12 }}>
-          Install Afro Dating
+          Install Diundun
         </h2>
 
         <p

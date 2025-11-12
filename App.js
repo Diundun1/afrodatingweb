@@ -125,9 +125,9 @@ const requestWebNotificationPermission = async () => {
       if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
         try {
           const registration = await navigator.serviceWorker.ready;
-          await registration.showNotification("Welcome to Afro Dating! 🎉", {
+          await registration.showNotification("Welcome to Diundun! 🎉", {
             body: "You will now receive notifications for new messages and calls.",
-            icon: "https://test.unigate.com.ng/testfiles/icon.png",
+            icon: "/favicon.ico",
             tag: "welcome",
           });
         } catch (error) {

@@ -187,10 +187,10 @@ export default function ProfileScreen({}) {
               style={styles.avatar}
             />
             <NunitoTitle style={styles.userName}>
-              {user.name || "Afro Dating"}
+              {user.name || "Diundun"}
             </NunitoTitle>
             <NunitoTitle style={styles.userEmail}>
-              {user.email || "user@afrodating.com"}
+              {user.email || "user@Diundun.com"}
             </NunitoTitle>
 
             {/* Premium Badge 

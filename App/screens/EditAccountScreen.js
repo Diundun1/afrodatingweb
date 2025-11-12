@@ -10,17 +10,27 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { NunitoTitle } from "../components/NunitoComponents";
 import { useNavigation } from "@react-navigation/native";
 import MyStatusBar from "../components/MyStatusBar";
-
+import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function EditAccountScreen({ navigation }) {
   const [notif, setNotif] = useState("");
+  const [userId, setUserId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [uploadingImages, setUploadingImages] = useState({});
+
+  // Profile pictures state
+  const [profilePictures, setProfilePictures] = useState([]);
+  const [selectedImages, setSelectedImages] = useState({});
+  const MAX_IMAGES = 5;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -37,11 +47,7 @@ export default function EditAccountScreen({ navigation }) {
     age: "",
   });
 
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
-  const [userId, setUserId] = useState(null);
-
-  // Format date for display (from "2001-05-08T00:00:00.000Z" to "2001-05-08")
+  // Format date for display
   const formatDateForInput = (dateString) => {
     if (!dateString) return "";
     return dateString.split("T")[0];
@@ -53,7 +59,7 @@ export default function EditAccountScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
-        Alert.alert("Error", "Authentication token not found");
+        setNotif("Authentication token not found");
         return;
       }
 
@@ -73,8 +79,6 @@ export default function EditAccountScreen({ navigation }) {
 
       if (response.ok) {
         setUserId(data._id);
-
-        // Update form data with fetched user information
         setFormData({
           name: data.name || "",
           occupation: data.occupation || "",
@@ -89,16 +93,234 @@ export default function EditAccountScreen({ navigation }) {
           date_of_birth: formatDateForInput(data.date_of_birth) || "",
           age: data.age?.toString() || "",
         });
+
+        // Fetch profile pictures after getting user data
+        await fetchProfilePictures(token);
       } else {
-        Alert.alert("Error", data.message || "Failed to fetch user data");
+        setNotif(data.message || "Failed to fetch user data");
       }
     } catch (error) {
-      Alert.alert("Error", "Something went wrong while fetching user data");
+      setNotif("Something went wrong while fetching user data");
       console.error(error);
     } finally {
       setFetching(false);
     }
   };
+
+  // Fetch profile pictures
+  const fetchProfilePictures = async (token = null) => {
+    try {
+      if (!token) {
+        token = await AsyncStorage.getItem("userToken");
+      }
+
+      const response = await fetch(
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        setProfilePictures(data.images || []);
+      } else {
+        console.log("No profile pictures found or error:", data.message);
+        setProfilePictures([]);
+      }
+    } catch (error) {
+      console.error("Error fetching profile pictures:", error);
+      setProfilePictures([]);
+    }
+  };
+
+  // Get random placeholder image
+  const getRandomPlaceholder = (index) => {
+    const placeholders = [
+      require("../assets/images/users/1.png"),
+      require("../assets/images/users/2.png"),
+      require("../assets/images/users/3.png"),
+      require("../assets/images/users/4.png"),
+      require("../assets/images/users/4.png"),
+    ];
+    return placeholders[index % placeholders.length];
+  };
+
+  // Handle image selection
+  const pickImage = async (position) => {
+    try {
+      // Request permissions
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        setNotif("We need camera roll permissions to make this work!");
+
+        return;
+      }
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImage = result.assets[0];
+        setSelectedImages((prev) => ({
+          ...prev,
+          [position]: selectedImage.uri,
+        }));
+
+        // Auto-upload the image
+        await uploadImage(position, selectedImage.uri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      setNotif("Something went wrong while selecting image ", error);
+    }
+  };
+
+  // Upload single image
+  const uploadImage = async (position, imageUri) => {
+    setUploadingImages((prev) => ({ ...prev, [position]: true }));
+
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        setNotif("Authentication token not found");
+        return;
+      }
+
+      const formData = new FormData();
+      const fileName = `profile_${position}_${Date.now()}.jpg`;
+
+      formData.append("profilePictures", {
+        uri: imageUri,
+        name: fileName,
+        type: "image/jpeg",
+      });
+
+      // If this is position 0 (primary), mark it as primary
+      if (position === 0) {
+        formData.append("isPrimary", "true");
+      }
+
+      const response = await fetch(
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setNotif(`Photo ${position + 1} uploaded successfully!`);
+
+        // Refresh profile pictures
+        await fetchProfilePictures(token);
+
+        // Remove from selected images after successful upload
+        setSelectedImages((prev) => {
+          const newSelected = { ...prev };
+          delete newSelected[position];
+          return newSelected;
+        });
+      } else {
+        setNotif("Upload Failed", data.message || "Failed to upload image");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      setNotif("Failed to upload image");
+    } finally {
+      setUploadingImages((prev) => ({ ...prev, [position]: false }));
+    }
+  };
+
+  // Get image source for a position
+  const getImageSource = (position) => {
+    // If there's a newly selected image (not yet uploaded)
+    if (selectedImages[position]) {
+      return { uri: selectedImages[position] };
+    }
+
+    // If there's an uploaded image for this position
+    const uploadedImage = profilePictures[position];
+    if (uploadedImage && uploadedImage.url) {
+      return { uri: uploadedImage.url };
+    }
+
+    // Fallback to placeholder
+    return getRandomPlaceholder(position);
+  };
+
+  // Profile images component
+  const ProfileImagesSection = () => (
+    <View style={styles.profileImagesContainer}>
+      <Text style={styles.sectionTitle}>Profile Photos</Text>
+      <Text style={styles.sectionSubtitle}>
+        Add up to {MAX_IMAGES} photos. The first photo will be your main profile
+        picture.
+      </Text>
+
+      <View style={styles.imagesGrid}>
+        {Array.from({ length: MAX_IMAGES }).map((_, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.imageContainer,
+              index === 0 && styles.primaryImageContainer,
+            ]}
+            onPress={() => pickImage(index)}
+            disabled={uploadingImages[index]}>
+            <Image source={getImageSource(index)} style={styles.profileImage} />
+
+            {index === 0 && (
+              <View style={styles.primaryBadge}>
+                <Text style={styles.primaryBadgeText}>Main</Text>
+              </View>
+            )}
+
+            {/* Uploading overlay */}
+            {uploadingImages[index] && (
+              <View style={styles.uploadingOverlay}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={styles.uploadingText}>Uploading...</Text>
+              </View>
+            )}
+
+            {/* Add/Edit overlay */}
+            {!uploadingImages[index] && (
+              <View style={styles.imageOverlay}>
+                <MaterialIcons
+                  name={
+                    profilePictures[index] || selectedImages[index]
+                      ? "edit"
+                      : "add-a-photo"
+                  }
+                  size={20}
+                  color="#FFFFFF"
+                />
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.photoHelpText}>
+        Tap any photo to {profilePictures.length > 0 ? "change" : "add"} it
+      </Text>
+    </View>
+  );
 
   useEffect(() => {
     fetchUserProfile();
@@ -107,7 +329,8 @@ export default function EditAccountScreen({ navigation }) {
   // Update user profile API call
   const updateUserProfile = async () => {
     if (!userId) {
-      Alert.alert("Error", "User ID not found");
+      await AsyncStorage.clear();
+      navigation.replace("LoginScreen");
       return;
     }
 
@@ -115,11 +338,11 @@ export default function EditAccountScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
-        Alert.alert("Error", "Authentication token not found");
+        await AsyncStorage.clear();
+        navigation.replace("LoginScreen");
         return;
       }
 
-      // Prepare data for API - convert age to number and format date
       const updateData = {
         name: formData.name,
         occupation: formData.occupation,
@@ -155,7 +378,7 @@ export default function EditAccountScreen({ navigation }) {
         return;
       }
 
-      setNotif("Profile updated successfully");
+      setNotif("Profile updated successfully!");
       setTimeout(() => {
         fetchUserProfile();
       }, 3000);
@@ -181,6 +404,20 @@ export default function EditAccountScreen({ navigation }) {
   // Skeleton loading component
   const SkeletonLoader = () => (
     <View style={styles.content}>
+      {/* Profile Images Skeleton */}
+      <View style={styles.profileImagesContainer}>
+        <View style={styles.skeletonTitle} />
+        <View style={styles.skeletonSubtitle} />
+        <View style={styles.imagesGrid}>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <View key={index} style={styles.skeletonImageContainer}>
+              <View style={styles.skeletonImage} />
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Form Skeleton */}
       <View style={styles.formCard}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((item) => (
           <View
@@ -193,16 +430,6 @@ export default function EditAccountScreen({ navigation }) {
             <View style={styles.skeletonInput} />
           </View>
         ))}
-      </View>
-
-      {/* Additional Info Skeleton */}
-      <View style={styles.additionalInfo}>
-        <View style={styles.skeletonTitle} />
-        <View style={styles.skeletonText} />
-        <View style={styles.verificationBadge}>
-          <View style={styles.skeletonIcon} />
-          <View style={styles.skeletonBadgeText} />
-        </View>
       </View>
     </View>
   );
@@ -283,7 +510,10 @@ export default function EditAccountScreen({ navigation }) {
           <ScrollView
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}>
-            {/* Form */}
+            {/* Profile Images Section */}
+            <ProfileImagesSection />
+
+            {/* Form Section */}
             <View style={styles.content}>
               <View style={styles.formCard}>
                 {fields.map((field, index) => (
@@ -320,7 +550,10 @@ export default function EditAccountScreen({ navigation }) {
         {/* Save Button */}
         <View style={styles.saveButtonContainer}>
           <TouchableOpacity
-            style={[styles.saveButtonDisabled]}
+            style={[
+              styles.saveButton,
+              (loading || fetching) && styles.saveButtonDisabled,
+            ]}
             onPress={handleSave}
             disabled={loading || fetching}>
             {loading ? (
@@ -366,40 +599,100 @@ const styles = StyleSheet.create({
   headerPlaceholder: {
     width: 40,
   },
-  saveButtonContainer: {
-    // padding: 20,
-    // paddingTop: 10,
-  },
-  saveButton: {
-    // paddingHorizontal: 16,
-    // paddingVertical: 16,
-    backgroundColor: "#7B61FF",
-    borderRadius: 12,
-    alignItems: "center",
-    alignContent: "center",
-    justifyContent: "center",
-    paddingBottom: 0,
-  },
-  saveButtonDisabled: {
-    backgroundColor: "#7B61FF",
-    alignItems: "center",
-    alignContent: "center",
-    justifyContent: "center",
-    margin: 20,
-    padding: 15,
-    borderRadius: 12,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-    // backgroundColor: "red",
-    alignSelf: "center",
-    justifyContent: "center",
-  },
   content: {
     padding: 20,
   },
+  // Profile Images Styles
+  profileImagesContainer: {
+    padding: 20,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  imagesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  imageContainer: {
+    width: "31%",
+    aspectRatio: 1,
+    marginBottom: 12,
+    borderRadius: 12,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#F3F4F6",
+  },
+  primaryImageContainer: {
+    borderWidth: 2,
+    borderColor: "#7B61FF",
+  },
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 12,
+  },
+  primaryBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "#7B61FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  primaryBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  imageOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    opacity: 0,
+  },
+  uploadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadingText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: "500",
+  },
+  photoHelpText: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  // Form Styles
   formCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -432,41 +725,54 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: "top",
   },
-  additionalInfo: {
-    backgroundColor: "#F0F9FF",
+  // Save Button Styles
+  saveButtonContainer: {
     padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E0F2FE",
+    paddingTop: 10,
   },
-  additionalInfoTitle: {
+  saveButton: {
+    backgroundColor: "#7B61FF",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+  },
+  saveButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+  },
+  saveButtonText: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#0369A1",
+    fontWeight: "600",
+    color: "#fff",
+  },
+  // Skeleton Styles
+  skeletonTitle: {
+    height: 18,
+    width: "40%",
+    backgroundColor: "#E5E7EB",
+    borderRadius: 4,
     marginBottom: 8,
   },
-  additionalInfoText: {
-    fontSize: 14,
-    color: "#0C4A6E",
+  skeletonSubtitle: {
+    height: 14,
+    width: "80%",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 4,
+    marginBottom: 20,
+  },
+  skeletonImageContainer: {
+    width: "31%",
+    aspectRatio: 1,
     marginBottom: 12,
-    lineHeight: 20,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    overflow: "hidden",
   },
-  verificationBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: "#D1FAE5",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  skeletonImage: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#E5E7EB",
   },
-  verificationText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#065F46",
-    marginLeft: 6,
-  },
-  // Skeleton loading styles
   skeletonLabel: {
     height: 14,
     width: "40%",
@@ -480,31 +786,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     borderRadius: 4,
   },
-  skeletonTitle: {
-    height: 16,
-    width: "60%",
-    backgroundColor: "#E5E7EB",
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  skeletonText: {
-    height: 14,
-    width: "90%",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 4,
-    marginBottom: 12,
-  },
-  skeletonIcon: {
-    width: 20,
-    height: 20,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 10,
-  },
-  skeletonBadgeText: {
-    height: 12,
-    width: 80,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 4,
-    marginLeft: 6,
-  },
 });
+
+// Add hover effect for web (if needed)
+if (Platform.OS === "web") {
+  styles.imageContainer = {
+    ...styles.imageContainer,
+    cursor: "pointer",
+    transition: "transform 0.2s ease",
+  };
+
+  // Web hover effect
+  const webHoverStyle = `
+    .imageContainer:hover .imageOverlay {
+      opacity: 1 !important;
+    }
+  `;
+}

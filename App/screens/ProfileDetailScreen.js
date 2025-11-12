@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import MyStatusBar from "../components/MyStatusBar";
 
 const { width, height } = Dimensions.get("window");
 
@@ -36,8 +37,9 @@ export default function ProfileDetailScreen() {
   const [showSnackBar, setShowSnackBar] = useState(false);
   const [distance, setDistance] = useState("");
   const [currentUserLocation, setCurrentUserLocation] = useState(null);
+  const [notif, setNotif] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [imageErrors, setImageErrors] = useState({}); // Track failed image loads
+  const [imageErrors, setImageErrors] = useState({});
 
   const galleryFlatListRef = useRef(null);
 
@@ -55,14 +57,27 @@ export default function ProfileDetailScreen() {
     checkIfUserIsLiked();
   }, [userId]);
 
-  // Separate API call functions for button clicks
-  const handleLikeButton = async (userId) => {
+  // Fix: Add useEffect to recalculate distance when locations are available
+  useEffect(() => {
+    if (currentUserLocation && userData?.location?.coordinates) {
+      const distanceText = calculateDistance(
+        currentUserLocation,
+        userData.location.coordinates
+      );
+      setDistance(distanceText);
+    }
+  }, [currentUserLocation, userData]);
+
+  const handleLike = async () => {
     console.log("Like button pressed for user:", userId);
 
-    const token = await AsyncStorage.getItem("userToken");
-    const action = "like";
-
     try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        setNotif("Please login to like profiles");
+        return;
+      }
+
       const response = await fetch(
         "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
@@ -73,50 +88,52 @@ export default function ProfileDetailScreen() {
           },
           body: JSON.stringify({
             userId: userId,
-            action: action,
+            action: "like",
           }),
         }
       );
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(
-          `HTTP error! Status: ${response.status}, Response: ${text}`
-        );
-      }
+      const responseText = await response.text();
+      console.log("Like response:", responseText);
 
-      const data = await response.json();
-      console.log("Like action successful:", data);
-
-      // Remove the card after successful like
-      removeCard(userId);
-      setNotif(`You liked ${users.find((user) => user.id === userId)?.name}!`);
-    } catch (error) {
-      console.error("Error sending like action:", error.message);
-      let errorMessage = "Failed to register like. Please try again.";
-
+      let data;
       try {
-        const jsonStart = error.message.indexOf("{");
-        if (jsonStart !== -1) {
-          const jsonString = error.message.substring(jsonStart);
-          const errorData = JSON.parse(jsonString);
-          errorMessage = errorData.message || errorMessage;
-        }
+        data = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
-        console.log("Could not parse error message:", parseError);
+        console.error("JSON parse error:", parseError);
+        data = { message: "Invalid server response" };
       }
 
-      setNotif(errorMessage);
+      if (response.ok) {
+        setIsFavorite(true);
+        setNotif(`You liked ${userData?.name}!`);
+        console.log("Like successful:", data);
+
+        setTimeout(() => {
+          navigation.goBack();
+        }, 1500);
+      } else {
+        const errorMessage =
+          data.message || `Failed to like (${response.status})`;
+        setNotif(errorMessage);
+        console.error("Like failed:", data);
+      }
+    } catch (error) {
+      console.error("Error sending like:", error);
+      setNotif("Network error. Please try again.");
     }
   };
 
-  const handleDislikeButton = async (userId) => {
+  const handleDislike = async () => {
     console.log("Dislike button pressed for user:", userId);
 
-    const token = await AsyncStorage.getItem("userToken");
-    const action = "dislike";
-
     try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        setNotif("Please login to dislike profiles");
+        return;
+      }
+
       const response = await fetch(
         "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
@@ -127,42 +144,38 @@ export default function ProfileDetailScreen() {
           },
           body: JSON.stringify({
             userId: userId,
-            action: action,
+            action: "dislike",
           }),
         }
       );
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(
-          `HTTP error! Status: ${response.status}, Response: ${text}`
-        );
-      }
+      const responseText = await response.text();
+      console.log("Dislike response:", responseText);
 
-      const data = await response.json();
-      console.log("Dislike action successful:", data);
-
-      // Remove the card after successful dislike
-      removeCard(userId);
-      setNotif(
-        `You passed on ${users.find((user) => user.id === userId)?.name}`
-      );
-    } catch (error) {
-      console.error("Error sending dislike action:", error.message);
-      let errorMessage = "Failed to register dislike. Please try again.";
-
+      let data;
       try {
-        const jsonStart = error.message.indexOf("{");
-        if (jsonStart !== -1) {
-          const jsonString = error.message.substring(jsonStart);
-          const errorData = JSON.parse(jsonString);
-          errorMessage = errorData.message || errorMessage;
-        }
+        data = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
-        console.log("Could not parse error message:", parseError);
+        console.error("JSON parse error:", parseError);
+        data = { message: "Invalid server response" };
       }
 
-      setNotif(errorMessage);
+      if (response.ok) {
+        setNotif(`You passed on ${userData?.name}`);
+        console.log("Dislike successful:", data);
+
+        setTimeout(() => {
+          navigation.goBack();
+        }, 1500);
+      } else {
+        const errorMessage =
+          data.message || `Failed to dislike (${response.status})`;
+        setNotif(errorMessage);
+        console.error("Dislike failed:", data);
+      }
+    } catch (error) {
+      console.error("Error sending dislike:", error);
+      setNotif("Network error. Please try again.");
     }
   };
 
@@ -277,15 +290,6 @@ export default function ProfileDetailScreen() {
           setSelectedImageIndex(primaryIndex);
         }
       }
-
-      // Calculate distance
-      if (currentUserLocation && user.location?.coordinates) {
-        const distanceText = calculateDistance(
-          currentUserLocation,
-          user.location.coordinates
-        );
-        setDistance(distanceText);
-      }
     } catch (error) {
       console.error("Error fetching user data:", error);
       setError("Failed to load user data: " + error.message);
@@ -373,16 +377,12 @@ export default function ProfileDetailScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Check out ${userData?.name}'s profile on CloseMatch!`,
-        url: "https://closematch.com",
+        message: `Check out ${userData?.name}'s profile on diundun!`,
+        url: "https://diundun.com",
       });
     } catch (error) {
       console.error(error);
     }
-  };
-
-  const handleLike = () => {
-    toggleFavorite();
   };
 
   const handleMessage = () => {
@@ -399,8 +399,12 @@ export default function ProfileDetailScreen() {
             : require("../assets/images/users/3.png")
         }
         style={styles.profileImage}
-        onError={() => handleImageError(index)}
+        onError={() => {
+          console.log(`Image failed to load: ${item.url}`);
+          handleImageError(index);
+        }}
         defaultSource={require("../assets/images/users/3.png")}
+        resizeMode="cover"
       />
     </View>
   );
@@ -448,6 +452,8 @@ export default function ProfileDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <MyStatusBar notif={notif} setNotif={setNotif} />
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -457,7 +463,7 @@ export default function ProfileDetailScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Details</Text>
         <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-          <Ionicons name="notifications-outline" size={20} color="#7B61FF" />
+          <Ionicons name="share-outline" size={20} color="#7B61FF" />
         </TouchableOpacity>
       </View>
 
@@ -469,28 +475,46 @@ export default function ProfileDetailScreen() {
         showsVerticalScrollIndicator={false}>
         {/* Profile Images Carousel */}
         <View style={styles.imageCarousel}>
-          <FlatList
-            ref={galleryFlatListRef}
-            data={profilePictures.length > 0 ? profilePictures : [{}]}
-            renderItem={renderCarouselItem}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(event) => {
-              const newIndex = Math.round(
-                event.nativeEvent.contentOffset.x / width
-              );
-              setSelectedImageIndex(newIndex);
-            }}
-            keyExtractor={(item, index) => index.toString()}
-          />
+          {profilePictures.length > 0 ? (
+            <>
+              <FlatList
+                ref={galleryFlatListRef}
+                data={profilePictures}
+                renderItem={renderCarouselItem}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(event) => {
+                  const newIndex = Math.round(
+                    event.nativeEvent.contentOffset.x / width
+                  );
+                  setSelectedImageIndex(newIndex);
+                }}
+                keyExtractor={(item, index) => index.toString()}
+                initialScrollIndex={selectedImageIndex}
+                getItemLayout={(data, index) => ({
+                  length: width,
+                  offset: width * index,
+                  index,
+                })}
+              />
 
-          {/* Image Indicators */}
-          {profilePictures.length > 1 && (
-            <View style={styles.imageIndicators}>
-              {profilePictures.map((_, index) =>
-                renderImageIndicator(_, index)
+              {/* Image Indicators */}
+              {profilePictures.length > 1 && (
+                <View style={styles.imageIndicators}>
+                  {profilePictures.map((_, index) =>
+                    renderImageIndicator(_, index)
+                  )}
+                </View>
               )}
+            </>
+          ) : (
+            // Fallback when no images
+            <View style={styles.imageContainer}>
+              <Image
+                source={require("../assets/images/users/3.png")}
+                style={styles.profileImage}
+              />
             </View>
           )}
         </View>
@@ -499,7 +523,7 @@ export default function ProfileDetailScreen() {
         <View style={styles.profileInfo}>
           <View style={styles.nameContainer}>
             <Text style={styles.name}>
-              {userData.name.split(" ")[0]},{" "}
+              {userData.name?.split(" ")[0] || "User"},{" "}
               {userData.age || calculateAge(userData.date_of_birth)}
             </Text>
           </View>
@@ -513,7 +537,9 @@ export default function ProfileDetailScreen() {
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.dislikeButton}>
+            <TouchableOpacity
+              style={styles.dislikeButton}
+              onPress={handleDislike}>
               <Ionicons name="close" size={30} color="#FF6B6B" />
             </TouchableOpacity>
 
@@ -530,14 +556,14 @@ export default function ProfileDetailScreen() {
         {/* Divider */}
         <View style={styles.divider} />
 
-        {/* About Me Section */}
+        {/* Profile Details Sections */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Marital Status</Text>
           </View>
           <View style={styles.aboutCard}>
             <Text style={styles.aboutText} numberOfLines={1}>
-              {userData.marital_status || "No bio available"}
+              {userData.marital_status || "No information available"}
             </Text>
           </View>
         </View>
@@ -548,7 +574,7 @@ export default function ProfileDetailScreen() {
           </View>
           <View style={styles.aboutCard}>
             <Text style={styles.aboutText} numberOfLines={1}>
-              {userData.religion || "No bio available"}
+              {userData.religion || "No information available"}
             </Text>
           </View>
         </View>
@@ -559,7 +585,7 @@ export default function ProfileDetailScreen() {
           </View>
           <View style={styles.aboutCard}>
             <Text style={styles.aboutText} numberOfLines={1}>
-              {userData.degree || "No bio available"}
+              {userData.degree || "No information available"}
             </Text>
           </View>
         </View>
@@ -570,7 +596,7 @@ export default function ProfileDetailScreen() {
           </View>
           <View style={styles.aboutCard}>
             <Text style={styles.aboutText} numberOfLines={2}>
-              {userData.address || "No bio available"}
+              {userData.address || "No information available"}
             </Text>
           </View>
         </View>
@@ -581,7 +607,7 @@ export default function ProfileDetailScreen() {
           </View>
           <View style={styles.aboutCard}>
             <Text style={styles.aboutText} numberOfLines={1}>
-              {userData.gender || "No bio available"}
+              {userData.gender || "No information available"}
             </Text>
           </View>
         </View>
@@ -607,6 +633,8 @@ export default function ProfileDetailScreen() {
             )}
           </View>
         </View>
+
+        {/* Bottom spacing */}
         <View style={{ width: "100%", height: 200 }}></View>
       </Animated.ScrollView>
     </SafeAreaView>
@@ -749,18 +777,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#374151",
     marginLeft: 12,
-  },
-  preferenceCard: {
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#BEC5D1",
-  },
-  preferenceCardText: {
-    fontSize: 12,
-    color: "#575757",
-    fontWeight: "400",
-    marginBottom: 4,
   },
   aboutCard: {
     padding: 10,

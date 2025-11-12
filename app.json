@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Afro Dating",
-    "slug": "afrodating",
+    "name": "Diundun",
+    "slug": "diundun",
     "version": "1.0.0",
     "platforms": ["ios", "android", "web"],
     "orientation": "portrait",
@@ -30,8 +30,8 @@
       "startUrl": "/",
       "scope": "/",
       "lang": "en",
-      "name": "Afro Dating",
-      "shortName": "Afro Dating",
+      "name": "Diundun",
+      "shortName": "Diundun",
       "display": "standalone",
       "themeColor": "#ffffff",
       "backgroundColor": "#ffffff",
