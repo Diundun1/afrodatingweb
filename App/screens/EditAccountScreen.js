@@ -152,7 +152,6 @@ export default function EditAccountScreen({ navigation }) {
   // Handle image selection
   const pickImage = async (position) => {
     try {
-      // Request permissions
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
@@ -175,7 +174,6 @@ export default function EditAccountScreen({ navigation }) {
           [position]: selectedImage.uri,
         }));
 
-        // Auto-upload the image
         await uploadImage(position, selectedImage.uri);
       }
     } catch (error) {
@@ -183,87 +181,75 @@ export default function EditAccountScreen({ navigation }) {
       setNotif("Something went wrong while selecting image ", error);
     }
   };
-
-  // Upload single image
+  // ALTERNATIVE UPLOAD FUNCTION - More robust
   const uploadImage = async (position, imageUri) => {
     setUploadingImages((prev) => ({ ...prev, [position]: true }));
 
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
-        setNotif("Authentication token not found");
-        return;
+        throw new Error("Authentication token not found");
       }
+
+      // Create a Blob from the image (alternative approach)
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
 
       const formData = new FormData();
-      const fileName = `profile_${position}_${Date.now()}.jpg`;
 
-      formData.append("profilePictures", {
-        uri: imageUri,
-        name: fileName,
-        type: "image/jpeg",
-      });
+      // Append as Blob
+      formData.append(
+        "profilePictures",
+        blob,
+        `profile_${position}_${Date.now()}.jpg`
+      );
 
-      // If this is position 0 (primary), mark it as primary
-      if (position === 0) {
-        formData.append("isPrimary", "true");
-      }
-
-      const response = await fetch(
+      const uploadResponse = await fetch(
         "https://backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
           },
           body: formData,
         }
       );
 
-      const data = await response.json();
+      const result = await uploadResponse.json();
+      console.log("Upload result:", result);
 
-      if (response.ok) {
-        setNotif(`Photo ${position + 1} uploaded successfully!`);
-
-        // Refresh profile pictures
+      if (uploadResponse.ok) {
+        setNotif(`Photo uploaded successfully!`);
         await fetchProfilePictures(token);
 
-        // Remove from selected images after successful upload
         setSelectedImages((prev) => {
           const newSelected = { ...prev };
           delete newSelected[position];
           return newSelected;
         });
       } else {
-        setNotif("Upload Failed", data.message || "Failed to upload image");
+        throw new Error(result.message || result.error || "Upload failed");
       }
     } catch (error) {
-      console.error("Upload error:", error);
-      setNotif("Failed to upload image");
+      setNotif(error.message || "Failed to upload image");
     } finally {
       setUploadingImages((prev) => ({ ...prev, [position]: false }));
     }
   };
 
-  // Get image source for a position
   const getImageSource = (position) => {
-    // If there's a newly selected image (not yet uploaded)
     if (selectedImages[position]) {
       return { uri: selectedImages[position] };
     }
 
-    // If there's an uploaded image for this position
     const uploadedImage = profilePictures[position];
     if (uploadedImage && uploadedImage.url) {
       return { uri: uploadedImage.url };
     }
 
-    // Fallback to placeholder
     return getRandomPlaceholder(position);
   };
 
-  // Profile images component
   const ProfileImagesSection = () => (
     <View style={styles.profileImagesContainer}>
       <Text style={styles.sectionTitle}>Profile Photos</Text>
