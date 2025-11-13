@@ -87,7 +87,7 @@ export default function ExploreScreen({ navigation }) {
       console.log("Like action successful:", data);
 
       // Remove the card after successful like
-      removeCard(userId);
+      // removeCard(userId);
       setNotif(`You liked ${users.find((user) => user.id === userId)?.name}!`);
     } catch (error) {
       console.error("Error sending like action:", error.message);
@@ -141,7 +141,7 @@ export default function ExploreScreen({ navigation }) {
       console.log("Dislike action successful:", data);
 
       // Remove the card after successful dislike
-      removeCard(userId);
+      //  removeCard(userId);
       setNotif(
         `You passed on ${users.find((user) => user.id === userId)?.name}`
       );
@@ -379,7 +379,10 @@ export default function ExploreScreen({ navigation }) {
                       <View style={styles.bottomSection}>
                         <TouchableOpacity
                           style={styles.actionButton}
-                          onPress={() => handleDislikeButton(user.id)}>
+                          onPress={() => {
+                            handleDislikeButton(user.id);
+                            handleSwipe(user.id, "left");
+                          }}>
                           <View style={styles.buttonIcon}>
                             <Ionicons name="close" size={24} color="#FF6B6B" />
                           </View>
@@ -399,7 +402,10 @@ export default function ExploreScreen({ navigation }) {
 
                         <TouchableOpacity
                           style={styles.actionButton}
-                          onPress={() => handleLikeButton(user.id)}>
+                          onPress={() => {
+                            handleLikeButton(user.id);
+                            handleSwipe(user.id, "right");
+                          }}>
                           <View style={styles.buttonIcon}>
                             <Ionicons name="heart" size={24} color="#6C63FF" />
                           </View>

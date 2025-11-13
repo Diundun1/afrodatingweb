@@ -365,7 +365,12 @@ export default function VideoCallScreen() {
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.callInfo}>
-            <Text style={styles.partnerName}>{partnerName}</Text>
+            <Text
+              style={styles.partnerName}
+              numberOfLines={1}
+              ellipsizeMode="tail">
+              {partnerName}
+            </Text>
             <Text style={styles.duration}>
               {callEnded ? "Call Ended" : formatTime(callDuration)}
             </Text>
@@ -478,6 +483,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "600",
+    maxWidth: "50%",
   },
   duration: {
     color: "rgba(255, 255, 255, 0.7)",

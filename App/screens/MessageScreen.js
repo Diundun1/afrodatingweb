@@ -777,7 +777,10 @@ const MessageScreen = ({ route }) => {
       <View
         style={[
           styles.messageContainer,
-          { alignItems: item.isSender ? "flex-end" : "flex-start" },
+          {
+            alignItems: item.isSender ? "flex-end" : "flex-start",
+            paddingHorizontal: 8,
+          },
         ]}>
         <View style={styles.messageRow}>
           {!item.isSender && (
@@ -792,7 +795,8 @@ const MessageScreen = ({ route }) => {
                 style={[
                   styles.callBubble,
                   {
-                    backgroundColor: item.isSender ? "#7B61FF" : "#7B61FF",
+                    backgroundColor: "#7B61FF",
+                    alignSelf: item.isSender ? "flex-end" : "flex-start",
                   },
                 ]}
                 onPress={() => {
@@ -814,15 +818,10 @@ const MessageScreen = ({ route }) => {
                       }
                     );
 
-                    console.log("Message time:", messageTimeStr);
-                    console.log("Current time:", currentTimeStr);
-
                     const isWithinTimeLimit = isTimeWithinTwoMinutes(
                       messageTimeStr,
                       currentTimeStr
                     );
-
-                    console.log("Is within 2 minutes:", isWithinTimeLimit);
 
                     if (!isWithinTimeLimit) {
                       Alert.alert(
@@ -833,7 +832,6 @@ const MessageScreen = ({ route }) => {
                       return;
                     }
 
-                    console.log("Call link is within 2 minutes - proceeding");
                     const isCaller = item.isSender;
 
                     if (isCaller) {
@@ -854,7 +852,7 @@ const MessageScreen = ({ route }) => {
                     }
                   }
                 }}>
-                <Ionicons name="videocam" size={16} color="#fff" />
+                <Ionicons name="videocam" size={18} color="#fff" />
                 <NunitoText style={styles.callText}>
                   {item.isSender ? "Call Started" : "Join Call"}
                 </NunitoText>
@@ -863,9 +861,10 @@ const MessageScreen = ({ route }) => {
               <View
                 style={[
                   styles.messageBubble,
+                  item.isSender ? styles.senderBubble : styles.receiverBubble,
                   {
-                    backgroundColor: item.isSender ? "#7B61FF" : "#F3F4F6",
                     opacity: item.fromServer === false ? 0.7 : 1,
+                    alignSelf: item.isSender ? "flex-end" : "flex-start",
                   },
                 ]}>
                 <NunitoText
@@ -878,20 +877,48 @@ const MessageScreen = ({ route }) => {
               </View>
             )}
 
-            <View style={styles.messageMeta}>
-              <NunitoText style={styles.timeText}>
+            <View
+              style={[
+                styles.messageMeta,
+                {
+                  justifyContent: item.isSender ? "flex-end" : "flex-start",
+                  alignSelf: item.isSender ? "flex-end" : "flex-start",
+                },
+              ]}>
+              <NunitoText
+                style={[
+                  styles.timeText,
+                  item.isSender && styles.senderTimeText,
+                ]}>
                 {item.messageTime}
               </NunitoText>
               {item.isSender && (
                 <MaterialIcons
                   name={item.isSeen ? "done-all" : "done"}
-                  color={item.fromServer === false ? "#9CA3AF" : "#7B61FF"}
-                  size={16}
+                  color={
+                    item.fromServer === false
+                      ? "#9CA3AF"
+                      : "rgba(255, 255, 255, 0.8)"
+                  }
+                  size={14}
                   style={styles.statusIcon}
                 />
               )}
             </View>
           </View>
+
+          {item.isSender && (
+            <View
+              style={[
+                styles.avatarContainer,
+                { marginLeft: 8, marginRight: 0 },
+              ]}>
+              <Image
+                source={defaultImage}
+                style={[styles.smallProfilePic, { opacity: 0.7 }]}
+              />
+            </View>
+          )}
         </View>
       </View>
     );
@@ -1160,8 +1187,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 5,
-
+    paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
@@ -1188,7 +1214,7 @@ const styles = StyleSheet.create({
   userStatus: {
     fontSize: 12,
     color: "#6B7280",
-    marginTop: -5,
+    marginTop: -1,
   },
   callButtons: {
     flexDirection: "row",
@@ -1228,6 +1254,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
   },
+  // IMPROVED MESSAGE STYLES
   messagesContainer: {
     paddingVertical: 16,
     paddingHorizontal: 16,
@@ -1238,9 +1265,12 @@ const styles = StyleSheet.create({
   messageRow: {
     flexDirection: "row",
     alignItems: "flex-start",
+    maxWidth: "100%",
   },
   avatarContainer: {
     marginRight: 8,
+    alignSelf: "flex-end",
+    marginBottom: 4,
   },
   smallProfilePic: {
     width: 32,
@@ -1248,49 +1278,86 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   messageContent: {
-    maxWidth: "70%",
+    maxWidth: "80%",
+    flexShrink: 1,
   },
+  // Improved message bubbles
   messageBubble: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 20,
+    // Shadow for better visual hierarchy
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  // Sender bubble specific styles
+  senderBubble: {
+    backgroundColor: "#7B61FF",
+    borderBottomRightRadius: 4, // Pointed edge for sender
+  },
+  // Receiver bubble specific styles
+  receiverBubble: {
+    backgroundColor: "#F3F4F6",
+    borderBottomLeftRadius: 4, // Pointed edge for receiver
   },
   senderText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
+    fontWeight: "400",
   },
   receiverText: {
     color: "#1F2937",
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
+    fontWeight: "400",
   },
   messageMeta: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 4,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
   },
   timeText: {
     fontSize: 11,
     color: "#6B7280",
   },
+  senderTimeText: {
+    color: "rgba(255, 255, 255, 0.7)",
+  },
   statusIcon: {
     marginLeft: 4,
   },
+  // Call bubble styles
   callBubble: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 25,
+    // Enhanced shadow
+    shadowColor: "#7B61FF",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   callText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
     marginLeft: 8,
   },
+  // Input area styles
   inputContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -1309,12 +1376,17 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    minHeight: 44,
+    justifyContent: "center",
   },
   textInput: {
     fontSize: 16,
     color: "#1F2937",
     maxHeight: 100,
     padding: 0,
+    outlineWidth: 0,
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   sendButton: {
     width: 44,
@@ -1323,9 +1395,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#7B61FF",
     justifyContent: "center",
     alignItems: "center",
+    // Shadow for button
+    shadowColor: "#7B61FF",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
   },
   sendButtonDisabled: {
     backgroundColor: "#F3F4F6",
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });
 

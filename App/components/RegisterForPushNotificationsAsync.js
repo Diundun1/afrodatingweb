@@ -29,8 +29,8 @@ const showNotificationViaServiceWorker = async (title, options = {}) => {
     const registration = await navigator.serviceWorker.ready;
 
     await registration.showNotification(title, {
-      icon: "https://test.unigate.com.ng/testfiles/icon.png",
-      badge: "https://test.unigate.com.ng/testfiles/icon.png",
+      icon: "/favicon.ico",
+      badge: "/favicon.ico",
       ...options,
     });
 
