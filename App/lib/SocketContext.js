@@ -58,8 +58,8 @@ export function SocketProvider({ children }) {
         return;
       }
 
-      const senderName = sender.name || "Someone";
-      const messageContent = "sent you a message";
+      const senderName = "You received a message";
+      const messageContent = sender.name + " sent you a message";
 
       logger.info("Sending message notification", { senderName, roomId });
 

@@ -156,7 +156,8 @@ export function SocketProvider({ children }) {
       }
 
       // Check if this is a call message
-      const messageContent = notificationData.message || "sent you a message";
+
+      const messageContent = "You received a message";
       logger.info("Checking notification for call URL", messageContent);
 
       const isCallLink = messageContent.match(
