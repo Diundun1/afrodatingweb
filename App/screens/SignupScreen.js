@@ -36,8 +36,8 @@ export default function SignupScreen() {
   const tempDate = "Date Of Birth";
   const [notif, setNotif] = useState("");
 
-  const [latitude, setLatitude] = useState(null);
-  const [longitude, setLongitude] = useState(null);
+  const [latitude, setLatitude] = useState(9.9396052);
+  const [longitude, setLongitude] = useState(8.9024603);
 
   // Date picker states
   const [date, setDate] = useState(new Date());

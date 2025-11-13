@@ -327,7 +327,14 @@ export default function ExploreScreen({ navigation }) {
                   onPress={() => handleCardPress(user.id)}
                   userId={user.id}
                   onSwipeComplete={(userId, direction, data) => {
-                    setNotif("Profile Swipe was successful");
+                    if (direction === "left") {
+                      setNotif("Profile was disliked");
+                    }
+
+                    if (direction === "right") {
+                      setNotif("Profile was liked");
+                    }
+
                     console.log(
                       `Swipe completed for user ${userId} with direction ${direction}`
                     );
