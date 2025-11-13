@@ -398,23 +398,6 @@ const InstallPWAButton = () => {
               </div>
             </div>
           </div>
-
-          <button
-            onClick={handleCloseIOSInstructions}
-            style={{
-              background: "#fff",
-              color: "#667eea",
-              border: "none",
-              borderRadius: 12,
-              padding: "16px 40px",
-              fontSize: 16,
-              fontWeight: "bold",
-              cursor: "pointer",
-              boxShadow: "0 8px 20px rgba(0, 0, 0, 0.2)",
-              minWidth: 200,
-            }}>
-            Got It!
-          </button>
         </div>
       </div>
     );
