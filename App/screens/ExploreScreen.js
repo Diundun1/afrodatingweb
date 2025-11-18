@@ -8,6 +8,7 @@ import {
   ScrollView,
   Dimensions,
   Animated,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +17,8 @@ import BottomButtons from "../components/BottomButtons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import MyStatusBar from "../components/MyStatusBar";
+import * as Location from "expo-location";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
 
@@ -48,9 +51,71 @@ export default function ExploreScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notif, setNotif] = useState("");
+  const [locationName, setLocationName] = useState("Fetching location...");
 
   useEffect(() => {
     fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    const getLocation = async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "Allow location access to continue.");
+        console.log("Location permission not granted");
+        return;
+      }
+
+      try {
+        let location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+        setLatitude(location.coords.latitude);
+        setLongitude(location.coords.longitude);
+
+        console.log(
+          "This is the set location coordinates: ",
+          location.coords.latitude,
+          " - ",
+          location.coords.longitude
+        );
+        console.log("This is the latitude and longitude : ", latitude);
+
+        // Fetch location name
+        fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${location.coords.latitude}&lon=${location.coords.longitude}&format=json`,
+          {
+            headers: {
+              "User-Agent": "CloseMatchApp v1.0",
+            },
+          }
+        )
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.address) {
+              const city =
+                data.address.city ||
+                data.address.town ||
+                data.address.village ||
+                data.address.county ||
+                "Unknown";
+              const state = data.address.state || "Unknown";
+              setLocationName(`${city}, ${state}`);
+            } else {
+              setLocationName("Location unavailable");
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching location name:", error);
+            setLocationName("Location error");
+          });
+      } catch (error) {
+        console.error("Error fetching location:", error);
+      }
+    };
+
+    getLocation();
   }, []);
 
   // Separate API call functions for button clicks
@@ -301,16 +366,55 @@ export default function ExploreScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <MyStatusBar notif={notif} setNotif={setNotif} />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.preferenceButton}>
-          <Ionicons name="options-outline" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Explore</Text>
-        <TouchableOpacity
-          style={styles.preferenceButton}
-          onPress={() => navigation.navigate("Preferences")}>
-          <Ionicons name="options-outline" size={24} color="#7B61FF" />
-        </TouchableOpacity>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        }}>
+        {/* Location - Left */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            flex: 0.4, // Takes 40% of space
+          }}>
+          <MaterialIcons name="location-pin" size={20} color="#333" />
+          <Text
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              fontSize: 15,
+              marginLeft: 4,
+              color: "#333",
+            }}
+            ellipsizeMode="tail">
+            {locationName}
+          </Text>
+        </View>
+
+        {/* Logo - Center (auto centers with space-between) */}
+        <Image
+          source={require("../assets/images/logo.png")}
+          style={{
+            width: 50,
+            height: 50,
+          }}
+        />
+
+        {/* Preferences - Right */}
+        <View
+          style={{
+            flex: 0.4, // Takes 40% of space (same as left)
+            alignItems: "flex-end",
+          }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("NotificationsScreen")}>
+            <Ionicons name="notifications-outline" size={22} color="#7B61FF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Content */}
@@ -451,11 +555,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#F3F4F6",
     paddingBottom: 0,
+    backgroundColor: "red",
   },
   headerTitle: {
     fontSize: 24,
@@ -465,6 +570,7 @@ const styles = StyleSheet.create({
   },
   preferenceButton: {
     padding: 8,
+    maxWidth: "35%",
   },
   mainContent: {
     flex: 1,

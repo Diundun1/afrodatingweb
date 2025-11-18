@@ -381,7 +381,7 @@ export default function SignupScreen() {
                   maxLength={30}
                 />
 
-                <Text style={styles.label}>Address</Text>
+                <Text style={styles.label}>State/District</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Enter State/District"

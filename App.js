@@ -42,6 +42,7 @@ import { SocketProvider } from "./App/lib/SocketContext";
 import IncomingCallScreen from "./App/screens/IncomingCallScreen";
 import VideoCallScreen from "./App/screens/VideoCallScreen";
 import RestrictScreen from "./App/components/RestricScreen";
+import NotificationsScreen from "./App/screens/NotificationsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -297,6 +298,10 @@ export default function App() {
               <Stack.Screen name="LoginScreen" component={LoginScreen} />
               <Stack.Screen name="OTPScreen" component={OTPScreen} />
               <Stack.Screen name="ExploreScreen" component={ExploreScreen} />
+              <Stack.Screen
+                name="NotificationsScreen"
+                component={NotificationsScreen}
+              />
               <Stack.Screen
                 name="IncomingCallScreen"
                 component={IncomingCallScreen}

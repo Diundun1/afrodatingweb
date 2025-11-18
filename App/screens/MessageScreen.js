@@ -102,6 +102,7 @@ const MessageScreen = ({ route }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inputMessage, setInputMessage] = useState("");
+  const [secinputMessage, setsecInputMessage] = useState("");
   const [userId, setUserId] = useState(null);
   const [callUrl, setCallUrl] = useState("");
   const [isProcessingCall, setIsProcessingCall] = useState(false);
@@ -468,18 +469,20 @@ const MessageScreen = ({ route }) => {
     }
 
     const clientTimestamp = Date.now();
+    const nxinputmessage = inputMessage;
     const optimisticId = `optimistic_${clientTimestamp}`;
+    setInputMessage("");
 
     const payload = {
       room: roomIdxccd,
       recipient: partnerData._id,
-      message: inputMessage.trim(),
+      message: nxinputmessage.trim(),
       clientTimestamp: clientTimestamp,
     };
 
     const newMessage = {
       id: optimisticId,
-      message: inputMessage.trim(),
+      message: nxinputmessage.trim(),
       isSender: true,
       isSeen: false,
       messageTime: formatMessageTime(),
@@ -492,7 +495,6 @@ const MessageScreen = ({ route }) => {
     setInputMessage("");
 
     try {
-      // ✅ USE THE NEW EMIT METHOD
       const success = emit("sendMessage", payload);
 
       if (!success) {
@@ -925,6 +927,7 @@ const MessageScreen = ({ route }) => {
   };
 
   // Show connection error
+  /*
   if (connectionError) {
     return (
       <View style={styles.errorContainer}>
@@ -954,6 +957,7 @@ const MessageScreen = ({ route }) => {
       </View>
     );
   }
+    */
 
   return (
     <KeyboardAvoidingView
@@ -1011,9 +1015,9 @@ const MessageScreen = ({ route }) => {
                 <NunitoTitle style={styles.userName}>
                   {partnerData.name}
                 </NunitoTitle>
-                <NunitoText style={styles.userStatus}>
+                {/**  <NunitoText style={styles.userStatus}>
                   {typingUser ? `${typingUser} is typing...` : "Online"}
-                </NunitoText>
+                </NunitoText> */}
               </>
             ) : (
               <ActivityIndicator size="small" color="#7B61FF" />
@@ -1069,32 +1073,108 @@ const MessageScreen = ({ route }) => {
         )}
 
         {/* Input Area */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
+        <View
+          style={{
+            backgroundColor: "#fff",
+            borderTopWidth: 1,
+            borderTopColor: "#E5E7EB",
+            paddingHorizontal: 16,
+            paddingBottom: 16,
+            paddingTop: 8,
+          }}>
+          {/* Connection Error Banner */}
+          {connectionError && (
+            <View
+              style={{
+                backgroundColor: "#EF4444",
+                borderRadius: 8,
+                marginBottom: 8,
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+              }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}>
+                <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
+                <NunitoText
+                  style={{
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: "500",
+                    flex: 1,
+                    marginLeft: 8,
+                  }}>
+                  No internet connection
+                </NunitoText>
+                <TouchableOpacity
+                  style={{ padding: 4 }}
+                  onPress={() => setConnectionError(false)}>
+                  <Ionicons name="refresh-outline" size={16} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-end",
+              backgroundColor: "#F9FAFB",
+              borderRadius: 24,
+              paddingHorizontal: 16,
+              paddingVertical: 2,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+            }}>
             <TextInput
               placeholder="Type a message..."
               placeholderTextColor="#9CA3AF"
-              style={styles.textInput}
+              style={{
+                flex: 1,
+                fontSize: 16,
+                color: "#1F2937",
+                //  maxHeight: 100,
+                paddingTop: 8,
+                paddingBottom: 8,
+                outlineWidth: 0,
+                opacity: connectionError ? 0.5 : 1,
+              }}
               value={inputMessage}
               onChangeText={handleTyping}
-              multiline
-              maxHeight={100}
-              editable={!loading}
+              //  multiline
+              //  maxHeight={100}
+              editable={!loading && !connectionError}
             />
+
+            <TouchableOpacity
+              style={{
+                backgroundColor:
+                  !inputMessage.trim() || loading || connectionError
+                    ? "#F3F4F6"
+                    : "#7B61FF",
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                justifyContent: "center",
+                alignItems: "center",
+                marginLeft: 8,
+              }}
+              onPress={sendMessage}
+              disabled={!inputMessage.trim() || loading || connectionError}>
+              <Ionicons
+                name="send"
+                size={20}
+                color={
+                  !inputMessage.trim() || loading || connectionError
+                    ? "#9CA3AF"
+                    : "#fff"
+                }
+              />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              !inputMessage.trim() && styles.sendButtonDisabled,
-            ]}
-            onPress={sendMessage}
-            disabled={!inputMessage.trim() || loading}>
-            <Ionicons
-              name="send"
-              size={20}
-              color={inputMessage.trim() ? "#fff" : "#9CA3AF"}
-            />
-          </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>

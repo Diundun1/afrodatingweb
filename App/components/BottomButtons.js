@@ -2,13 +2,17 @@ import React from "react";
 import { View, TouchableOpacity, Text, StyleSheet, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import NunitoText from "./NunitoText";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
-export default function BottomButtons({ active = "ExploreScreen" }) {
+export default function BottomButtons() {
   const navigation = useNavigation();
+  const route = useRoute(); // Get current route
 
   // Brand color constant for consistency
   const BRAND_COLOR = "#7B61FF";
+
+  // Helper function to check if a screen is active
+  const isActive = (screenName) => route.name === screenName;
 
   return (
     <View style={styles.container}>
@@ -19,18 +23,20 @@ export default function BottomButtons({ active = "ExploreScreen" }) {
         <View
           style={[
             styles.iconContainer,
-            active === "FilterScreen" && styles.activeIconContainer,
+            isActive("FilterScreen") && {
+              backgroundColor: BRAND_COLOR, // Brand color background
+            },
           ]}>
           <Ionicons
             name="options-outline"
             size={18}
-            color={active === "FilterScreen" ? BRAND_COLOR : "#333"}
+            color={isActive("FilterScreen") ? "#fff" : "#333"} // White icon when active
           />
         </View>
         <NunitoText
           style={[
             styles.label,
-            active === "FilterScreen" && {
+            isActive("FilterScreen") && {
               color: BRAND_COLOR,
               fontWeight: "600",
             },
@@ -46,18 +52,20 @@ export default function BottomButtons({ active = "ExploreScreen" }) {
         <View
           style={[
             styles.iconContainer,
-            active === "MyFavouriteScreen" && styles.activeIconContainer,
+            isActive("MyFavouriteScreen") && {
+              backgroundColor: BRAND_COLOR, // Brand color background
+            },
           ]}>
           <Ionicons
             name="card-outline"
             size={18}
-            color={active === "MyFavouriteScreen" ? BRAND_COLOR : "#333"}
+            color={isActive("MyFavouriteScreen") ? "#fff" : "#333"} // White icon when active
           />
         </View>
         <NunitoText
           style={[
             styles.label,
-            active === "MyFavouriteScreen" && {
+            isActive("MyFavouriteScreen") && {
               color: BRAND_COLOR,
               fontWeight: "600",
             },
@@ -73,7 +81,7 @@ export default function BottomButtons({ active = "ExploreScreen" }) {
         <View
           style={[
             styles.centerIcon,
-            active === "Home" && styles.activeCenterIcon,
+            isActive("ExploreScreen") && styles.activeCenterIcon,
           ]}>
           <Image
             source={require("../assets/icons/filled.png")}
@@ -89,18 +97,20 @@ export default function BottomButtons({ active = "ExploreScreen" }) {
         <View
           style={[
             styles.iconContainer,
-            active === "ChatScreen" && styles.activeIconContainer,
+            isActive("ChatScreen") && {
+              backgroundColor: BRAND_COLOR, // Brand color background
+            },
           ]}>
           <Ionicons
             name="chatbubble-ellipses-outline"
             size={18}
-            color={active === "ChatScreen" ? BRAND_COLOR : "#333"}
+            color={isActive("ChatScreen") ? "#fff" : "#333"} // White icon when active
           />
         </View>
         <NunitoText
           style={[
             styles.label,
-            active === "ChatScreen" && {
+            isActive("ChatScreen") && {
               color: BRAND_COLOR,
               fontWeight: "600",
             },
@@ -116,18 +126,20 @@ export default function BottomButtons({ active = "ExploreScreen" }) {
         <View
           style={[
             styles.iconContainer,
-            active === "Profile" && styles.activeIconContainer,
+            isActive("ProfileScreen") && {
+              backgroundColor: BRAND_COLOR, // Brand color background
+            },
           ]}>
           <Ionicons
             name="person-outline"
             size={18}
-            color={active === "Profile" ? BRAND_COLOR : "#333"}
+            color={isActive("ProfileScreen") ? "#fff" : "#333"} // White icon when active
           />
         </View>
         <NunitoText
           style={[
             styles.label,
-            active === "Profile" && {
+            isActive("ProfileScreen") && {
               color: BRAND_COLOR,
               fontWeight: "600",
             },
@@ -147,7 +159,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     justifyContent: "space-around",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 2,
     paddingHorizontal: 10,
   },
   tab: {
@@ -162,13 +174,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  activeIconContainer: {
-    backgroundColor: "rgba(124, 97, 255, 0.1)", // Light purple background using brand color
-  },
   label: {
     fontSize: 11,
     color: "#666",
-    marginTop: -9,
+    marginTop: -2,
     fontWeight: "900",
   },
   centerButton: {
@@ -182,7 +191,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   centerIcon: {
-    backgroundColor: BRAND_COLOR, // Using brand color for center icon
+    backgroundColor: BRAND_COLOR,
     borderRadius: 50,
     padding: 12,
     width: 50,
@@ -191,7 +200,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   activeCenterIcon: {
-    backgroundColor: BRAND_COLOR, // Using brand color for active center icon
+    backgroundColor: BRAND_COLOR,
     shadowColor: BRAND_COLOR,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
