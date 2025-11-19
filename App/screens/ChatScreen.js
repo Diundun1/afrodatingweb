@@ -290,13 +290,13 @@ export default function ChatScreen() {
           </NunitoTitle>
         </View>
       </View>
-      {chat.unreadMessageCount > 0 && (
+      {/**     {chat.unreadMessageCount > 0 && (
         <View style={styles.unreadBadge}>
           <NunitoTitle style={styles.unreadCount}>
             {chat.unreadMessageCount}
           </NunitoTitle>
         </View>
-      )}
+      )} */}
     </TouchableOpacity>
   );
 

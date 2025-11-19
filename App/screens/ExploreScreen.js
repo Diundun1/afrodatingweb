@@ -51,6 +51,8 @@ export default function ExploreScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notif, setNotif] = useState("");
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
   const [locationName, setLocationName] = useState("Fetching location...");
 
   useEffect(() => {

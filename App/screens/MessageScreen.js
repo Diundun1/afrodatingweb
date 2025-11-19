@@ -159,15 +159,17 @@ const MessageScreen = ({ route }) => {
     const onCallInvitation = (data) => {
       console.log("📞 Received call invitation:", data);
 
+      if (!connectionError) {
+        navigation.navigate("IncomingCallScreen", {
+          callerName: data.callerName || "Unknown Caller",
+          partnerId: data.callerId,
+          callUrl: data.callUrl,
+          room: data.room,
+          callType: data.callType || "video",
+          isCaller: false,
+        });
+      }
       // Navigate to incoming call screen
-      navigation.navigate("IncomingCallScreen", {
-        callerName: data.callerName || "Unknown Caller",
-        partnerId: data.callerId,
-        callUrl: data.callUrl,
-        room: data.room,
-        callType: data.callType || "video",
-        isCaller: false,
-      });
     };
 
     socketRef.current.on("callInvitation", onCallInvitation);
@@ -406,21 +408,23 @@ const MessageScreen = ({ route }) => {
             return;
           }
 
-          if (recipientId && latestMessage.sender_id._id !== loggedInUser) {
-            navigation.navigate("IncomingCallScreen", {
-              callerName: data.data.chatPartner.name || "Unknown Caller",
-              partnerId: latestMessage.sender_id._id,
-              callUrl,
-              room: roomId,
-              callType: "video",
-              isCaller: true,
-            });
+          if (!connectionError) {
+            if (recipientId && latestMessage.sender_id._id !== loggedInUser) {
+              navigation.navigate("IncomingCallScreen", {
+                callerName: data.data.chatPartner.name || "Unknown Caller",
+                partnerId: latestMessage.sender_id._id,
+                callUrl,
+                room: roomId,
+                callType: "video",
+                isCaller: true,
+              });
 
-            await Promise.all([
-              AsyncStorage.setItem("callUrl", callUrl),
-              AsyncStorage.setItem("partnerId", latestMessage.sender_id._id),
-              AsyncStorage.setItem("partnerName", data.data.chatPartner.name),
-            ]);
+              await Promise.all([
+                AsyncStorage.setItem("callUrl", callUrl),
+                AsyncStorage.setItem("partnerId", latestMessage.sender_id._id),
+                AsyncStorage.setItem("partnerName", data.data.chatPartner.name),
+              ]);
+            }
           }
         }
       } catch (error) {
@@ -631,16 +635,20 @@ const MessageScreen = ({ route }) => {
           socket.on("messageSent", handleMessageSent);
         }
 
-        // Navigate to call screen
-        navigation.navigate("VideoCallScreen", {
-          callUrl: response.final_url,
-          partnerId: partnerData._id,
-          partnerName: partnerData.name,
-          isCaller: true,
-        });
+        if (!connectionError) {
+          navigation.navigate("VideoCallScreen", {
+            callUrl: response.final_url,
+            partnerId: partnerData._id,
+            partnerName: partnerData.name,
+            isCaller: true,
+          });
 
-        setInCall(true);
-        setParticipant(partnerData.name);
+          setInCall(true);
+          setParticipant(partnerData.name);
+        } else {
+          return;
+        }
+        // Navigate to call screen
       } else {
         Alert.alert("Call Failed", "Unable to create video call room.");
       }
@@ -747,25 +755,25 @@ const MessageScreen = ({ route }) => {
         socketRef.current.off("messageSent", handleMessageSent);
         socketRef.current.on("messageSent", handleMessageSent);
 
-        // Navigate to call screen
-        navigation.navigate("VideoCallScreen", {
-          callUrl: response.final_url,
-          partnerId: partnerData._id,
-          partnerName: partnerData.name,
-          isCaller: true,
-        });
+        if (!connectionError) {
+          navigation.navigate("VideoCallScreen", {
+            callUrl: response.final_url,
+            partnerId: partnerData._id,
+            partnerName: partnerData.name,
+            isCaller: true,
+          });
 
-        setInCall(true);
-        setParticipant(partnerData.name);
+          setInCall(true);
+          setParticipant(partnerData.name);
+        } else {
+          return;
+        }
       } else {
-        Alert.alert("Call Failed", "Unable to create voice call room.");
+        alert("Call Failed", "Unable to create voice call room.");
       }
     } catch (e) {
       console.error("Voice call error:", e);
-      Alert.alert(
-        "Call Failed",
-        "Unable to initiate voice call. Please try again."
-      );
+      alert("Call Failed", "Unable to initiate voice call. Please try again.");
     } finally {
       setIsProcessingCall(false);
     }
@@ -834,23 +842,27 @@ const MessageScreen = ({ route }) => {
                       return;
                     }
 
-                    const isCaller = item.isSender;
+                    if (!connectionError) {
+                      const isCaller = item.isSender;
 
-                    if (isCaller) {
-                      navigation.navigate("VideoCallScreen", {
-                        callUrl,
-                        partnerId: partnerData?._id,
-                        partnerName: partnerData?.name,
-                        isCaller: true,
-                      });
+                      if (isCaller) {
+                        navigation.navigate("VideoCallScreen", {
+                          callUrl,
+                          partnerId: partnerData?._id,
+                          partnerName: partnerData?.name,
+                          isCaller: true,
+                        });
+                      } else {
+                        navigation.navigate("IncomingCallScreen", {
+                          callUrl,
+                          callerId: partnerData?._id,
+                          callerName: partnerData?.name,
+                          room: roomIdxccd,
+                          isCaller: false,
+                        });
+                      }
                     } else {
-                      navigation.navigate("IncomingCallScreen", {
-                        callUrl,
-                        callerId: partnerData?._id,
-                        callerName: partnerData?.name,
-                        room: roomIdxccd,
-                        isCaller: false,
-                      });
+                      return;
                     }
                   }
                 }}>
