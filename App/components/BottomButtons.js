@@ -161,6 +161,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 2,
     paddingHorizontal: 10,
+    marginBottom: 5,
   },
   tab: {
     alignItems: "center",

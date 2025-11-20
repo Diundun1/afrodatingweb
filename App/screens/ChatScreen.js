@@ -98,20 +98,38 @@ export default function ChatScreen() {
   const formatChatData = (data) => {
     const formattedChats = Array.isArray(data) ? data : [data];
 
-    return formattedChats.map((chat, index) => ({
-      id: chat.match?._id || chat.chatUser._id || `${index}`,
-      name: chat.chatUser.name,
-      lastMessage: chat.lastMessage?.message || "No messages yet",
-      image: require("../assets/images/users/1.png"),
-      lastMessageTime: chat.lastMessage
-        ? new Date(chat.lastMessage.sent_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : "N/A",
-      unreadMessageCount: chat.chatMetadata?.unreadCount || 0,
-      roomId: chat.room,
-    }));
+    return formattedChats.map((chat, index) => {
+      const lm = chat.lastMessage; // could be object or string
+
+      const lastMessageText =
+        typeof lm === "object" ? lm.message : lm || "No messages yet";
+
+      const lastMessageTime =
+        typeof lm === "object" && lm.sent_at
+          ? new Date(lm.sent_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "N/A";
+
+      // ✔ FIXED PROFILE PIC
+      const profilePic =
+        chat.chatUser?.profile_pic?.[0]?.url ||
+        chat.match?.profile_pic?.[0]?.url ||
+        null;
+
+      return {
+        id: chat.match?._id || chat.chatUser?._id || `${index}`,
+        name: chat.chatUser?.name || "Unknown User",
+        lastMessage: lastMessageText,
+        lastMessageTime,
+        unreadMessageCount: chat.chatMetadata?.unreadCount || 0,
+        roomId: chat.room,
+
+        // ✔ if null, we'll handle fallback in the component
+        profile_pic: profilePic,
+      };
+    });
   };
 
   // Extract other user ID from room ID
@@ -256,7 +274,14 @@ export default function ChatScreen() {
       onPress={() => onPress(chat.roomId)}
       onLongPress={() => onDelete(chat.roomId)}>
       <View style={styles.chatLeft}>
-        <Image source={chat.image} style={styles.chatAvatar} />
+        <Image
+          source={
+            chat.profile_pic
+              ? { uri: chat.profile_pic }
+              : require("../assets/images/users/1.png")
+          }
+          style={styles.chatAvatar}
+        />
         <View style={styles.chatContent}>
           <View style={styles.chatHeader}>
             <NunitoTitle style={styles.chatName}>{chat.name}</NunitoTitle>

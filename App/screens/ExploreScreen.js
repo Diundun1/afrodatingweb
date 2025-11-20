@@ -63,7 +63,8 @@ export default function ExploreScreen({ navigation }) {
     const getLocation = async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission Denied", "Allow location access to continue.");
+        setNotif("Allow location access to continue.");
+        // alert("Permission Denied", "Allow location access to continue.");
         console.log("Location permission not granted");
         return;
       }
