@@ -884,19 +884,6 @@ const MessageScreen = ({ route }) => {
               )}
             </View>
           </View>
-
-          {item.isSender && (
-            <View
-              style={[
-                styles.avatarContainer,
-                { marginLeft: 8, marginRight: 0 },
-              ]}>
-              <Image
-                source={defaultImage}
-                style={[styles.smallProfilePic, { opacity: 0.7 }]}
-              />
-            </View>
-          )}
         </View>
       </View>
     );
