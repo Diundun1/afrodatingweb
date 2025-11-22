@@ -22,18 +22,17 @@ import CustomDatePicker from "../components/CustomDatePicker";
 export default function SignupScreen() {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState("create");
-  const [fullName, setFullName] = useState("Rodney Chukwuemeka");
-  const [email, setEmail] = useState("t@t.com");
-  const [password, setPassword] = useState("123123123");
-  const [phoneNumber, setPhoneNumber] = useState("07011290915");
-  const [address, setAddress] = useState("Nigeria");
-  const [country, setCountry] = useState("Nigeria");
-  const [bio, setBio] = useState("Lovely");
-  const [occupation, setOccupation] = useState("Big");
-  const [degree, setDegree] = useState("Dev");
-  const [religion, setReligion] = useState("Christianity");
-  const [maritalStatus, setMaritalStatus] = useState("Single");
-  const tempDate = "Date Of Birth";
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [address, setAddress] = useState("");
+  const [country, setCountry] = useState("");
+  const [bio, setBio] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [degree, setDegree] = useState("");
+  const [religion, setReligion] = useState("");
+  const [maritalStatus, setMaritalStatus] = useState("");
   const [notif, setNotif] = useState("");
 
   const [latitude, setLatitude] = useState(9.9396052);
@@ -48,12 +47,21 @@ export default function SignupScreen() {
   const [secondForm, setSecondForm] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Password visibility state
+  const [showPassword, setShowPassword] = useState(false);
+
   const handleDateChange = (event, selectedDate) => {
     setShowDate(false);
     if (selectedDate) {
       setDate(selectedDate);
     }
   };
+
+  // Toggle password visibility
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   useEffect(() => {
     const checkUserToken = async () => {
       const token = await AsyncStorage.getItem("userToken");
@@ -533,15 +541,26 @@ export default function SignupScreen() {
                 />
 
                 <Text style={styles.label}>Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  // secureTextEntry
-                  keyboardType="default"
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholderTextColor={"#7b7b7b75"}
-                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="••••••••"
+                    secureTextEntry={!showPassword}
+                    keyboardType="default"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholderTextColor={"#7b7b7b75"}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIcon}
+                    onPress={togglePasswordVisibility}>
+                    <Ionicons
+                      name={showPassword ? "eye-off" : "eye"}
+                      size={24}
+                      color="#7b7b7b"
+                    />
+                  </TouchableOpacity>
+                </View>
 
                 <Text style={styles.label}>Phone Number</Text>
                 <TextInput
@@ -630,6 +649,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 14,
     backgroundColor: "#fff",
+    outlineWidth: 0,
+  },
+  // Password container styles
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#BEC5D1",
+    borderRadius: 10,
+    backgroundColor: "#fff",
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    fontSize: 14,
+    outlineWidth: 0,
+  },
+  eyeIcon: {
+    padding: 10,
   },
   inputWithIcon: {
     flexDirection: "row",

@@ -43,6 +43,8 @@ import IncomingCallScreen from "./App/screens/IncomingCallScreen";
 import VideoCallScreen from "./App/screens/VideoCallScreen";
 import RestrictScreen from "./App/components/RestricScreen";
 import NotificationsScreen from "./App/screens/NotificationsScreen";
+import ForgotPasswordScreen from "./App/screens/ForgotPasswordScreen";
+import ResetPasswordScreen from "./App/screens/ResetPasswordScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -298,6 +300,14 @@ export default function App() {
               <Stack.Screen name="LoginScreen" component={LoginScreen} />
               <Stack.Screen name="OTPScreen" component={OTPScreen} />
               <Stack.Screen name="ExploreScreen" component={ExploreScreen} />
+              <Stack.Screen
+                name="ResetPasswordScreen"
+                component={ResetPasswordScreen}
+              />
+              <Stack.Screen
+                name="ForgotPasswordScreen"
+                component={ForgotPasswordScreen}
+              />
               <Stack.Screen
                 name="NotificationsScreen"
                 component={NotificationsScreen}

@@ -22,8 +22,8 @@ export default function LoginScreen() {
   const [notif, setNotif] = useState("");
 
   const [email, setEmail] = useState("");
-  const [password, setpassword] = useState("");
-  const [showPassword, setshowPassword] = useState(true);
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // Changed initial state to false for better security
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -98,6 +98,11 @@ export default function LoginScreen() {
     }
   };
 
+  // Function to toggle password visibility
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
     <SafeAreaView style={{ backgroundColor: "#fff", flex: 1 }}>
       <MyStatusBar notif={notif} setNotif={setNotif} />
@@ -145,14 +150,33 @@ export default function LoginScreen() {
             />
 
             <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="password"
-              secureTextEntry
-              value={password}
-              placeholderTextColor={"#7b7b7b75"}
-              onChangeText={(value) => setpassword(value)}
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="password"
+                secureTextEntry={!showPassword} // Toggle based on showPassword state
+                value={password}
+                placeholderTextColor={"#7b7b7b75"}
+                onChangeText={(value) => setPassword(value)}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={togglePasswordVisibility}>
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={24}
+                  color="#7b7b7b"
+                />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                navigation.navigate("ForgotPasswordScreen");
+              }}>
+              <Text style={[styles.label, { fontWeight: "500", fontSize: 13 }]}>
+                Forgotten Password?
+              </Text>
+            </TouchableOpacity>
 
             {errorMessage ? (
               <NunitoText
@@ -193,7 +217,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     width: "100%",
     height: "100%",
-    //   justifyContent: "center", // Centers content vertically
   },
   mainContent: {
     paddingHorizontal: 25,
@@ -240,6 +263,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 14,
     backgroundColor: "#fff",
+    outlineWidth: 0,
+  },
+  // New styles for password container
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#BEC5D1",
+    borderRadius: 10,
+    backgroundColor: "#fff",
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    fontSize: 14,
+    outlineWidth: 0,
+  },
+  eyeIcon: {
+    padding: 10,
   },
   nextBtn: {
     backgroundColor: "#7B61FF",
@@ -248,7 +291,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 25,
     alignSelf: "center",
-    width: "80%", // Changed from 80% to 100% since container is centered
+    width: "80%",
   },
   nextText: {
     color: "#fff",
@@ -259,7 +302,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    width: "80%", // Changed from 80% to 100% since container is centered
+    width: "80%",
     backgroundColor: "#F4F4F4",
     borderRadius: 10,
     paddingVertical: 12,
