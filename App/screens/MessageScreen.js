@@ -470,6 +470,7 @@ const MessageScreen = ({ route }) => {
         "Connection Error",
         "Socket not connected — message not sent."
       );
+      setConnectionError(true); // Set connection error state
       return;
     }
 
@@ -503,7 +504,17 @@ const MessageScreen = ({ route }) => {
       const success = emit("sendMessage", payload);
 
       if (!success) {
-        throw new Error("Failed to emit message");
+        setConnectionError(true);
+        // Remove optimistic message on emit failure
+        setTimeout(() => {
+          setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
+          optimisticMessagesRef.current.delete(clientTimestamp);
+        }, 100);
+        Alert.alert(
+          "Connection Error",
+          "Failed to send message. Please check your connection."
+        );
+        return;
       }
 
       // Handle confirmation
@@ -516,6 +527,7 @@ const MessageScreen = ({ route }) => {
               : msg
           )
         );
+        setConnectionError(false); // Reset connection error on success
       };
 
       // Listen for confirmation using the direct socket
@@ -524,21 +536,45 @@ const MessageScreen = ({ route }) => {
         socket.on("messageSent", handleMessageSent);
       }
 
+      // Set up timeout to detect if message confirmation doesn't arrive
+      const confirmationTimeout = setTimeout(() => {
+        setConnectionError(true);
+        Alert.alert(
+          "Connection Issue",
+          "Message may not have been delivered. Please check your connection."
+        );
+      }, 10000); // 10 seconds timeout
+
       // Stop typing using emit
-      emit("stopTyping", {
+      const stopTypingSuccess = emit("stopTyping", {
         room: roomIdxccd,
         recipient: partnerData._id,
         userId,
       });
 
+      if (!stopTypingSuccess) {
+        console.warn("Failed to emit stopTyping event");
+      }
+
       clearTimeout(typingTimeoutRef.current);
+
+      // Clear confirmation timeout when message is confirmed
+      socket?.once("messageSent", () => {
+        clearTimeout(confirmationTimeout);
+      });
     } catch (error) {
       console.error("Error sending message:", error);
-      Alert.alert("Error", "Failed to send message. Please try again.");
+      setConnectionError(true);
+      Alert.alert(
+        "Error",
+        "Failed to send message. Please check your connection and try again."
+      );
 
       // Remove optimistic message on error
-      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
-      optimisticMessagesRef.current.delete(clientTimestamp);
+      setTimeout(() => {
+        setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
+        optimisticMessagesRef.current.delete(clientTimestamp);
+      }, 100);
     }
   };
 
@@ -627,7 +663,12 @@ const MessageScreen = ({ route }) => {
         setMessages((prev) => [newMessage, ...prev]);
 
         // Emit message using new method
-        emit("sendMessage", payload);
+        const query = emit("sendMessage", payload);
+
+        if (!query) {
+          setConnectionError(true);
+          return;
+        }
 
         // Handle confirmation
         const handleMessageSent = (data) => {
@@ -750,8 +791,11 @@ const MessageScreen = ({ route }) => {
         setMessages((prev) => [newMessage, ...prev]);
 
         // Emit message
-        socketRef.current.emit("sendMessage", payload);
-
+        const query = socketRef.current.emit("sendMessage", payload);
+        if (!query) {
+          setConnectionError(true);
+          return;
+        }
         // Handle confirmation
         const handleMessageSent = (data) => {
           console.log("📤 Server confirmed call link sent:", data);
