@@ -1114,7 +1114,7 @@ const MessageScreen = ({ route }) => {
                     flex: 1,
                     marginLeft: 8,
                   }}>
-                  No internet connection
+                  Poor internet connection
                 </NunitoText>
                 <TouchableOpacity
                   style={{ padding: 4 }}
