@@ -849,7 +849,8 @@ const MessageScreen = ({ route }) => {
             alignItems: item.isSender ? "flex-end" : "flex-start",
             paddingHorizontal: 8,
           },
-        ]}>
+        ]}
+      >
         <View style={styles.messageRow}>
           {!item.isSender && (
             <View style={styles.avatarContainer}>
@@ -873,7 +874,8 @@ const MessageScreen = ({ route }) => {
                 ]}
                 onPress={() => {
                   // ... your existing call handling code ...
-                }}>
+                }}
+              >
                 <Ionicons name="videocam" size={18} color="#fff" />
                 <NunitoText style={styles.callText}>
                   {item.isSender ? "Call Started" : "Join Call"}
@@ -888,11 +890,13 @@ const MessageScreen = ({ route }) => {
                     opacity: item.fromServer === false ? 0.7 : 1,
                     alignSelf: item.isSender ? "flex-end" : "flex-start",
                   },
-                ]}>
+                ]}
+              >
                 <NunitoText
                   style={
                     item.isSender ? styles.senderText : styles.receiverText
-                  }>
+                  }
+                >
                   {item.message}
                   {item.fromServer === false && " ⏳"}
                 </NunitoText>
@@ -906,12 +910,14 @@ const MessageScreen = ({ route }) => {
                   justifyContent: item.isSender ? "flex-end" : "flex-start",
                   alignSelf: item.isSender ? "flex-end" : "flex-start",
                 },
-              ]}>
+              ]}
+            >
               <NunitoText
                 style={[
                   styles.timeText,
                   item.isSender && styles.senderTimeText,
-                ]}>
+                ]}
+              >
                 {item.messageTime}
               </NunitoText>
               {item.isSender && (
@@ -970,7 +976,8 @@ const MessageScreen = ({ route }) => {
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
       <View style={styles.safeArea}>
         <SafeMyStatusBar />
 
@@ -1003,7 +1010,8 @@ const MessageScreen = ({ route }) => {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
 
@@ -1035,14 +1043,16 @@ const MessageScreen = ({ route }) => {
             <TouchableOpacity
               style={styles.callButton}
               onPress={onVideoCall}
-              disabled={isProcessingCall}>
+              disabled={isProcessingCall}
+            >
               <Ionicons name="videocam" size={20} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.callButton}
               onPress={onVoiceCall}
-              disabled={isProcessingCall}>
+              disabled={isProcessingCall}
+            >
               <Ionicons name="call" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -1088,7 +1098,8 @@ const MessageScreen = ({ route }) => {
             paddingHorizontal: 16,
             paddingBottom: 16,
             paddingTop: 8,
-          }}>
+          }}
+        >
           {/* Connection Error Banner */}
           {connectionError && (
             <View
@@ -1098,13 +1109,15 @@ const MessageScreen = ({ route }) => {
                 marginBottom: 8,
                 paddingVertical: 8,
                 paddingHorizontal: 12,
-              }}>
+              }}
+            >
               <View
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
-                }}>
+                }}
+              >
                 <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
                 <NunitoText
                   style={{
@@ -1113,12 +1126,14 @@ const MessageScreen = ({ route }) => {
                     fontWeight: "500",
                     flex: 1,
                     marginLeft: 8,
-                  }}>
+                  }}
+                >
                   Poor internet connection
                 </NunitoText>
                 <TouchableOpacity
                   style={{ padding: 4 }}
-                  onPress={() => setConnectionError(false)}>
+                  onPress={() => setConnectionError(false)}
+                >
                   <Ionicons name="refresh-outline" size={16} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -1135,7 +1150,8 @@ const MessageScreen = ({ route }) => {
               paddingVertical: 2,
               borderWidth: 1,
               borderColor: "#E5E7EB",
-            }}>
+            }}
+          >
             <TextInput
               placeholder="Type a message..."
               placeholderTextColor="#9CA3AF"
@@ -1170,7 +1186,8 @@ const MessageScreen = ({ route }) => {
                 marginLeft: 8,
               }}
               onPress={sendMessage}
-              disabled={!inputMessage.trim() || loading || connectionError}>
+              disabled={!inputMessage.trim() || loading || connectionError}
+            >
               <Ionicons
                 name="send"
                 size={20}
