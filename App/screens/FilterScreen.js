@@ -34,6 +34,7 @@ export default function FilterScreen() {
   const [notif, setNotif] = useState("");
 
   const handleApply = async () => {
+    useState;
     if (minAge > maxAge) {
       setNotif("Minimum age cannot be greater than maximum age");
       return;
@@ -48,7 +49,7 @@ export default function FilterScreen() {
       }
 
       const payload = {
-        gender: menSelected ? "male" : "female",
+        gender: menSelected ? "Male" : "Female",
         religion: religion || undefined,
         ageRange: {
           min: minAge,
@@ -146,12 +147,14 @@ export default function FilterScreen() {
         styles.genderButton,
         menSelected === isMale && styles.genderButtonActive,
       ]}
-      onPress={() => setMenSelected(isMale)}>
+      onPress={() => setMenSelected(isMale)}
+    >
       <Text
         style={[
           styles.genderText,
           menSelected === isMale && styles.genderTextActive,
-        ]}>
+        ]}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -165,7 +168,8 @@ export default function FilterScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.title}>Filters</Text>
@@ -174,7 +178,8 @@ export default function FilterScreen() {
 
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Location */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Location</Text>
@@ -237,7 +242,7 @@ export default function FilterScreen() {
             <Slider
               style={styles.slider}
               minimumValue={18}
-              maximumValue={maxAge - 1}
+              maximumValue={50}
               step={1}
               value={minAge}
               minimumTrackTintColor="#7B61FF"
@@ -252,7 +257,7 @@ export default function FilterScreen() {
             <Text style={styles.ageLabel}>Max Age: {maxAge}</Text>
             <Slider
               style={styles.slider}
-              minimumValue={minAge + 1}
+              minimumValue={18}
               maximumValue={50}
               step={1}
               value={maxAge}
@@ -306,7 +311,8 @@ export default function FilterScreen() {
         <TouchableOpacity
           style={[styles.applyButton, loading && styles.disabledButton]}
           onPress={handleApply}
-          disabled={loading}>
+          disabled={loading}
+        >
           {loading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (

@@ -33,6 +33,7 @@ import FilterScreen from "./App/screens/FilterScreen";
 import PremiumScreen from "./App/screens/PremiumScreen";
 import PaymentWebview from "./App/screens/PaymentWebview";
 import GeneralSettings from "./App/screens/GeneralSettings";
+import ChangePasswordScreen from "./App/screens/ChangePasswordScreen";
 
 // Import the PWA installation component
 import InstallPWAButton from "./App/components/InstallPWAButton";
@@ -281,9 +282,9 @@ export default function App() {
     return null;
   }
 
-  if (width > 420) {
-    return <RestrictScreen />;
-  }
+  // if (width > 420) {
+  //   return <RestrictScreen />;
+  // }
 
   return (
     <>
@@ -292,7 +293,8 @@ export default function App() {
           <CallProvider>
             <Stack.Navigator
               screenOptions={{ headerShown: false }}
-              initialRouteName="WelcomeScreen">
+              initialRouteName="WelcomeScreen"
+            >
               <Stack.Screen name="WelcomeScreen" component={WelcomeScreen1} />
               <Stack.Screen name="WelcomeScreen2" component={WelcomeScreen2} />
               <Stack.Screen name="SignupScreen" component={SignupScreen} />
@@ -324,6 +326,10 @@ export default function App() {
               <Stack.Screen
                 name="GeneralSettings"
                 component={GeneralSettings}
+              />
+              <Stack.Screen
+                name="ChangePasswordScreen"
+                component={ChangePasswordScreen}
               />
               <Stack.Screen
                 name="AccountInfoScreen"
@@ -359,7 +365,8 @@ export default function App() {
           visible={showNotificationModal}
           transparent={true}
           animationType="fade"
-          onRequestClose={handleDenyNotifications}>
+          onRequestClose={handleDenyNotifications}
+        >
           <View style={styles.notificationModal}>
             <View style={styles.notificationContent}>
               <Text style={styles.notificationTitle}>Enable Notifications</Text>
@@ -369,12 +376,14 @@ export default function App() {
               <View style={styles.notificationButtons}>
                 <TouchableOpacity
                   onPress={handleAllowNotifications}
-                  style={styles.allowButton}>
+                  style={styles.allowButton}
+                >
                   <Text style={styles.allowButtonText}>Allow</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleDenyNotifications}
-                  style={styles.denyButton}>
+                  style={styles.denyButton}
+                >
                   <Text style={styles.denyButtonText}>Not Now</Text>
                 </TouchableOpacity>
               </View>

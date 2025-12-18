@@ -19,14 +19,16 @@ export default function BottomButtons() {
       {/* Filter */}
       <TouchableOpacity
         style={styles.tab}
-        onPress={() => navigation.navigate("FilterScreen")}>
+        onPress={() => navigation.navigate("FilterScreen")}
+      >
         <View
           style={[
             styles.iconContainer,
             isActive("FilterScreen") && {
               backgroundColor: BRAND_COLOR, // Brand color background
             },
-          ]}>
+          ]}
+        >
           <Ionicons
             name="options-outline"
             size={18}
@@ -40,7 +42,8 @@ export default function BottomButtons() {
               color: BRAND_COLOR,
               fontWeight: "600",
             },
-          ]}>
+          ]}
+        >
           Filter
         </NunitoText>
       </TouchableOpacity>
@@ -48,14 +51,16 @@ export default function BottomButtons() {
       {/* Favourite */}
       <TouchableOpacity
         style={styles.tab}
-        onPress={() => navigation.navigate("MyFavouriteScreen")}>
+        onPress={() => navigation.navigate("MyFavouriteScreen")}
+      >
         <View
           style={[
             styles.iconContainer,
             isActive("MyFavouriteScreen") && {
               backgroundColor: BRAND_COLOR, // Brand color background
             },
-          ]}>
+          ]}
+        >
           <Ionicons
             name="card-outline"
             size={18}
@@ -69,7 +74,8 @@ export default function BottomButtons() {
               color: BRAND_COLOR,
               fontWeight: "600",
             },
-          ]}>
+          ]}
+        >
           Favourite
         </NunitoText>
       </TouchableOpacity>
@@ -77,12 +83,16 @@ export default function BottomButtons() {
       {/* Center Home Button */}
       <TouchableOpacity
         style={styles.centerButton}
-        onPress={() => navigation.navigate("ExploreScreen")}>
+        onPress={() => navigation.navigate("ExploreScreen")}
+      >
         <View
           style={[
             styles.centerIcon,
-            isActive("ExploreScreen") && styles.activeCenterIcon,
-          ]}>
+            isActive("ExploreScreen") && {
+              backgroundColor: BRAND_COLOR, // Brand color background
+            },
+          ]}
+        >
           <Image
             source={require("../assets/icons/filled.png")}
             style={styles.centerImage}
@@ -93,14 +103,16 @@ export default function BottomButtons() {
       {/* Message */}
       <TouchableOpacity
         style={styles.tab}
-        onPress={() => navigation.navigate("ChatScreen")}>
+        onPress={() => navigation.navigate("ChatScreen")}
+      >
         <View
           style={[
             styles.iconContainer,
             isActive("ChatScreen") && {
               backgroundColor: BRAND_COLOR, // Brand color background
             },
-          ]}>
+          ]}
+        >
           <Ionicons
             name="chatbubble-ellipses-outline"
             size={18}
@@ -114,7 +126,8 @@ export default function BottomButtons() {
               color: BRAND_COLOR,
               fontWeight: "600",
             },
-          ]}>
+          ]}
+        >
           Message
         </NunitoText>
       </TouchableOpacity>
@@ -122,14 +135,16 @@ export default function BottomButtons() {
       {/* Profile */}
       <TouchableOpacity
         style={styles.tab}
-        onPress={() => navigation.navigate("ProfileScreen")}>
+        onPress={() => navigation.navigate("ProfileScreen")}
+      >
         <View
           style={[
             styles.iconContainer,
             isActive("ProfileScreen") && {
               backgroundColor: BRAND_COLOR, // Brand color background
             },
-          ]}>
+          ]}
+        >
           <Ionicons
             name="person-outline"
             size={18}
@@ -143,7 +158,8 @@ export default function BottomButtons() {
               color: BRAND_COLOR,
               fontWeight: "600",
             },
-          ]}>
+          ]}
+        >
           Profile
         </NunitoText>
       </TouchableOpacity>
@@ -192,7 +208,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   centerIcon: {
-    backgroundColor: BRAND_COLOR,
+    backgroundColor: "#333",
     borderRadius: 50,
     padding: 12,
     width: 50,

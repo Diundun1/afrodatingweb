@@ -547,7 +547,7 @@ export default function SignupScreen() {
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
-                  // maxLength={25}
+                  maxLength={100}
                   placeholderTextColor={"#7b7b7b75"}
                 />
 

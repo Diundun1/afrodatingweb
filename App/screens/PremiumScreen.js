@@ -24,6 +24,7 @@ const PremiumScreen = () => {
   const [loading, setLoading] = useState(true);
   const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
   const [error, setError] = useState(null);
+  const [currentSubscription, setCurrentSubscription] = useState(null);
   const [isPaymentUrlArrived, setIsPaymentUrlArrived] = useState(false);
 
   // Brand colors
@@ -36,6 +37,86 @@ const PremiumScreen = () => {
     gray: "#6B7280",
     lightGray: "#9CA3AF",
   };
+
+  useEffect(() => {
+    const fetchSubStatus = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+
+        if (!token) {
+          setError("Authentication error: Token not found.");
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(
+          "https://backend-afrodate-8q6k.onrender.com/api/v1/subscription/status",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const SubStatusdata = await response.json();
+        console.log("Fetched Sub Status:", SubStatusdata);
+
+        setCurrentSubscription(SubStatusdata?.plan_data || null);
+      } catch (error) {
+        console.error("Error fetching Sub Status:", error);
+        setError("An error occurred while fetching Sub Status.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubStatus();
+  });
+
+  useEffect(() => {
+    if (!plansList?.length || selectedPlanIndex !== null) return;
+
+    // 1️⃣ Try matching by PLAN ID (BEST)
+    if (currentSubscription?._id) {
+      const indexById = plansList.findIndex(
+        (plan) => plan.id === currentSubscription._id
+      );
+
+      if (indexById !== -1) {
+        setSelectedPlanIndex(indexById);
+        return;
+      }
+    }
+
+    // 2️⃣ Try matching by NAME + INTERVAL
+    if (currentSubscription?.name) {
+      const indexByName = plansList.findIndex(
+        (plan) =>
+          plan.planTime?.toLowerCase() ===
+            currentSubscription.name.toLowerCase() &&
+          plan.interval?.toLowerCase() ===
+            currentSubscription.interval?.toLowerCase()
+      );
+
+      if (indexByName !== -1) {
+        setSelectedPlanIndex(indexByName);
+        return;
+      }
+    }
+
+    // 3️⃣ Fallback → Best Offer
+    const bestIndex = plansList.findIndex((plan) => plan.isBestOffer);
+
+    if (bestIndex !== -1) {
+      setSelectedPlanIndex(bestIndex);
+      return;
+    }
+
+    // 4️⃣ Final fallback
+    setSelectedPlanIndex(0);
+  }, [plansList, currentSubscription]);
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -118,6 +199,8 @@ const PremiumScreen = () => {
       return;
     }
 
+    console.log("Selected Plan:", selectedPlan);
+
     setIsPaymentUrlArrived(true);
 
     try {
@@ -171,7 +254,8 @@ const PremiumScreen = () => {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => setSelectedPlanIndex(index)}
-        style={styles.planItem}>
+        style={styles.planItem}
+      >
         <View style={styles.planInfo}>
           <Text style={styles.planName}>{item.planTime}</Text>
           <Text style={styles.planPrice}>
@@ -191,7 +275,8 @@ const PremiumScreen = () => {
               style={[
                 styles.bestOfferBadge,
                 { backgroundColor: BRAND_COLORS.primaryLight },
-              ]}>
+              ]}
+            >
               <Text style={styles.bestOfferText}>Best price</Text>
             </View>
           )}
@@ -208,7 +293,8 @@ const PremiumScreen = () => {
                     ? BRAND_COLORS.primary
                     : BRAND_COLORS.white,
               },
-            ]}>
+            ]}
+          >
             {selectedPlanIndex === index && (
               <MaterialIcons
                 name="check"
@@ -255,7 +341,8 @@ const PremiumScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => navigation.goBack()}
+        >
           <MaterialIcons name="close" size={24} color={BRAND_COLORS.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Premium Subscription</Text>
@@ -278,7 +365,8 @@ const PremiumScreen = () => {
       <View style={styles.contentContainer}>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}>
+          contentContainerStyle={styles.scrollContent}
+        >
           {/* Plans List */}
           {error ? (
             <Text style={styles.errorText}>{error}</Text>
@@ -304,7 +392,8 @@ const PremiumScreen = () => {
               { backgroundColor: BRAND_COLORS.primary },
             ]}
             onPress={handleSubscription}
-            disabled={isPaymentUrlArrived}>
+            disabled={isPaymentUrlArrived}
+          >
             {isPaymentUrlArrived ? (
               <ActivityIndicator size="small" color={BRAND_COLORS.white} />
             ) : (

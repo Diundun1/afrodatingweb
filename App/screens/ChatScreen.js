@@ -100,7 +100,7 @@ export default function ChatScreen() {
 
     return formattedChats.map((chat, index) => {
       const lm = chat.lastMessage; // could be object or string
-
+      console.log("formattedChats: ", formattedChats);
       // const lastMessageText =
       //   typeof lm === "object" ? lm.message : lm || "No messages yet";
       const lastMessageText =
