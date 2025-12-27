@@ -100,12 +100,23 @@ export default function ChatScreen() {
 
     return formattedChats.map((chat, index) => {
       const lm = chat.lastMessage; // could be object or string
-
+      console.log("formattedChats: ", formattedChats);
+      // const lastMessageText =
+      //   typeof lm === "object" ? lm.message : lm || "No messages yet";
       const lastMessageText =
-        typeof lm === "object" ? lm.message : lm || "No messages yet";
+        typeof lm === "object" && lm !== null
+          ? lm?.message ?? "No messages yet"
+          : lm ?? "No messages yet";
 
+      // const lastMessageTime =
+      //   typeof lm === "object" && lm.sent_at
+      //     ? new Date(lm.sent_at).toLocaleTimeString([], {
+      //         hour: "2-digit",
+      //         minute: "2-digit",
+      //       })
+      //     : "N/A";
       const lastMessageTime =
-        typeof lm === "object" && lm.sent_at
+        lm && typeof lm === "object" && lm.sent_at
           ? new Date(lm.sent_at).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
@@ -255,6 +266,8 @@ export default function ChatScreen() {
 
   // Effects
   useEffect(() => {
+    console.log("filteredChats: ", filteredChats);
+
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
@@ -272,7 +285,8 @@ export default function ChatScreen() {
     <TouchableOpacity
       style={styles.chatListItem}
       onPress={() => onPress(chat.roomId)}
-      onLongPress={() => onDelete(chat.roomId)}>
+      onLongPress={() => onDelete(chat.roomId)}
+    >
       <View style={styles.chatLeft}>
         <Image
           source={
@@ -298,7 +312,8 @@ export default function ChatScreen() {
                 ? styles.unreadMessage
                 : styles.readMessage,
               { width: "100%", justifyContent: "center" },
-            ]}>
+            ]}
+          >
             {chat.lastMessage.includes("https://test.unigate.com.ng") ? (
               <Text style={styles.callSessionText}>
                 <Ionicons
@@ -422,20 +437,23 @@ export default function ChatScreen() {
               colors={["#7B61FF"]}
               tintColor="#7B61FF"
             />
-          }>
+          }
+        >
           {filteredChats.length === 0 ? (
             <EmptyState />
           ) : (
             <View style={styles.chatsList}>
-              {filteredChats.map((chat, index) => (
-                <ChatListItem
-                  key={chat.id}
-                  chat={chat}
-                  onPress={startChatWithUser}
-                  onDelete={deleteChatWithUser}
-                  isLast={index === filteredChats.length - 1}
-                />
-              ))}
+              {filteredChats.map((chat, index) => {
+                return (
+                  <ChatListItem
+                    key={chat.id}
+                    chat={chat}
+                    onPress={startChatWithUser}
+                    onDelete={deleteChatWithUser}
+                    isLast={index === filteredChats.length - 1}
+                  />
+                );
+              })}
             </View>
           )}
         </Animated.ScrollView>

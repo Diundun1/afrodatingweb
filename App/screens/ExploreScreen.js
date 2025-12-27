@@ -376,24 +376,27 @@ export default function ExploreScreen({ navigation }) {
           justifyContent: "space-between",
           paddingHorizontal: 16,
           paddingVertical: 12,
-        }}>
+        }}
+      >
         {/* Location - Left */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
-            flex: 0.4, // Takes 40% of space
-          }}>
+            flex: 0.5, // Takes 40% of space
+          }}
+        >
           <MaterialIcons name="location-pin" size={20} color="#333" />
           <Text
             numberOfLines={1}
             style={{
               flex: 1,
-              fontSize: 15,
+              fontSize: 14,
               marginLeft: 4,
               color: "#333",
             }}
-            ellipsizeMode="tail">
+            // ellipsizeMode="tail"
+          >
             {locationName}
           </Text>
         </View>
@@ -410,11 +413,13 @@ export default function ExploreScreen({ navigation }) {
         {/* Preferences - Right */}
         <View
           style={{
-            flex: 0.4, // Takes 40% of space (same as left)
+            flex: 0.5, // Takes 40% of space (same as left)
             alignItems: "flex-end",
-          }}>
+          }}
+        >
           <TouchableOpacity
-            onPress={() => navigation.navigate("NotificationsScreen")}>
+            onPress={() => navigation.navigate("NotificationsScreen")}
+          >
             <Ionicons name="notifications-outline" size={22} color="#7B61FF" />
           </TouchableOpacity>
         </View>
@@ -427,7 +432,8 @@ export default function ExploreScreen({ navigation }) {
             {users.map((user, index) => (
               <View
                 key={user.id}
-                style={[styles.cardWrapper, { zIndex: users.length - index }]}>
+                style={[styles.cardWrapper, { zIndex: users.length - index }]}
+              >
                 <SwipeableCard
                   onSwipeLeft={() => handleSwipe(user.id, "left")}
                   onSwipeRight={() => handleSwipe(user.id, "right")}
@@ -452,11 +458,13 @@ export default function ExploreScreen({ navigation }) {
                     );
 
                     console.error(`Swipe error for user ${userId}:`, error);
-                  }}>
+                  }}
+                >
                   <ImageBackground
                     source={user.image || "../assets/images/users/1.png"}
                     style={styles.cardImage}
-                    resizeMode="cover">
+                    resizeMode="cover"
+                  >
                     <LinearGradient
                       colors={[
                         "rgba(0, 0, 0, 0.58)",
@@ -464,7 +472,8 @@ export default function ExploreScreen({ navigation }) {
                         "rgba(0, 0, 0, 0)",
                         "rgba(0, 0, 0, 0.58)",
                       ]}
-                      style={styles.gradientOverlay}>
+                      style={styles.gradientOverlay}
+                    >
                       {/* Top section - Likes You badge and location */}
                       <View style={styles.topSection}>
                         {user.hasLikedYou && (
@@ -489,7 +498,8 @@ export default function ExploreScreen({ navigation }) {
                           onPress={() => {
                             handleDislikeButton(user.id);
                             handleSwipe(user.id, "left");
-                          }}>
+                          }}
+                        >
                           <View style={styles.buttonIcon}>
                             <Ionicons name="close" size={24} color="#FF6B6B" />
                           </View>
@@ -498,7 +508,8 @@ export default function ExploreScreen({ navigation }) {
 
                         <TouchableOpacity
                           style={styles.userInfoContainer}
-                          onPress={() => handleCardPress(user.id)}>
+                          onPress={() => handleCardPress(user.id)}
+                        >
                           <Text style={styles.userName}>
                             {user.name}, {user.age}
                           </Text>
@@ -512,7 +523,8 @@ export default function ExploreScreen({ navigation }) {
                           onPress={() => {
                             handleLikeButton(user.id);
                             handleSwipe(user.id, "right");
-                          }}>
+                          }}
+                        >
                           <View style={styles.buttonIcon}>
                             <Ionicons name="heart" size={24} color="#6C63FF" />
                           </View>
@@ -534,7 +546,8 @@ export default function ExploreScreen({ navigation }) {
             </Text>
             <TouchableOpacity
               style={styles.refreshButton}
-              onPress={refreshData}>
+              onPress={refreshData}
+            >
               <Text style={styles.refreshButtonText}>Refresh</Text>
             </TouchableOpacity>
           </View>

@@ -336,7 +336,8 @@ export default function SignupScreen() {
 
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.mainContent}>
           {/* Top icon */}
           <View style={styles.iconContainer}>
@@ -358,18 +359,21 @@ export default function SignupScreen() {
                 style={[
                   styles.tabText,
                   activeTab === "create" && styles.activeTab,
-                ]}>
+                ]}
+              >
                 Create Account
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => navigation.navigate("LoginScreen")}>
+              onPress={() => navigation.navigate("LoginScreen")}
+            >
               <Text
                 style={[
                   styles.tabText,
                   activeTab === "login" && styles.activeTab,
-                ]}>
+                ]}
+              >
                 Login
               </Text>
             </TouchableOpacity>
@@ -458,7 +462,8 @@ export default function SignupScreen() {
                 <Text style={styles.label}>Gender</Text>
                 <TouchableOpacity
                   style={[styles.inputWithIcon, { zIndex: 999 }]}
-                  onPress={() => setShowGenderDropdown(!showGenderDropdown)}>
+                  onPress={() => setShowGenderDropdown(!showGenderDropdown)}
+                >
                   <Ionicons
                     name={showGenderDropdown ? "chevron-up" : "chevron-down"}
                     size={20}
@@ -468,7 +473,8 @@ export default function SignupScreen() {
                     style={[
                       styles.inputText,
                       !gender && styles.placeholderText,
-                    ]}>
+                    ]}
+                  >
                     {gender || "Select Gender"}
                   </Text>
 
@@ -476,17 +482,20 @@ export default function SignupScreen() {
                     <View style={styles.dropdown}>
                       <TouchableOpacity
                         style={styles.dropdownOption}
-                        onPress={() => handleGenderSelect("male")}>
+                        onPress={() => handleGenderSelect("male")}
+                      >
                         <Text style={styles.dropdownText}>male</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.dropdownOption}
-                        onPress={() => handleGenderSelect("female")}>
+                        onPress={() => handleGenderSelect("female")}
+                      >
                         <Text style={styles.dropdownText}>female</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.dropdownOption}
-                        onPress={() => handleGenderSelect("other")}>
+                        onPress={() => handleGenderSelect("other")}
+                      >
                         <Text style={styles.dropdownText}>other</Text>
                       </TouchableOpacity>
                     </View>
@@ -497,7 +506,8 @@ export default function SignupScreen() {
                 <TouchableOpacity
                   style={[styles.nextBtn, loading && styles.disabledBtn]}
                   onPress={registerUser}
-                  disabled={loading}>
+                  disabled={loading}
+                >
                   <Text style={styles.nextText}>
                     {loading ? (
                       <ActivityIndicator size={20} color={"#ffff"} />
@@ -511,7 +521,8 @@ export default function SignupScreen() {
                 <TouchableOpacity
                   style={[styles.backBtn, loading && styles.disabledBtn]}
                   onPress={() => setSecondForm(false)}
-                  disabled={loading}>
+                  disabled={loading}
+                >
                   <Text style={styles.backText}>Back</Text>
                 </TouchableOpacity>
 
@@ -536,7 +547,7 @@ export default function SignupScreen() {
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
-                  maxLength={25}
+                  maxLength={100}
                   placeholderTextColor={"#7b7b7b75"}
                 />
 
@@ -553,7 +564,8 @@ export default function SignupScreen() {
                   />
                   <TouchableOpacity
                     style={styles.eyeIcon}
-                    onPress={togglePasswordVisibility}>
+                    onPress={togglePasswordVisibility}
+                  >
                     <Ionicons
                       name={showPassword ? "eye-off" : "eye"}
                       size={24}

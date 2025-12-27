@@ -282,7 +282,8 @@ export function SocketProvider({ children }) {
         onMessageReceived,
         emit, // ✅ ADD: Helper function for emitting
         getSocket, // ✅ ADD: Function to get socket instance
-      }}>
+      }}
+    >
       {children}
     </SocketContext.Provider>
   );

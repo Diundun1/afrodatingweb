@@ -81,7 +81,8 @@ const RestrictScreen = () => {
       animationType="none"
       transparent={true}
       statusBarTranslucent={true}
-      style={{ backgroundColor: "#000", zIndex: 9999 }}>
+      style={{ backgroundColor: "#000", zIndex: 9999 }}
+    >
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
         <Animated.View
           style={[
@@ -89,7 +90,8 @@ const RestrictScreen = () => {
             {
               transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
             },
-          ]}>
+          ]}
+        >
           {/* Close Button */}
 
           {/* Header */}

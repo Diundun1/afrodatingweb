@@ -42,7 +42,8 @@ const GeneralSettings = () => {
         {header()}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          style={styles.container}>
+          style={styles.container}
+        >
           {/**    {generalSection()}
           {appSettingsSection()}
           {legalSection()} */}
@@ -59,11 +60,13 @@ const GeneralSettings = () => {
         animationType="fade"
         transparent={true}
         visible={showLogoutDialog}
-        onRequestClose={() => setshowLogoutDialog(false)}>
+        onRequestClose={() => setshowLogoutDialog(false)}
+      >
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setshowLogoutDialog(false)}
-          style={styles.modalOverlay}>
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <TouchableOpacity activeOpacity={1} style={styles.dialogContainer}>
               <View style={styles.dialogIcon}>
@@ -76,12 +79,14 @@ const GeneralSettings = () => {
               <View style={styles.dialogButtons}>
                 <TouchableOpacity
                   style={[styles.button, styles.cancelButton]}
-                  onPress={() => setshowLogoutDialog(false)}>
+                  onPress={() => setshowLogoutDialog(false)}
+                >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.button, styles.logoutButton]}
-                  onPress={handleLogout}>
+                  onPress={handleLogout}
+                >
                   <Text style={styles.logoutButtonText}>Sign Out</Text>
                 </TouchableOpacity>
               </View>
@@ -97,7 +102,22 @@ const GeneralSettings = () => {
       <View style={styles.sectionContainer}>
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => setshowLogoutDialog(true)}>
+          onPress={() => {
+            console.log("ChangePasswordScreen");
+            navigation.navigate("ChangePasswordScreen");
+          }}
+        >
+          <View style={styles.menuLeft}>
+            <Ionicons name="lock-closed-outline" size={22} color="#7B61FF" />
+            <Text style={styles.menuText}>Change Password</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => setshowLogoutDialog(true)}
+        >
           <View style={styles.menuLeft}>
             <Ionicons name="log-out-outline" size={22} color="#EF4444" />
             <Text style={styles.menuText}>Sign Out</Text>
@@ -115,7 +135,8 @@ const GeneralSettings = () => {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => navigation.push("contactUs/contactUsScreen")}>
+          onPress={() => navigation.push("contactUs/contactUsScreen")}
+        >
           <View style={styles.menuLeft}>
             <Ionicons name="headset-outline" size={22} color="#6B7280" />
             <Text style={styles.menuText}>Contact us</Text>
@@ -129,7 +150,8 @@ const GeneralSettings = () => {
           style={styles.menuItem}
           onPress={() =>
             navigation.push("termsAndCondition/termsAndConditionScreen")
-          }>
+          }
+        >
           <View style={styles.menuLeft}>
             <Ionicons name="document-text-outline" size={22} color="#6B7280" />
             <Text style={styles.menuText}>Terms & Conditions</Text>
@@ -141,7 +163,8 @@ const GeneralSettings = () => {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => navigation.push("privacy/privacyScreen")}>
+          onPress={() => navigation.push("privacy/privacyScreen")}
+        >
           <View style={styles.menuLeft}>
             <Ionicons
               name="shield-checkmark-outline"
@@ -172,7 +195,8 @@ const GeneralSettings = () => {
             style={{
               backgroundColor: resetDislik ? "#7B61FF" : "#E5E7EB",
               ...styles.switchStyle,
-            }}>
+            }}
+          >
             <View
               style={{
                 backgroundColor: "#fff",
@@ -198,7 +222,8 @@ const GeneralSettings = () => {
             style={{
               backgroundColor: hideLocation ? "#7B61FF" : "#E5E7EB",
               ...styles.switchStyle,
-            }}>
+            }}
+          >
             <View
               style={{
                 backgroundColor: "#fff",
@@ -224,7 +249,8 @@ const GeneralSettings = () => {
             style={{
               backgroundColor: darkMode ? "#7B61FF" : "#E5E7EB",
               ...styles.switchStyle,
-            }}>
+            }}
+          >
             <View
               style={{
                 backgroundColor: "#fff",
@@ -247,7 +273,8 @@ const GeneralSettings = () => {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => navigation.push("profileViews/profileViewsScreen")}>
+          onPress={() => navigation.push("profileViews/profileViewsScreen")}
+        >
           <View style={styles.menuLeft}>
             <Ionicons name="eye-outline" size={22} color="#3B82F6" />
             <Text style={styles.menuText}>Profile Views</Text>
@@ -259,7 +286,8 @@ const GeneralSettings = () => {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => navigation.push("notifications/notificationsScreen")}>
+          onPress={() => navigation.push("notifications/notificationsScreen")}
+        >
           <View style={styles.menuLeft}>
             <Ionicons name="notifications-outline" size={22} color="#8B5CF6" />
             <Text style={styles.menuText}>Notifications</Text>
@@ -271,7 +299,8 @@ const GeneralSettings = () => {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => navigation.push("matches/matchesScreen")}>
+          onPress={() => navigation.push("matches/matchesScreen")}
+        >
           <View style={styles.menuLeft}>
             <Ionicons name="heart-outline" size={22} color="#06B6D4" />
             <Text style={styles.menuText}>Profile Matches</Text>
@@ -283,7 +312,8 @@ const GeneralSettings = () => {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => navigation.push("paymentHistory/paymentHistory")}>
+          onPress={() => navigation.push("paymentHistory/paymentHistory")}
+        >
           <View style={styles.menuLeft}>
             <Ionicons name="card-outline" size={22} color="#10B981" />
             <Text style={styles.menuText}>Payment History</Text>
@@ -299,10 +329,11 @@ const GeneralSettings = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color={"#1e1e1e"} />
         </TouchableOpacity>
-        <NunitoTitle style={styles.headerTitle}>Settings</NunitoTitle>
+        <NunitoTitle style={styles.headerTitle}></NunitoTitle>
         <View style={styles.headerRightPlaceholder} />
       </View>
     );

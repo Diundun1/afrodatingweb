@@ -111,8 +111,14 @@ const MessageScreen = ({ route }) => {
   // const { socketRef, onMessageReceived, isConnected } = useSocket();
   const spinAnim = useRef(new Animated.Value(0)).current;
 
-  const { socket, socketRef, isConnected, onMessageReceived, emit } =
-    useSocket();
+  const {
+    socket,
+    socketRef,
+    isConnected,
+    socketReady,
+    onMessageReceived,
+    emit,
+  } = useSocket();
 
   // Refs
   const messagesRef = useRef([]);
@@ -138,6 +144,7 @@ const MessageScreen = ({ route }) => {
     loadUserId();
   }, []);
 
+  // Socket connection and event listeners
   // Socket connection and event listeners
   useEffect(() => {
     if (!isConnected || !socketRef?.current || !userId || !roomIdxccd) return;
@@ -169,18 +176,40 @@ const MessageScreen = ({ route }) => {
           isCaller: false,
         });
       }
-      // Navigate to incoming call screen
     };
 
     socketRef.current.on("callInvitation", onCallInvitation);
 
+    // 🆕 ADD THESE NEW LISTENERS HERE
+    const onMessageDelivered = (data) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data.messageId ? { ...msg, status: "delivered" } : msg
+        )
+      );
+    };
+
+    const onMessageRead = (data) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data.messageId ? { ...msg, isSeen: true } : msg
+        )
+      );
+    };
+
+    socketRef.current.on("messageDelivered", onMessageDelivered);
+    socketRef.current.on("messageRead", onMessageRead);
+    // 🆕 END OF NEW LISTENERS
+
     const cleanupMsg = onMessageReceived((data) => {
       console.log("chat_message received:", data);
 
-      const isDuplicate = Array.from(optimisticMessagesRef.current).some(
-        (optId) =>
-          data.clientTimestamp === optId || data.message === inputMessage
-      );
+      const isDuplicate =
+        Array.from(optimisticMessagesRef.current).some(
+          (optId) =>
+            data.clientTimestamp === optId || data.message === inputMessage
+        ) ||
+        messages.some((msg) => msg.serverId === data.id || msg.id === data.id);
 
       if (!isDuplicate) {
         const newMessage = {
@@ -190,6 +219,8 @@ const MessageScreen = ({ route }) => {
           isSeen: data.isSeen || false,
           messageTime: formatMessageTime(data.createdAt),
           fromServer: true,
+          status: "delivered",
+          messageTime: formatMessageTime(),
         };
         setMessages((prev) => [newMessage, ...prev]);
       }
@@ -202,6 +233,8 @@ const MessageScreen = ({ route }) => {
       socketRef.current?.off("userTyping", onUserTyping);
       socketRef.current?.off("userStoppedTyping", onUserStoppedTyping);
       socketRef.current?.off("callInvitation", onCallInvitation);
+      socketRef.current?.off("messageDelivered", onMessageDelivered); // 🆕 Cleanup
+      socketRef.current?.off("messageRead", onMessageRead); // 🆕 Cleanup
       socketRef.current?.emit("leaveRoom", { room: roomIdxccd, userId });
     };
   }, [isConnected, userId, roomIdxccd]);
@@ -210,7 +243,10 @@ const MessageScreen = ({ route }) => {
   const handleTyping = (text) => {
     setInputMessage(text);
 
-    if (!socketRef?.current || !partnerData || !userId) return;
+    // if (!socketRef?.current || !partnerData || !userId) return;
+    if (!socketRef?.current || !partnerData || !userId) {
+      return;
+    }
 
     const now = Date.now();
     if (now - lastTypingRef.current > 900) {
@@ -449,14 +485,29 @@ const MessageScreen = ({ route }) => {
     };
   }, [roomIdxccd, navigation]);
 
-  // Send message function
+  useEffect(() => {
+    console.log("🔍 Socket state changed:", {
+      isConnected,
+      socketReady,
+      hasSocket: !!socket,
+      hasSocketRef: !!socketRef?.current,
+    });
+  }, [isConnected, socketReady, socket]);
 
-  // In your MessageScreen component, update the socket usage:
-
-  // const { socket, socketRef, isConnected, onMessageReceived, emit } = useSocket();
-
-  // Update your sendMessage function to use the new emit method:
   const sendMessage = () => {
+    console.log("🔍 sendMessage() called");
+
+    console.log("🔍 Debug info:", {
+      isConnected,
+      hasSocket: !!socket,
+      hasSocketRef: !!socketRef?.current,
+      hasEmit: typeof emit === "function",
+      userId,
+      roomIdxccd,
+      partnerData: !!partnerData,
+      inputMessage,
+    });
+
     if (!inputMessage.trim() || !partnerData || !userId) {
       Alert.alert(
         "Error",
@@ -465,118 +516,261 @@ const MessageScreen = ({ route }) => {
       return;
     }
 
-    if (!isConnected) {
-      Alert.alert(
-        "Connection Error",
-        "Socket not connected — message not sent."
-      );
-      setConnectionError(true); // Set connection error state
-      return;
-    }
-
+    const createdAt = Date.now();
     const clientTimestamp = Date.now();
-    const nxinputmessage = inputMessage;
+    const messageText = inputMessage.trim();
     const optimisticId = `optimistic_${clientTimestamp}`;
+
+    console.log("🆕 Creating new message object:", {
+      optimisticId,
+      messageText,
+      createdAt,
+      clientTimestamp,
+    });
+
+    // Clear input immediately
     setInputMessage("");
+    Keyboard.dismiss();
 
     const payload = {
       room: roomIdxccd,
       recipient: partnerData._id,
-      message: nxinputmessage.trim(),
-      clientTimestamp: clientTimestamp,
+      message: messageText,
+      clientTimestamp,
     };
 
     const newMessage = {
       id: optimisticId,
-      message: nxinputmessage.trim(),
+      message: messageText,
+      createdAt,
       isSender: true,
       isSeen: false,
-      messageTime: formatMessageTime(),
       fromServer: false,
-      clientTimestamp: clientTimestamp,
+      clientTimestamp,
+      status: "sending",
+      messageTime: formatMessageTime(),
     };
 
+    console.log("📲 New optimistic message:", newMessage);
+
+    // Add to optimistic messages and display immediately
     optimisticMessagesRef.current.add(clientTimestamp);
-    setMessages((prev) => [newMessage, ...prev]);
-    setInputMessage("");
+
+    setMessages((prev) => {
+      const updated = [...prev, newMessage];
+      console.log("📝 Messages after adding optimistic:", updated);
+      return updated;
+    });
+
+    console.log(
+      "❗ Immediately after setMessages (React not updated yet):",
+      messages
+    );
+
+    // If not connected, mark as failed immediately
+    if (!isConnected) {
+      console.log("❌ No connection. Marking as failed in 500ms...");
+
+      setTimeout(() => {
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === optimisticId
+              ? { ...msg, status: "failed", fromServer: false }
+              : msg
+          );
+          console.log("❌ Updated messages (FAILED, offline):", updated);
+          return updated;
+        });
+
+        optimisticMessagesRef.current.delete(clientTimestamp);
+      }, 500);
+
+      return;
+    }
 
     try {
       const success = emit("sendMessage", payload);
+      console.log("📡 Emit sendMessage result:", success);
 
       if (!success) {
-        setConnectionError(true);
-        // Remove optimistic message on emit failure
+        console.log("❌ emit() returned false. Marking failed...");
         setTimeout(() => {
-          setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
-          optimisticMessagesRef.current.delete(clientTimestamp);
-        }, 100);
-        Alert.alert(
-          "Connection Error",
-          "Failed to send message. Please check your connection."
-        );
+          setMessages((prev) => {
+            const updated = prev.map((msg) =>
+              msg.id === optimisticId
+                ? { ...msg, status: "failed", fromServer: false }
+                : msg
+            );
+            console.log("❌ Updated messages (FAILED, emit error):", updated);
+            return updated;
+          });
+        }, 500);
         return;
       }
 
+      // Set timeout for message confirmation
+      const confirmationTimeout = setTimeout(() => {
+        console.log("⏳ Confirmation timeout hit! Marking failed...");
+
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === optimisticId || msg.clientTimestamp === clientTimestamp
+              ? {
+                  ...msg,
+                  status: "failed",
+                  fromServer: false,
+                }
+              : msg
+          );
+          console.log(
+            "❌ Updated messages (FAILED, no confirmation):",
+            updated
+          );
+          return updated;
+        });
+      }, 10000);
+
       // Handle confirmation
       const handleMessageSent = (data) => {
+        console.log("📩 Server confirmed message:", data);
+
+        clearTimeout(confirmationTimeout);
         optimisticMessagesRef.current.delete(clientTimestamp);
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === optimisticId
-              ? { ...msg, id: data.id || msg.id, fromServer: true }
+
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === optimisticId || msg.clientTimestamp === clientTimestamp
+              ? {
+                  ...msg,
+                  serverId: data.id,
+                  fromServer: true,
+                  status: "sent",
+                }
               : msg
-          )
-        );
-        setConnectionError(false); // Reset connection error on success
+          );
+          console.log("✅ Updated messages (CONFIRMED):", updated);
+          return updated;
+        });
+
+        setConnectionError(false);
       };
 
-      // Listen for confirmation using the direct socket
+      // Listen for confirmation
       if (socket) {
         socket.off("messageSent", handleMessageSent);
         socket.on("messageSent", handleMessageSent);
+        console.log("👂 Listening for server messageSent event…");
       }
 
-      // Set up timeout to detect if message confirmation doesn't arrive
-      const confirmationTimeout = setTimeout(() => {
-        setConnectionError(true);
-        Alert.alert(
-          "Connection Issue",
-          "Message may not have been delivered. Please check your connection."
-        );
-      }, 10000); // 10 seconds timeout
-
-      // Stop typing using emit
-      const stopTypingSuccess = emit("stopTyping", {
+      // Stop typing
+      emit("stopTyping", {
         room: roomIdxccd,
         recipient: partnerData._id,
         userId,
       });
 
-      if (!stopTypingSuccess) {
-        console.warn("Failed to emit stopTyping event");
-      }
-
       clearTimeout(typingTimeoutRef.current);
-
-      // Clear confirmation timeout when message is confirmed
-      socket?.once("messageSent", () => {
-        clearTimeout(confirmationTimeout);
-      });
     } catch (error) {
-      console.error("Error sending message:", error);
-      setConnectionError(true);
-      Alert.alert(
-        "Error",
-        "Failed to send message. Please check your connection and try again."
-      );
+      console.error("💥 Error sending message:", error);
 
-      // Remove optimistic message on error
       setTimeout(() => {
-        setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
-        optimisticMessagesRef.current.delete(clientTimestamp);
-      }, 100);
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === optimisticId
+              ? { ...msg, status: "failed", fromServer: false }
+              : msg
+          );
+          console.log("❌ Updated messages (FAILED, catch block):", updated);
+          return updated;
+        });
+      }, 500);
     }
   };
+
+  // The function that sends the message to the server
+  const attemptSendMessage = ({ optimisticId, message, clientTimestamp }) => {
+    const payload = {
+      room: roomIdxccd,
+      recipient: partnerData._id,
+      message,
+      clientTimestamp,
+    };
+
+    const success = emit("sendMessage", payload);
+
+    if (!success) {
+      // Failed to send → mark as pending
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === optimisticId ? { ...msg, status: "pending" } : msg
+        )
+      );
+      return;
+    }
+
+    // Listen for confirm
+    socket?.once("messageSent", (data) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === optimisticId
+            ? {
+                ...msg,
+                id: data.id,
+                status: "sent", // delivered after server ACK
+                localOnly: false,
+              }
+            : msg
+        )
+      );
+    });
+  };
+  // const attemptSendMessage = ({ optimisticId, message, clientTimestamp }) => {
+  //   const payload = {
+  //     room: roomIdxccd,
+  //     recipient: partnerData._id,
+  //     message,
+  //     clientTimestamp,
+  //   };
+
+  //   const success = emit("sendMessage", payload);
+
+  //   if (!success) {
+  //     setMessages((prev) =>
+  //       prev.map((msg) =>
+  //         msg.id === optimisticId ? { ...msg, status: "failed" } : msg
+  //       )
+  //     );
+  //     return;
+  //   }
+
+  //   socket?.once("messageSent", (data) => {
+  //     setMessages((prev) =>
+  //       prev.map((msg) =>
+  //         msg.id === optimisticId
+  //           ? { ...msg, ...data, status: "delivered", localOnly: false }
+  //           : msg
+  //       )
+  //     );
+  //   });
+  // };
+
+  // Auto-resend pending messages when Internet returns
+  useEffect(() => {
+    if (!isConnected) return;
+
+    // Find all pending messages and resend them
+    const pendingMessages = messages.filter(
+      (m) => m.status === "pending" && m.localOnly
+    );
+
+    pendingMessages.forEach((msg) => {
+      attemptSendMessage({
+        optimisticId: msg.id,
+        message: msg.message,
+        clientTimestamp: msg.clientTimestamp,
+      });
+    });
+  }, [isConnected]);
 
   const getProfilePicUrl = (partnerData) => {
     if (!partnerData?.profile_pic?.length) {
@@ -660,7 +854,7 @@ const MessageScreen = ({ route }) => {
         };
 
         optimisticMessagesRef.current.add(clientTimestamp);
-        setMessages((prev) => [newMessage, ...prev]);
+        setMessages((prev) => [...prev, newMessage]);
 
         // Emit message using new method
         const query = emit("sendMessage", payload);
@@ -788,7 +982,7 @@ const MessageScreen = ({ route }) => {
         };
 
         optimisticMessagesRef.current.add(clientTimestamp);
-        setMessages((prev) => [newMessage, ...prev]);
+        setMessages((prev) => [...prev, newMessage]);
 
         // Emit message
         const query = socketRef.current.emit("sendMessage", payload);
@@ -836,10 +1030,21 @@ const MessageScreen = ({ route }) => {
     }
   };
 
-  // Render individual message item
   const renderItem = ({ item }) => {
     const isCallRequest = item.message.includes("https://test.unigate.com.ng/");
     const profilePicUrl = getProfilePicUrl(partnerData);
+
+    // Retry function for failed messages
+    const retryMessage = () => {
+      if (item.status === "failed") {
+        // Remove failed message
+        setMessages((prev) => prev.filter((msg) => msg.id !== item.id));
+
+        // Resend with original message text
+        setInputMessage(item.message);
+        setTimeout(() => sendMessage(), 100);
+      }
+    };
 
     return (
       <View
@@ -849,7 +1054,8 @@ const MessageScreen = ({ route }) => {
             alignItems: item.isSender ? "flex-end" : "flex-start",
             paddingHorizontal: 8,
           },
-        ]}>
+        ]}
+      >
         <View style={styles.messageRow}>
           {!item.isSender && (
             <View style={styles.avatarContainer}>
@@ -861,7 +1067,6 @@ const MessageScreen = ({ route }) => {
           )}
 
           <View style={styles.messageContent}>
-            {/* ... rest of your message bubble code remains the same ... */}
             {isCallRequest ? (
               <TouchableOpacity
                 style={[
@@ -872,31 +1077,62 @@ const MessageScreen = ({ route }) => {
                   },
                 ]}
                 onPress={() => {
-                  // ... your existing call handling code ...
-                }}>
+                  // Your existing call handling code
+                }}
+              >
                 <Ionicons name="videocam" size={18} color="#fff" />
                 <NunitoText style={styles.callText}>
                   {item.isSender ? "Call Started" : "Join Call"}
                 </NunitoText>
               </TouchableOpacity>
             ) : (
-              <View
-                style={[
-                  styles.messageBubble,
-                  item.isSender ? styles.senderBubble : styles.receiverBubble,
-                  {
-                    opacity: item.fromServer === false ? 0.7 : 1,
-                    alignSelf: item.isSender ? "flex-end" : "flex-start",
-                  },
-                ]}>
-                <NunitoText
-                  style={
-                    item.isSender ? styles.senderText : styles.receiverText
-                  }>
-                  {item.message}
-                  {item.fromServer === false && " ⏳"}
-                </NunitoText>
-              </View>
+              <TouchableOpacity
+                onLongPress={() => {
+                  if (item.status === "failed") {
+                    console.log();
+                    Alert.alert(
+                      "Message Failed",
+                      "Would you like to retry sending this message?",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { text: "Retry", onPress: retryMessage },
+                        {
+                          text: "Delete",
+                          style: "destructive",
+                          onPress: () => {
+                            setMessages((prev) =>
+                              prev.filter((msg) => msg.id !== item.id)
+                            );
+                          },
+                        },
+                      ]
+                    );
+                  }
+                }}
+                disabled={item.status !== "failed"}
+              >
+                <View
+                  style={[
+                    styles.messageBubble,
+                    item.isSender ? styles.senderBubble : styles.receiverBubble,
+                    {
+                      opacity: item.status === "sending" ? 0.7 : 1,
+                      alignSelf: item.isSender ? "flex-end" : "flex-start",
+                      borderWidth: item.status === "failed" ? 1 : 0,
+                      borderColor:
+                        item.status === "failed" ? "#EF4444" : "transparent",
+                    },
+                  ]}
+                >
+                  <NunitoText
+                    style={
+                      item.isSender ? styles.senderText : styles.receiverText
+                    }
+                  >
+                    {item.message}
+                  </NunitoText>
+                </View>
+              </TouchableOpacity>
             )}
 
             <View
@@ -906,25 +1142,63 @@ const MessageScreen = ({ route }) => {
                   justifyContent: item.isSender ? "flex-end" : "flex-start",
                   alignSelf: item.isSender ? "flex-end" : "flex-start",
                 },
-              ]}>
+              ]}
+            >
               <NunitoText
                 style={[
                   styles.timeText,
                   item.isSender && styles.senderTimeText,
-                ]}>
+                ]}
+              >
                 {item.messageTime}
               </NunitoText>
+
               {item.isSender && (
-                <MaterialIcons
-                  name={item.isSeen ? "done-all" : "done"}
-                  color={
-                    item.fromServer === false
-                      ? "#9CA3AF"
-                      : "rgba(255, 255, 255, 0.8)"
-                  }
-                  size={14}
-                  style={styles.statusIcon}
-                />
+                <>
+                  {item.status === "sending" && (
+                    <ActivityIndicator
+                      size="small"
+                      color="rgba(255, 255, 255, 0.6)"
+                      style={styles.statusIcon}
+                    />
+                  )}
+
+                  {item.status === "sent" && (
+                    <MaterialIcons
+                      name="done"
+                      color="rgba(255, 255, 255, 0.8)"
+                      size={14}
+                      style={styles.statusIcon}
+                    />
+                  )}
+
+                  {item.status === "delivered" && (
+                    <MaterialIcons
+                      name="done-all"
+                      color="rgba(255, 255, 255, 0.8)"
+                      size={14}
+                      style={styles.statusIcon}
+                    />
+                  )}
+
+                  {item.isSeen && (
+                    <MaterialIcons
+                      name="done-all"
+                      color="#4ade80"
+                      size={14}
+                      style={styles.statusIcon}
+                    />
+                  )}
+
+                  {item.status === "failed" && (
+                    <Ionicons
+                      name="alert-circle"
+                      color="#EF4444"
+                      size={14}
+                      style={styles.statusIcon}
+                    />
+                  )}
+                </>
               )}
             </View>
           </View>
@@ -970,7 +1244,8 @@ const MessageScreen = ({ route }) => {
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
       <View style={styles.safeArea}>
         <SafeMyStatusBar />
 
@@ -1003,7 +1278,8 @@ const MessageScreen = ({ route }) => {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
 
@@ -1035,14 +1311,16 @@ const MessageScreen = ({ route }) => {
             <TouchableOpacity
               style={styles.callButton}
               onPress={onVideoCall}
-              disabled={isProcessingCall}>
+              disabled={isProcessingCall}
+            >
               <Ionicons name="videocam" size={20} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.callButton}
               onPress={onVoiceCall}
-              disabled={isProcessingCall}>
+              disabled={isProcessingCall}
+            >
               <Ionicons name="call" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -1067,9 +1345,9 @@ const MessageScreen = ({ route }) => {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={[...messages].sort((a, b) => a.createdAt - b.createdAt)}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id} // This stays the same - uses optimistic ID
             contentContainerStyle={styles.messagesContainer}
             inverted
             showsVerticalScrollIndicator={false}
@@ -1088,7 +1366,8 @@ const MessageScreen = ({ route }) => {
             paddingHorizontal: 16,
             paddingBottom: 16,
             paddingTop: 8,
-          }}>
+          }}
+        >
           {/* Connection Error Banner */}
           {connectionError && (
             <View
@@ -1098,13 +1377,15 @@ const MessageScreen = ({ route }) => {
                 marginBottom: 8,
                 paddingVertical: 8,
                 paddingHorizontal: 12,
-              }}>
+              }}
+            >
               <View
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
-                }}>
+                }}
+              >
                 <Ionicons name="cloud-offline-outline" size={16} color="#fff" />
                 <NunitoText
                   style={{
@@ -1113,12 +1394,14 @@ const MessageScreen = ({ route }) => {
                     fontWeight: "500",
                     flex: 1,
                     marginLeft: 8,
-                  }}>
+                  }}
+                >
                   Poor internet connection
                 </NunitoText>
                 <TouchableOpacity
                   style={{ padding: 4 }}
-                  onPress={() => setConnectionError(false)}>
+                  onPress={() => setConnectionError(false)}
+                >
                   <Ionicons name="refresh-outline" size={16} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -1135,7 +1418,8 @@ const MessageScreen = ({ route }) => {
               paddingVertical: 2,
               borderWidth: 1,
               borderColor: "#E5E7EB",
-            }}>
+            }}
+          >
             <TextInput
               placeholder="Type a message..."
               placeholderTextColor="#9CA3AF"
@@ -1147,21 +1431,19 @@ const MessageScreen = ({ route }) => {
                 paddingTop: 8,
                 paddingBottom: 8,
                 outlineWidth: 0,
-                opacity: connectionError ? 0.5 : 1,
+                // opacity: connectionError ? 0.5 : 1,
               }}
               value={inputMessage}
               onChangeText={handleTyping}
               //  multiline
               //  maxHeight={100}
-              editable={!loading && !connectionError}
+              editable={true}
             />
 
             <TouchableOpacity
               style={{
                 backgroundColor:
-                  !inputMessage.trim() || loading || connectionError
-                    ? "#F3F4F6"
-                    : "#7B61FF",
+                  !inputMessage.trim() || loading ? "#F3F4F6" : "#7B61FF",
                 width: 36,
                 height: 36,
                 borderRadius: 18,
@@ -1170,15 +1452,12 @@ const MessageScreen = ({ route }) => {
                 marginLeft: 8,
               }}
               onPress={sendMessage}
-              disabled={!inputMessage.trim() || loading || connectionError}>
+              // disabled={!inputMessage.trim() || loading}
+            >
               <Ionicons
                 name="send"
                 size={20}
-                color={
-                  !inputMessage.trim() || loading || connectionError
-                    ? "#9CA3AF"
-                    : "#fff"
-                }
+                color={!inputMessage.trim() || loading ? "#9CA3AF" : "#fff"}
               />
             </TouchableOpacity>
           </View>
