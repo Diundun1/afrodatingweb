@@ -19,7 +19,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import MyStatusBar from "../components/MyStatusBar";
 import * as Location from "expo-location";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
-
+import RegisterForPushNotificationsAsync from "../lib/RegisterForPushNotificationsAsync";
+import NunitoText from "../components/NunitoText";
 const { width, height } = Dimensions.get("window");
 
 // Placeholder images for users without profile pictures
@@ -310,6 +311,21 @@ export default function ExploreScreen({ navigation }) {
 
         console.log("Formatted Users Data:", formattedUsers);
         setUsers(formattedUsers);
+
+        if (!formattedUsers?.id) return;
+
+        const initPush = async () => {
+          if (Notification.permission === "denied") return;
+
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+
+          if (!subscription) {
+            await RegisterForPushNotificationsAsync();
+          }
+        };
+
+        initPush();
       } else {
         console.warn("No users found in response");
         setError("No users found nearby");
@@ -321,6 +337,28 @@ export default function ExploreScreen({ navigation }) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const userId = localStorage.getItem("loggedInUserId");
+    console.log("Push init userId:", userId);
+
+    if (!userId) return;
+    if (!("serviceWorker" in navigator)) return;
+    if (Notification.permission === "denied") return;
+
+    const initPush = async () => {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        await RegisterForPushNotificationsAsync();
+      }
+    };
+
+    initPush();
+  }, []);
 
   const handleSwipe = (userId, direction) => {
     console.log(`Swiped ${direction} on user ${userId}`);

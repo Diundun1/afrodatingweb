@@ -168,6 +168,52 @@ const unsubscribeFromPushNotifications = async () => {
 };
 
 // FIXED: Use service worker instead of direct Notification constructor
+// const sendMessageNotification = async (
+//   senderName,
+//   message,
+//   messageId,
+//   roomId
+// ) => {
+//   try {
+//     if (!isPushNotificationSupported()) {
+//       console.log("Notifications not supported in this environment");
+//       return;
+//     }
+
+//     const isCallLink = message?.match(
+//       /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+//     );
+//     if (isCallLink) {
+//       return;
+//     }
+
+//     if (Notification.permission !== "granted") {
+//       console.log("Notification permission not granted");
+//       return;
+//     }
+
+//     const truncatedMessage =
+//       message.length > 100 ? message.substring(0, 100) + "..." : message;
+
+//     // FIXED: Use service worker instead of new Notification()
+//     await showNotificationViaServiceWorker(`💬 ${senderName}`, {
+//       body: truncatedMessage,
+//       tag: `message_${messageId}`,
+//       data: {
+//         type: "new_message",
+//         senderName,
+//         messageId,
+//         roomId,
+//         fullMessage: message,
+//       },
+//     });
+
+//     console.log("Message notification sent from:", senderName);
+//   } catch (error) {
+//     console.error("Failed to send message notification:", error);
+//   }
+// };
+
 const sendMessageNotification = async (
   senderName,
   message,
@@ -180,12 +226,16 @@ const sendMessageNotification = async (
       return;
     }
 
-    const isCallLink = message?.match(
+    // ✅ HARD NORMALIZATION (CRITICAL)
+    const safeMessage =
+      typeof message === "string" && message.trim().length > 0
+        ? message
+        : "Sent you a new message";
+
+    const isCallLink = safeMessage.match(
       /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
     );
-    if (isCallLink) {
-      return;
-    }
+    if (isCallLink) return;
 
     if (Notification.permission !== "granted") {
       console.log("Notification permission not granted");
@@ -193,9 +243,10 @@ const sendMessageNotification = async (
     }
 
     const truncatedMessage =
-      message.length > 100 ? message.substring(0, 100) + "..." : message;
+      safeMessage.length > 100
+        ? safeMessage.substring(0, 100) + "..."
+        : safeMessage;
 
-    // FIXED: Use service worker instead of new Notification()
     await showNotificationViaServiceWorker(`💬 ${senderName}`, {
       body: truncatedMessage,
       tag: `message_${messageId}`,
@@ -204,7 +255,7 @@ const sendMessageNotification = async (
         senderName,
         messageId,
         roomId,
-        fullMessage: message,
+        fullMessage: safeMessage,
       },
     });
 
