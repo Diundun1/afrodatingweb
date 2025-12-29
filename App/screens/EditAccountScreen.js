@@ -267,7 +267,8 @@ export default function EditAccountScreen({ navigation }) {
               index === 0 && styles.primaryImageContainer,
             ]}
             onPress={() => pickImage(index)}
-            disabled={uploadingImages[index]}>
+            disabled={uploadingImages[index]}
+          >
             <Image source={getImageSource(index)} style={styles.profileImage} />
 
             {index === 0 && (
@@ -411,7 +412,8 @@ export default function EditAccountScreen({ navigation }) {
             style={[
               styles.inputContainer,
               item < 11 && styles.inputContainerBorder,
-            ]}>
+            ]}
+          >
             <View style={styles.skeletonLabel} />
             <View style={styles.skeletonInput} />
           </View>
@@ -478,12 +480,14 @@ export default function EditAccountScreen({ navigation }) {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoid}>
+        style={styles.keyboardAvoid}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <MaterialIcons name="arrow-back-ios" size={20} color="#000" />
           </TouchableOpacity>
           <NunitoTitle style={styles.headerTitle}>Edit Account</NunitoTitle>
@@ -495,7 +499,8 @@ export default function EditAccountScreen({ navigation }) {
         ) : (
           <ScrollView
             style={styles.scrollView}
-            showsVerticalScrollIndicator={false}>
+            showsVerticalScrollIndicator={false}
+          >
             {/* Profile Images Section */}
             <ProfileImagesSection />
 
@@ -508,7 +513,8 @@ export default function EditAccountScreen({ navigation }) {
                     style={[
                       styles.inputContainer,
                       index < fields.length - 1 && styles.inputContainerBorder,
-                    ]}>
+                    ]}
+                  >
                     <NunitoTitle style={styles.inputLabel}>
                       {field.label}
                     </NunitoTitle>
@@ -541,7 +547,8 @@ export default function EditAccountScreen({ navigation }) {
               (loading || fetching) && styles.saveButtonDisabled,
             ]}
             onPress={handleSave}
-            disabled={loading || fetching}>
+            disabled={loading || fetching}
+          >
             {loading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (

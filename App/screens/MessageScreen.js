@@ -54,15 +54,15 @@ try {
 }
 
 // CORRECT NOTIFICATION IMPORT
-let sendMessageNotification;
-try {
-  sendMessageNotification =
-    require("../lib/RegisterForPushNotificationsAsync").sendMessageNotification;
-} catch (e) {
-  console.warn("Notifications not available");
-  sendMessageNotification = async () =>
-    console.log("Notifications not available");
-}
+// let sendMessageNotification;
+// try {
+// sendMessageNotification =
+//   require("../lib/RegisterForPushNotificationsAsync").sendMessageNotification;
+// } catch (e) {
+//   console.warn("Notifications not available");
+//   sendMessageNotification = async () =>
+//     console.log("Notifications not available");
+// }
 
 // Helper function to check if time is within 2 minutes
 const isTimeWithinTwoMinutes = (messageTimeStr, currentTimeStr) => {
@@ -397,21 +397,21 @@ const MessageScreen = ({ route }) => {
         lastProcessedMessageId = latestMessage._id;
 
         // 🆕 SEND NOTIFICATION FOR NEW MESSAGES
-        if (latestMessage.sender_id._id !== loggedInUserId) {
-          const isCallLink = latestMessage.message?.match(
-            /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
-          );
+        // if (latestMessage.sender_id._id !== loggedInUserId) {
+        //   const isCallLink = latestMessage.message?.match(
+        //     /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+        //   );
 
-          if (!isCallLink) {
-            await sendMessageNotification(
-              data.data.chatPartner.name || "Someone",
-              latestMessage.message,
-              latestMessage._id,
-              roomIdxccd
-            );
-            console.log("📱 Notification sent for new message");
-          }
-        }
+        //   if (!isCallLink) {
+        //     await sendMessageNotification(
+        //       data.data.chatPartner.name || "Someone",
+        //       latestMessage.message,
+        //       latestMessage._id,
+        //       roomIdxccd
+        //     );
+        //     console.log("📱 Notification sent for new message");
+        //   }
+        // }
 
         // 🎯 CALL NOTIFICATION CHECK
         const linkMatch = latestMessage.message.match(

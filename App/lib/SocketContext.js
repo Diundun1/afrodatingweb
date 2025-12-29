@@ -9,7 +9,7 @@ import initializeSocket from "./socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { sendMessageNotification } from "../components/RegisterForPushNotificationsAsync";
-
+import { AppState } from "react-native";
 const SocketContext = createContext(null);
 
 export function useSocket() {
@@ -39,40 +39,145 @@ export function SocketProvider({ children }) {
     return socketRef.current;
   };
 
+  // const handleMessageNotification = async (notificationData) => {
+  //   try {
+  //     const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
+
+  //     console.log("Processing messageNotification:", notificationData);
+
+  //     const roomId = notificationData.room;
+  //     const sender = notificationData.sender;
+
+  //     if (!sender) {
+  //       logger.warn("No sender data in notification");
+  //       return;
+  //     }
+
+  //     if (sender.id === loggedInUserId) {
+  //       logger.info("Skipping notification for own message");
+  //       return;
+  //     }
+
+  //     const senderName = "You received a message";
+  //     const messageContent = sender.name + " sent you a message";
+
+  //     logger.info("Sending message notification", { senderName, roomId });
+
+  //     await sendMessageNotification(
+  //       senderName,
+  //       messageContent,
+  //       `msg-${Date.now()}`,
+  //       roomId
+  //     );
+
+  //     logger.success("Message notification sent successfully");
+  //   } catch (error) {
+  //     logger.error("Failed to process message notification", error);
+  //   }
+  // };
+
+  const extractLastMessage = (chat) => {
+    if (!chat || !chat.lastMessage) return null;
+
+    const lm = chat.lastMessage;
+
+    if (typeof lm === "string") return lm;
+    if (typeof lm === "object") return lm.message || null;
+
+    return null;
+  };
+
+  const fetchLastMessageForRoom = async (roomId) => {
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) return null;
+
+      const response = await fetch(
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) return null;
+
+      const result = await response.json();
+      const chats = result?.data || [];
+
+      const chat = chats.find(
+        (c) =>
+          c.room === roomId || c.chat_room_id === roomId || c.roomId === roomId
+      );
+
+      const message = extractLastMessage(chat);
+
+      console.log("FOUND LAST MESSAGE:", message);
+
+      return message;
+    } catch (err) {
+      console.error("Failed to fetch last message", err);
+      return null;
+    }
+  };
+
+  // const handleMessageNotification = async (notificationData) => {
+  //   try {
+  //     console.log("Notification received:", notificationData);
+
+  //     const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
+  //     console.log("Logged in user id:", loggedInUserId);
+
+  //     const { room, sender } = notificationData;
+
+  //     if (!sender) return;
+  //     if (sender.id === loggedInUserId) return;
+
+  //     // Skip if app is visible
+  //     // if (
+  //     //   typeof document !== "undefined" &&
+  //     //   document.visibilityState === "visible"
+  //     // ) {
+  //     //   console.log("App is visible — skipping notification");
+  //     //   return;
+  //     // }
+
+  //     // ✅ FALLBACK MESSAGE (important)
+  //     const senderName = sender.name || "Someone";
+  //     const message = "Sent you a new message";
+  //     const messageId = `msg-${Date.now()}`;
+
+  //     await sendMessageNotification(senderName, message, messageId, room);
+
+  //     console.log("Notification sent from messageNotification");
+  //   } catch (error) {
+  //     console.error("Failed to process message notification", error);
+  //   }
+  // };
+
   const handleMessageNotification = async (notificationData) => {
     try {
       const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
+      const { room, sender } = notificationData;
 
-      console.log("Processing messageNotification:", notificationData);
+      if (!sender) return;
+      if (sender.id === loggedInUserId) return;
 
-      const roomId = notificationData.room;
-      const sender = notificationData.sender;
+      const senderName = sender.name || "Someone";
 
-      if (!sender) {
-        logger.warn("No sender data in notification");
-        return;
-      }
-
-      if (sender.id === loggedInUserId) {
-        logger.info("Skipping notification for own message");
-        return;
-      }
-
-      const senderName = "You received a message";
-      const messageContent = sender.name + " sent you a message";
-
-      logger.info("Sending message notification", { senderName, roomId });
+      const lastMessage =
+        (await fetchLastMessageForRoom(room)) || "Sent you a new message";
 
       await sendMessageNotification(
         senderName,
-        messageContent,
+        lastMessage,
         `msg-${Date.now()}`,
-        roomId
+        room
       );
-
-      logger.success("Message notification sent successfully");
     } catch (error) {
-      logger.error("Failed to process message notification", error);
+      console.error("Failed to process message notification", error);
     }
   };
 
@@ -132,6 +237,24 @@ export function SocketProvider({ children }) {
       logger.error("Failed to process chat message", error);
     }
   };
+
+  if (typeof window !== "undefined") {
+    window.testNotification = () => {
+      console.log("Simulating test notification...");
+      handleMessageNotification({
+        room: "test_room_123",
+        sender: {
+          id: "test_user_123",
+          name: "Test User",
+          profilePic: "",
+        },
+        timestamp: new Date().toISOString(),
+        type: "message",
+        message: "Hello from test!",
+        messageId: `msg-${Date.now()}`,
+      });
+    };
+  }
 
   useEffect(() => {
     if (initializedRef.current) return;
@@ -213,27 +336,27 @@ export function SocketProvider({ children }) {
         });
 
         // Test function for debugging
-        if (typeof window !== "undefined") {
-          window.testNotification = () => {
-            handleMessageNotification({
-              room: "test_room_123",
-              sender: {
-                id: "test_user_123",
-                name: "Test User",
-                profilePic: "",
-              },
-              timestamp: new Date().toISOString(),
-              type: "message",
-            });
-          };
+        // if (typeof window !== "undefined") {
+        //   window.testNotification = () => {
+        //     handleMessageNotification({
+        //       room: "test_room_123",
+        //       sender: {
+        //         id: "test_user_123",
+        //         name: "Test User",
+        //         profilePic: "",
+        //       },
+        //       timestamp: new Date().toISOString(),
+        //       type: "message",
+        //     });
+        //   };
 
-          // ✅ ADD: Test socket function
-          window.testSocket = () => {
-            if (socket.connected) {
-              socket.emit("test", { message: "Test from client" });
-            }
-          };
-        }
+        //   // ✅ ADD: Test socket function
+        //   window.testSocket = () => {
+        //     if (socket.connected) {
+        //       socket.emit("test", { message: "Test from client" });
+        //     }
+        //   };
+        // }
       } catch (err) {
         logger.error("Socket init failed", err);
       }
