@@ -54,15 +54,15 @@ try {
 }
 
 // CORRECT NOTIFICATION IMPORT
-// let sendMessageNotification;
-// try {
-// sendMessageNotification =
-//   require("../lib/RegisterForPushNotificationsAsync").sendMessageNotification;
-// } catch (e) {
-//   console.warn("Notifications not available");
-//   sendMessageNotification = async () =>
-//     console.log("Notifications not available");
-// }
+let sendMessageNotification;
+try {
+  sendMessageNotification =
+    require("../lib/RegisterForPushNotificationsAsync").sendMessageNotification;
+} catch (e) {
+  console.warn("Notifications not available");
+  sendMessageNotification = async () =>
+    console.log("Notifications not available");
+}
 
 // Helper function to check if time is within 2 minutes
 const isTimeWithinTwoMinutes = (messageTimeStr, currentTimeStr) => {
@@ -178,7 +178,7 @@ const MessageScreen = ({ route }) => {
       }
     };
 
-    socketRef.current.on("callInvitation", onCallInvitation);
+    // socketRef.current.on("callInvitation", onCallInvitation);
 
     // 🆕 ADD THESE NEW LISTENERS HERE
     const onMessageDelivered = (data) => {
@@ -232,7 +232,7 @@ const MessageScreen = ({ route }) => {
       cleanupMsg && cleanupMsg();
       socketRef.current?.off("userTyping", onUserTyping);
       socketRef.current?.off("userStoppedTyping", onUserStoppedTyping);
-      socketRef.current?.off("callInvitation", onCallInvitation);
+      // socketRef.current?.off("callInvitation", onCallInvitation);
       socketRef.current?.off("messageDelivered", onMessageDelivered); // 🆕 Cleanup
       socketRef.current?.off("messageRead", onMessageRead); // 🆕 Cleanup
       socketRef.current?.emit("leaveRoom", { room: roomIdxccd, userId });
@@ -395,23 +395,6 @@ const MessageScreen = ({ route }) => {
         // Skip if we've already processed this message
         if (latestMessage._id === lastProcessedMessageId) return;
         lastProcessedMessageId = latestMessage._id;
-
-        // 🆕 SEND NOTIFICATION FOR NEW MESSAGES
-        // if (latestMessage.sender_id._id !== loggedInUserId) {
-        //   const isCallLink = latestMessage.message?.match(
-        //     /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
-        //   );
-
-        //   if (!isCallLink) {
-        //     await sendMessageNotification(
-        //       data.data.chatPartner.name || "Someone",
-        //       latestMessage.message,
-        //       latestMessage._id,
-        //       roomIdxccd
-        //     );
-        //     console.log("📱 Notification sent for new message");
-        //   }
-        // }
 
         // 🎯 CALL NOTIFICATION CHECK
         const linkMatch = latestMessage.message.match(

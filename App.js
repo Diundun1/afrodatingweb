@@ -161,7 +161,6 @@ export default function App() {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
   const navigationRef = useRef();
-
   // Service Worker registration for PWA
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -261,6 +260,40 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    if (!navigator.serviceWorker) return;
+
+    const handler = (event) => {
+      const { type, payload } = event.data || {};
+
+      console.log("📩 Message from Service Worker:", event.data);
+
+      // 🔹 Open chat
+      if (type === "OPEN_CHAT" && payload?.roomId) {
+        console.log("navigating....");
+        if (navigationRef.current?.isReady?.()) {
+          navigationRef.current.navigate("MessageScreen", {
+            roomIdxccd: payload?.roomId,
+            focusMessageId: payload?.messageId,
+          });
+        } else {
+          console.warn("⚠ Navigation not ready yet");
+        }
+      }
+
+      // 🔹 Incoming call
+      if (type === "INCOMING_CALL" && payload?.callUrl) {
+        window.location.href = payload?.callUrl;
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handler);
+
+    return () =>
+      navigator.serviceWorker.removeEventListener("message", handler);
+  }, []);
+
   const handleAllowNotifications = async () => {
     try {
       setShowNotificationModal(false);
@@ -289,8 +322,8 @@ export default function App() {
   return (
     <>
       <NavigationContainer ref={navigationRef}>
-        <SocketProvider>
-          <CallProvider>
+        <CallProvider>
+          <SocketProvider>
             <Stack.Navigator
               screenOptions={{ headerShown: false }}
               initialRouteName="WelcomeScreen"
@@ -352,8 +385,8 @@ export default function App() {
                 component={ProfileDetailScreen}
               />
             </Stack.Navigator>
-          </CallProvider>
-        </SocketProvider>
+          </SocketProvider>
+        </CallProvider>
       </NavigationContainer>
 
       {/* PWA Installation Prompt - Only shows on web */}

@@ -310,6 +310,19 @@ const sendCallNotification = async (callerName, callUrl, callerId) => {
         },
       }
     );
+    // await showNotificationViaServiceWorker("📞 Incoming Call", {
+    //   body: `${callerName} is calling you`,
+    //   requireInteraction: true,
+    //   tag: `call_${room}`,
+    //   data: {
+    //     type: "incoming_call",
+    //     callUrl,
+    //     callerId,
+    //     callerName,
+    //     room,
+    //     callType, // "voice" | "video"
+    //   },
+    // });
 
     console.log("Call notification sent for:", callerName);
   } catch (error) {

@@ -4,12 +4,17 @@ import React, {
   useEffect,
   useRef,
   useState,
+  useCallback,
 } from "react";
 import initializeSocket from "./socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
-import { sendMessageNotification } from "../components/RegisterForPushNotificationsAsync";
+import {
+  sendMessageNotification,
+  sendCallNotification,
+} from "../lib/RegisterForPushNotificationsAsync";
 import { AppState } from "react-native";
+import { useCall } from "./CallContext";
+import { useNavigation } from "@react-navigation/native";
 const SocketContext = createContext(null);
 
 export function useSocket() {
@@ -21,10 +26,13 @@ export function useSocket() {
 }
 
 export function SocketProvider({ children }) {
+  const { setInCall, setParticipant } = useCall();
+  const navigationRef = useRef();
   const navigation = useNavigation();
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
   const initializedRef = useRef(false);
+  const listenerCleanupRef = useRef([]);
 
   const logger = {
     info: (msg, data) => console.log(`ℹ ${msg}`, data || ""),
@@ -34,192 +42,190 @@ export function SocketProvider({ children }) {
     event: (name, data) => console.log(`📡 EVENT: ${name}`, data || ""),
   };
 
-  // ✅ ADD THIS: Get the actual socket instance
-  const getSocket = () => {
+  // ✅ FIXED: Memoized to prevent recreating on every render
+  const getSocket = useCallback(() => {
     return socketRef.current;
-  };
+  }, []);
 
-  // const handleMessageNotification = async (notificationData) => {
-  //   try {
-  //     const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
-
-  //     console.log("Processing messageNotification:", notificationData);
-
-  //     const roomId = notificationData.room;
-  //     const sender = notificationData.sender;
-
-  //     if (!sender) {
-  //       logger.warn("No sender data in notification");
-  //       return;
-  //     }
-
-  //     if (sender.id === loggedInUserId) {
-  //       logger.info("Skipping notification for own message");
-  //       return;
-  //     }
-
-  //     const senderName = "You received a message";
-  //     const messageContent = sender.name + " sent you a message";
-
-  //     logger.info("Sending message notification", { senderName, roomId });
-
-  //     await sendMessageNotification(
-  //       senderName,
-  //       messageContent,
-  //       `msg-${Date.now()}`,
-  //       roomId
-  //     );
-
-  //     logger.success("Message notification sent successfully");
-  //   } catch (error) {
-  //     logger.error("Failed to process message notification", error);
-  //   }
-  // };
-
-  const extractLastMessage = (chat) => {
-    if (!chat || !chat.lastMessage) return null;
-
-    const lm = chat.lastMessage;
-
-    if (typeof lm === "string") return lm;
-    if (typeof lm === "object") return lm.message || null;
-
-    return null;
-  };
-
-  const fetchLastMessageForRoom = async (roomId) => {
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) return null;
-
-      const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) return null;
-
-      const result = await response.json();
-      const chats = result?.data || [];
-
-      const chat = chats.find(
-        (c) =>
-          c.room === roomId || c.chat_room_id === roomId || c.roomId === roomId
-      );
-
-      const message = extractLastMessage(chat);
-
-      console.log("FOUND LAST MESSAGE:", message);
-
-      return message;
-    } catch (err) {
-      console.error("Failed to fetch last message", err);
-      return null;
-    }
-  };
-
-  // const handleMessageNotification = async (notificationData) => {
-  //   try {
-  //     console.log("Notification received:", notificationData);
-
-  //     const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
-  //     console.log("Logged in user id:", loggedInUserId);
-
-  //     const { room, sender } = notificationData;
-
-  //     if (!sender) return;
-  //     if (sender.id === loggedInUserId) return;
-
-  //     // Skip if app is visible
-  //     // if (
-  //     //   typeof document !== "undefined" &&
-  //     //   document.visibilityState === "visible"
-  //     // ) {
-  //     //   console.log("App is visible — skipping notification");
-  //     //   return;
-  //     // }
-
-  //     // ✅ FALLBACK MESSAGE (important)
-  //     const senderName = sender.name || "Someone";
-  //     const message = "Sent you a new message";
-  //     const messageId = `msg-${Date.now()}`;
-
-  //     await sendMessageNotification(senderName, message, messageId, room);
-
-  //     console.log("Notification sent from messageNotification");
-  //   } catch (error) {
-  //     console.error("Failed to process message notification", error);
-  //   }
-  // };
-
-  const handleMessageNotification = async (notificationData) => {
+  const handleMessageNotification = useCallback(async (notificationData) => {
     try {
       const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
-      const { room, sender } = notificationData;
+      const { room, sender, message: socketMessage } = notificationData;
 
-      if (!sender) return;
+      if (!sender || !room) return;
       if (sender.id === loggedInUserId) return;
 
       const senderName = sender.name || "Someone";
 
-      const lastMessage =
-        (await fetchLastMessageForRoom(room)) || "Sent you a new message";
+      // 🔥 1. USE SOCKET MESSAGE FIRST (no race condition)
+      let finalMessage = socketMessage?.trim();
+
+      // 🔄 2. FALL BACK TO API ONLY IF SOCKET MESSAGE IS MISSING
+      if (!finalMessage) {
+        const token = await AsyncStorage.getItem("userToken");
+        if (token) {
+          try {
+            const response = await fetch(
+              "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+            if (response.ok) {
+              const result = await response.json();
+              const chats = result?.data || [];
+
+              const chat = chats.find(
+                (c) =>
+                  c.room === room ||
+                  c.chat_room_id === room ||
+                  c.roomId === room
+              );
+
+              const lm = chat?.lastMessage;
+              finalMessage =
+                typeof lm === "string"
+                  ? lm
+                  : typeof lm === "object"
+                  ? lm?.message
+                  : null;
+            }
+          } catch (e) {
+            console.warn("Last message fallback failed");
+          }
+        }
+      }
+
+      // 🛟 FINAL GUARANTEED FALLBACK
+      if (!finalMessage) {
+        finalMessage = "Sent you a new message";
+      }
 
       await sendMessageNotification(
         senderName,
-        lastMessage,
+        finalMessage,
         `msg-${Date.now()}`,
         room
       );
     } catch (error) {
       console.error("Failed to process message notification", error);
     }
-  };
+  }, []);
 
-  const handleChatMessage = async (messageData) => {
+  // const handleIncomingCall = useCallback(async (notificationData) => {
+  //   try {
+  //     console.log(
+  //       "🔔 handleIncomingCall called with payload:",
+  //       notificationData
+  //     );
+
+  //     const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
+  //     console.log("🆔 Logged in user ID:", loggedInUserId);
+
+  //     const { caller, room, callType = "voice", callId } = notificationData;
+  //     console.log("📞 Extracted call info:", {
+  //       caller,
+  //       room,
+  //       callType,
+  //       callId,
+  //     });
+
+  //     if (!caller || !room) {
+  //       logger.warn(
+  //         "⚠ Invalid call payload, missing caller or room",
+  //         notificationData
+  //       );
+  //       console.log("⚠ Aborting handleIncomingCall due to invalid payload");
+  //       return;
+  //     }
+
+  //     // Prevent self-call notification
+  //     if (caller.id === loggedInUserId) {
+  //       logger.info("Skipping own call notification");
+  //       console.log(
+  //         "ℹ Caller is the same as logged in user. No notification sent."
+  //       );
+  //       return;
+  //     }
+
+  //     const callerName = caller.name || "Someone";
+  //     console.log("👤 Caller name resolved as:", callerName);
+
+  //     logger.info("Incoming call notification", { callerName, callType, room });
+  //     console.log("💬 Preparing to send call notification...");
+
+  //     await sendCallNotification(
+  //       callerName,
+  //       callType, // ⚠ Check: this might need to be `callUrl` if your sendCallNotification expects a URL
+  //       callId || `call-${Date.now()}`,
+  //       room
+  //     );
+
+  //     console.log("✅ Call notification sent successfully");
+  //     logger.success("Call notification sent");
+  //   } catch (err) {
+  //     console.error("❌ Failed to handle incoming call:", err);
+  //     logger.error("Failed to handle incoming call", err);
+  //   }
+  // }, []);
+
+  // ✅ IMPROVED: Better data extraction and validation
+
+  const handleChatMessage = useCallback(async (messageData) => {
+    console.log("messageData: ", messageData);
     try {
       const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
 
+      // Extract sender ID
       let senderId = null;
-      if (messageData.sender_id && typeof messageData.sender_id === "object") {
+      if (typeof messageData.sender_id === "object" && messageData.sender_id) {
         senderId = messageData.sender_id._id || messageData.sender_id.id;
       } else if (messageData.sender_id) {
         senderId = messageData.sender_id;
-      } else if (messageData.sender && messageData.sender.id) {
+      } else if (messageData.sender?.id) {
         senderId = messageData.sender.id;
       }
 
+      // Skip own messages
       if (senderId === loggedInUserId) {
+        logger.info("Skipping own message");
         return;
       }
 
-      const messageContent =
-        messageData.message || messageData.content || "New message";
-      const isCallLink = messageContent.match(
-        /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
-      );
+      // Skip call links
+      const isCallLink = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/.test();
       if (isCallLink) {
-        return;
+        logger.info("Skipping call link message");
+        console.log("call link");
       }
 
+      // Extract sender name
       let senderName = "Someone";
-      if (messageData.sender_id && typeof messageData.sender_id === "object") {
-        senderName = messageData.sender_id.name || senderName;
-      } else if (messageData.sender) {
-        senderName = messageData.sender.name || senderName;
+      if (
+        typeof messageData.sender_id === "object" &&
+        messageData.sender_id?.name
+      ) {
+        senderName = messageData.sender_id.name;
+      } else if (messageData.sender?.name) {
+        senderName = messageData.sender.name;
       } else if (messageData.sender_name) {
         senderName = messageData.sender_name;
       }
 
+      // Extract room and message IDs
       const roomId =
         messageData.room_id || messageData.chat_room_id || messageData.room;
       const messageId =
         messageData._id || messageData.id || `msg-${Date.now()}`;
+
+      if (!roomId) {
+        logger.warn("No room ID in message data");
+        return;
+      }
 
       logger.info("Sending chat message notification", {
         senderName,
@@ -236,25 +242,160 @@ export function SocketProvider({ children }) {
     } catch (error) {
       logger.error("Failed to process chat message", error);
     }
-  };
+  }, []);
 
-  if (typeof window !== "undefined") {
-    window.testNotification = () => {
-      console.log("Simulating test notification...");
-      handleMessageNotification({
-        room: "test_room_123",
-        sender: {
-          id: "test_user_123",
-          name: "Test User",
-          profilePic: "",
-        },
-        timestamp: new Date().toISOString(),
-        type: "message",
-        message: "Hello from test!",
-        messageId: `msg-${Date.now()}`,
-      });
-    };
-  }
+  // ✅ Socket initialization effect
+  // useEffect(() => {
+  //   if (initializedRef.current) return;
+  //   initializedRef.current = true;
+
+  //   let isMounted = true;
+
+  //   const connectSocket = async () => {
+  //     try {
+  //       const token = await AsyncStorage.getItem("userToken");
+  //       const userId = await AsyncStorage.getItem("loggedInUserId");
+
+  //       if (!token || !userId) {
+  //         logger.error("Missing token or userId — cannot connect socket.");
+  //         return;
+  //       }
+
+  //       const socket = initializeSocket(
+  //         "https://backend-afrodate-8q6k.onrender.com/messaging",
+  //         token
+  //       );
+
+  //       socketRef.current = socket;
+
+  //       // ✅ Connection handlers
+  //       socket.on("connect", () => {
+  //         if (!isMounted) return;
+  //         setIsConnected(true);
+  //         logger.success("Socket connected", { id: socket.id });
+
+  //         // Join user room
+  //         socket.emit("joinUserRoom", { userId });
+  //         logger.info("Joined user room", { userId });
+  //       });
+
+  //       socket.on("disconnect", (reason) => {
+  //         if (!isMounted) return;
+  //         setIsConnected(false);
+  //         logger.warn("Socket disconnected", { reason });
+  //       });
+
+  //       socket.on("connect_error", (err) => {
+  //         logger.error("Connection error", err.message);
+  //       });
+
+  //       // ✅ CONSOLIDATED: Single message notification handler
+  //       socket.on("messageNotification", handleMessageNotification);
+
+  //       useEffect(() => {
+  //         if (!socketRef.current) return;
+
+  //         const onCallInvitation = (data) => {
+  //           console.log("📞 Incoming call (SocketContext):", data);
+
+  //           // 1️⃣ Update call state
+  //           setInCall(true);
+  //           setParticipant(data.callerName);
+
+  //           // 2️⃣ Navigate globally
+  //           navigation.navigate("IncomingCallScreen", {
+  //             callerName: data.callerName || "Unknown Caller",
+  //             partnerId: data.callerId,
+  //             callUrl: data.callUrl,
+  //             room: data.room,
+  //             callType: data.callType || "video",
+  //             isCaller: false,
+  //           });
+
+  //           // 3️⃣ Trigger system notification (PWA)
+  //           sendCallNotification(data.callerName, data.callUrl, data.callerId);
+  //         };
+
+  //         socketRef.current.on("callInvitation", onCallInvitation);
+
+  //         return () => {
+  //           socketRef.current.off("callInvitation", onCallInvitation);
+  //         };
+  //       }, []);
+
+  //       // ✅ Chat message handlers (keep if backend sends different events)
+  //       socket.on("chat_message", handleChatMessage);
+  //       socket.on("new_message", handleChatMessage);
+  //       // 🔔 Incoming call event
+  //       // socket.on("incoming_call", handleIncomingCall);
+
+  //       // socket.on("callInvitation", (data) => {
+  //       //   sendCallNotification({
+  //       //     callerName: data.callerName,
+  //       //     callerId: data.callerId,
+  //       //     callUrl: data.callUrl,
+  //       //     room: data.room,
+  //       //     callType: data.callType, // "video" or "voice"
+  //       //   });
+  //       // });
+
+  //       // Message status confirmations
+  //       socket.on("messageSent", (data) => {
+  //         logger.success("Message sent confirmation", data);
+  //       });
+
+  //       socket.on("messageDelivered", (data) => {
+  //         logger.success("Message delivered", data);
+  //       });
+
+  //       // Debug all events in development
+  //       if (__DEV__) {
+  //         socket.onAny((eventName, ...args) => {
+  //           console.log(`📡 Socket event: ${eventName}`, args);
+  //         });
+  //       }
+
+  //       // Handle reconnection
+  //       socket.io.on("reconnect", () => {
+  //         logger.success("Reconnected to server");
+  //         socket.emit("joinUserRoom", { userId });
+  //       });
+
+  //       // ✅ Debug helper (development only)
+  //       if (__DEV__ && typeof window !== "undefined") {
+  //         window.testNotification = () => {
+  //           logger.info("Simulating test notification...");
+  //           handleMessageNotification({
+  //             room: "test_room_123",
+  //             sender: {
+  //               id: "test_user_456", // Different from logged in user
+  //               name: "Test User",
+  //             },
+  //             message: "Hello from test!",
+  //             timestamp: new Date().toISOString(),
+  //           });
+  //         };
+  //       }
+  //     } catch (err) {
+  //       logger.error("Socket init failed", err);
+  //     }
+  //   };
+
+  //   connectSocket();
+
+  //   // ✅ Cleanup
+  //   return () => {
+  //     isMounted = false;
+  //     if (socketRef.current) {
+  //       socketRef.current.removeAllListeners();
+  //       socketRef.current.disconnect();
+  //       socketRef.current = null;
+  //     }
+  //     // Clean up any registered listeners
+  //     listenerCleanupRef.current.forEach((cleanup) => cleanup());
+  //     listenerCleanupRef.current = [];
+  //   };
+  // }, [handleMessageNotification, handleChatMessage]);
 
   useEffect(() => {
     if (initializedRef.current) return;
@@ -267,10 +408,7 @@ export function SocketProvider({ children }) {
         const token = await AsyncStorage.getItem("userToken");
         const userId = await AsyncStorage.getItem("loggedInUserId");
 
-        if (!token || !userId) {
-          logger.error("Missing token or userId — cannot connect socket.");
-          return;
-        }
+        if (!token || !userId) return;
 
         const socket = initializeSocket(
           "https://backend-afrodate-8q6k.onrender.com/messaging",
@@ -282,83 +420,47 @@ export function SocketProvider({ children }) {
         socket.on("connect", () => {
           if (!isMounted) return;
           setIsConnected(true);
-          logger.success("Socket connected", { id: socket.id });
-
-          // ✅ Join user room after connection
           socket.emit("joinUserRoom", { userId });
-          logger.info("Joined user room", { userId });
         });
 
-        socket.on("disconnect", (reason) => {
+        socket.on("disconnect", () => {
           if (!isMounted) return;
           setIsConnected(false);
-          logger.warn("Socket disconnected", { reason });
         });
 
-        socket.on("connect_error", (err) => {
-          logger.error("Connection error", err.message);
+        // 📩 MESSAGE NOTIFICATION
+        socket.on("messageNotification", handleMessageNotification);
+
+        // 📞 INCOMING CALL (SINGLE SOURCE OF TRUTH)
+        socket.on("callInvitation", (data) => {
+          console.log("📞 Incoming call:", data);
+
+          // 1️⃣ Update call context
+          setInCall(true);
+          setParticipant(data.callerName || "Unknown");
+
+          // 2️⃣ Navigate
+          navigation.navigate("IncomingCallScreen", {
+            callerName: data.callerName,
+            partnerId: data.callerId,
+            callUrl: data.callUrl,
+            room: data.room,
+            callType: data.callType || "video",
+            isCaller: false,
+          });
+
+          // 3️⃣ System notification (PWA)
+          sendCallNotification(data.callerName, data.callUrl, data.callerId);
         });
 
-        // Message event handlers
-        socket.on("messageNotification", (notificationData) => {
-          console.log("messageNotification event received:", notificationData);
-          handleMessageNotification(notificationData);
-        });
-
-        socket.on("chat_message", (messageData) => {
-          console.log("chat_message event received:", messageData);
-          handleChatMessage(messageData);
-        });
-
-        socket.on("new_message", (messageData) => {
-          console.log("new_message event received:", messageData);
-          handleChatMessage(messageData);
-        });
-
-        // ✅ ADD THESE EVENT HANDLERS FOR MESSAGE CONFIRMATION
-        socket.on("messageSent", (data) => {
-          logger.success("Message sent confirmation", data);
-        });
-
-        socket.on("messageDelivered", (data) => {
-          logger.success("Message delivered", data);
-        });
-
-        // Debug all events
-        socket.onAny((eventName, ...args) => {
-          console.log(`📡 Socket event: ${eventName}`, args);
-        });
-
-        socket.io.on("reconnect", () => {
-          logger.success("Reconnected to server");
-          // Rejoin rooms after reconnection
-          socket.emit("joinUserRoom", { userId });
-        });
-
-        // Test function for debugging
-        // if (typeof window !== "undefined") {
-        //   window.testNotification = () => {
-        //     handleMessageNotification({
-        //       room: "test_room_123",
-        //       sender: {
-        //         id: "test_user_123",
-        //         name: "Test User",
-        //         profilePic: "",
-        //       },
-        //       timestamp: new Date().toISOString(),
-        //       type: "message",
-        //     });
-        //   };
-
-        //   // ✅ ADD: Test socket function
-        //   window.testSocket = () => {
-        //     if (socket.connected) {
-        //       socket.emit("test", { message: "Test from client" });
-        //     }
-        //   };
-        // }
+        // 🧪 DEV DEBUG
+        if (__DEV__) {
+          socket.onAny((event, ...args) => {
+            console.log(`📡 ${event}`, args);
+          });
+        }
       } catch (err) {
-        logger.error("Socket init failed", err);
+        console.error("Socket init failed", err);
       }
     };
 
@@ -372,41 +474,63 @@ export function SocketProvider({ children }) {
         socketRef.current = null;
       }
     };
-  }, []);
+  }, [handleMessageNotification]);
 
-  const onMessageReceived = (handler) => {
-    if (!socketRef.current) return () => {};
+  // ✅ FIXED: Proper cleanup handling
+  const onMessageReceived = useCallback((handler) => {
+    if (!socketRef.current) {
+      logger.warn("Cannot register message listener - socket not initialized");
+      return () => {};
+    }
+
     const handleMessage = (data) => {
       logger.event("chat_message received", data);
       handler(data);
     };
-    socketRef.current.on("chat_message", handleMessage);
-    return () => socketRef.current.off("chat_message", handleMessage);
-  };
 
-  // ✅ ADD: Function to emit messages
-  const emit = (event, data, callback) => {
+    socketRef.current.on("chat_message", handleMessage);
+
+    const cleanup = () => {
+      if (socketRef.current) {
+        socketRef.current.off("chat_message", handleMessage);
+      }
+    };
+
+    listenerCleanupRef.current.push(cleanup);
+
+    return cleanup;
+  }, []);
+
+  // ✅ Helper function to emit events
+  const emit = useCallback((event, data, callback) => {
     if (!socketRef.current || !socketRef.current.connected) {
       logger.error(`Cannot emit ${event} - socket not connected`);
       return false;
     }
 
     logger.event(`Emitting ${event}`, data);
-    socketRef.current.emit(event, data, callback);
+
+    if (callback) {
+      socketRef.current.emit(event, data, callback);
+    } else {
+      socketRef.current.emit(event, data);
+    }
+
     return true;
+  }, []);
+
+  // ✅ FIXED: Include isConnected in deps so consumers re-render on connection changes
+  const contextValue = {
+    socket: socketRef.current,
+    socketRef,
+    isConnected,
+    onMessageReceived,
+    emit,
+    getSocket,
   };
 
   return (
-    <SocketContext.Provider
-      value={{
-        socket: socketRef.current, // ✅ ADD: Direct socket access
-        socketRef,
-        isConnected,
-        onMessageReceived,
-        emit, // ✅ ADD: Helper function for emitting
-        getSocket, // ✅ ADD: Function to get socket instance
-      }}
-    >
+    <SocketContext.Provider value={contextValue}>
       {children}
     </SocketContext.Provider>
   );

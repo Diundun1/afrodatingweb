@@ -114,7 +114,7 @@ self.addEventListener("push", function (event) {
   } catch (e) {
     data = {
       title: "Diundun",
-      body: event.data?.text() || "You have a new notification",
+      body: event.data?.text() || "You have a new notification from sw",
     };
   }
 
@@ -138,54 +138,124 @@ self.addEventListener("push", function (event) {
   );
 });
 
-self.addEventListener("notificationclick", function (event) {
-  console.log("Notification clicked", event.notification.data);
-  event.notification.close();
+// self.addEventListener("notificationclick", function (event) {
+//   console.log("Notification clicked", event.notification.data);
+//   event.notification.close();
 
+//   const data = event.notification.data;
+
+//   event.waitUntil(
+//     clients
+//       .matchAll({
+//         type: "window",
+//         includeUncontrolled: true,
+//       })
+//       .then((clientList) => {
+//         // Try to focus existing window first
+//         for (const client of clientList) {
+//           if (client.url.includes(self.location.origin) && "focus" in client) {
+//             if (data.type === "new_message") {
+//               client.postMessage({
+//                 type: "OPEN_CHAT",
+//                 roomId: data.roomId,
+//                 messageId: data.messageId,
+//               });
+//             } else if (data.type === "incoming_call") {
+//               client.postMessage({
+//                 type: "INCOMING_CALL",
+//                 callUrl: data.callUrl,
+//                 callerId: data.callerId,
+//               });
+//             }
+
+//             return client.focus();
+//           }
+//         }
+
+//         // If no existing window, open new one
+//         if (clients.openWindow) {
+//           let url = "/";
+
+//           if (data.type === "new_message") {
+//             url = `/?roomId=${data.roomId}&openChat=true`;
+//           } else if (data.type === "incoming_call") {
+//             url = `/?callUrl=${encodeURIComponent(data.callUrl)}&callerId=${
+//               data.callerId
+//             }`;
+//           }
+
+//           return clients.openWindow(url);
+//         }
+//       })
+//   );
+// });
+
+self.addEventListener("notificationclick", function (event) {
+  console.log("🔔 Notification clicked:", event.notification.data);
+
+  event.notification.close();
   const data = event.notification.data;
 
   event.waitUntil(
-    clients
+    self.clients
       .matchAll({
         type: "window",
         includeUncontrolled: true,
       })
-      .then((clientList) => {
-        // Try to focus existing window first
+      .then(async (clientList) => {
+        // 1️⃣ Try existing window
         for (const client of clientList) {
-          if (client.url.includes(self.location.origin) && "focus" in client) {
+          if (
+            client.url.startsWith(self.location.origin) &&
+            "focus" in client
+          ) {
+            await client.focus();
+
             if (data.type === "new_message") {
               client.postMessage({
                 type: "OPEN_CHAT",
-                roomId: data.roomId,
-                messageId: data.messageId,
-              });
-            } else if (data.type === "incoming_call") {
-              client.postMessage({
-                type: "INCOMING_CALL",
-                callUrl: data.callUrl,
-                callerId: data.callerId,
+                payload: {
+                  roomId: data.roomId,
+                  messageId: data.messageId,
+                },
               });
             }
 
-            return client.focus();
+            if (data.type === "incoming_call") {
+              client.postMessage({
+                type: "INCOMING_CALL",
+                payload: {
+                  callUrl: data.callUrl,
+                  callerId: data.callerId,
+                  callerName: data.callerName,
+                  room: data.room,
+                  callType: data.callType,
+                },
+              });
+            }
+
+            return;
           }
         }
 
-        // If no existing window, open new one
-        if (clients.openWindow) {
-          let url = "/";
+        // 2️⃣ No window → open new one
+        let url = "/";
 
-          if (data.type === "new_message") {
-            url = `/?roomId=${data.roomId}&openChat=true`;
-          } else if (data.type === "incoming_call") {
-            url = `/?callUrl=${encodeURIComponent(data.callUrl)}&callerId=${
-              data.callerId
-            }`;
-          }
-
-          return clients.openWindow(url);
+        if (data.type === "new_message") {
+          url = `/?openChat=true&roomId=${data.roomId}`;
         }
+
+        if (data.type === "incoming_call") {
+          url =
+            `/?incomingCall=true` +
+            `&callUrl=${encodeURIComponent(data.callUrl)}` +
+            `&callerId=${data.callerId}` +
+            `&callerName=${encodeURIComponent(data.callerName)}` +
+            `&room=${data.room}` +
+            `&callType=${data.callType}`;
+        }
+
+        return self.clients.openWindow(url);
       })
   );
 });
