@@ -237,32 +237,77 @@ const sendLocalNotification = async (title, body, data = {}) => {
 };
 
 // FIXED: Use service worker for call notifications
-const sendCallNotification = async (callerName, callUrl, callerId) => {
+// const sendCallNotification = async (callerName, callUrl, callerId) => {
+//   try {
+//     if (
+//       !isPushNotificationSupported() ||
+//       Notification.permission !== "granted"
+//     ) {
+//       return;
+//     }
+
+//     await showNotificationViaServiceWorker(
+//       `📞 Incoming Call from ${callerName}`,
+//       {
+//         body: "Tap to answer the video call",
+//         tag: "incoming_call",
+//         requireInteraction: true,
+//         data: {
+//           callUrl,
+//           callerId,
+//           type: "incoming_call",
+//         },
+//       }
+//     );
+
+//     console.log("Call notification sent for:", callerName);
+//   } catch (error) {
+//     console.error("Failed to send call notification:", error);
+//   }
+// };
+const sendCallNotification = async ({
+  callerName,
+  callUrl,
+  callerId,
+  room,
+  callType = "video", // "video" | "voice"
+}) => {
   try {
-    if (
-      !isPushNotificationSupported() ||
-      Notification.permission !== "granted"
-    ) {
+    if (!isPushNotificationSupported()) {
+      console.warn("Push notifications not supported");
       return;
     }
 
-    await showNotificationViaServiceWorker(
-      `📞 Incoming Call from ${callerName}`,
-      {
-        body: "Tap to answer the video call",
-        tag: "incoming_call",
-        requireInteraction: true,
-        data: {
-          callUrl,
-          callerId,
-          type: "incoming_call",
-        },
-      }
-    );
+    if (Notification.permission !== "granted") {
+      console.warn("Notification permission not granted");
+      return;
+    }
 
-    console.log("Call notification sent for:", callerName);
+    await showNotificationViaServiceWorker(`📞 Incoming ${callType} call`, {
+      body: `${callerName || "Someone"} is calling you`,
+      tag: `incoming_call_${room}`, // ✅ UNIQUE PER CALL
+      requireInteraction: true, // ✅ keeps ringing
+      renotify: true,
+      data: {
+        type: "incoming_call",
+
+        // ✅ REQUIRED FOR NAVIGATION
+        callUrl,
+        callerId,
+        callerName,
+        room,
+        callType,
+      },
+    });
+
+    console.log("📞 Call notification sent:", {
+      callerName,
+      callerId,
+      room,
+      callType,
+    });
   } catch (error) {
-    console.error("Failed to send call notification:", error);
+    console.error("❌ Failed to send call notification:", error);
   }
 };
 

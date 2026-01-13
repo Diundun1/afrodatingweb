@@ -176,7 +176,8 @@ export default function IncomingCallScreen({ route }) {
   return (
     <LinearGradient
       colors={["#1a1a2e", "#16213e", "#0f3460"]}
-      style={styles.container}>
+      style={styles.container}
+    >
       {/* Background decorative elements */}
       <View style={styles.backgroundCircles}>
         <View style={[styles.circle, styles.circle1]} />
@@ -193,10 +194,12 @@ export default function IncomingCallScreen({ route }) {
               {
                 transform: [{ scale: pulseAnim }],
               },
-            ]}>
+            ]}
+          >
             <LinearGradient
               colors={["#667eea", "#764ba2"]}
-              style={styles.avatarGradient}>
+              style={styles.avatarGradient}
+            >
               <Image
                 source={require("../../assets/images/appIco.png")}
                 style={styles.avatar}
@@ -230,13 +233,16 @@ export default function IncomingCallScreen({ route }) {
             {
               transform: [{ translateY: slideAnim }],
             },
-          ]}>
+          ]}
+        >
           <TouchableOpacity
             style={styles.buttonWrapper}
-            onPress={handleDecline}>
+            onPress={handleDecline}
+          >
             <LinearGradient
               colors={["#ff6b6b", "#ee5a52"]}
-              style={[styles.button, styles.decline]}>
+              style={[styles.button, styles.decline]}
+            >
               <Ionicons name="close" size={32} color="#fff" />
             </LinearGradient>
             <Text style={styles.buttonLabel}>Decline</Text>
@@ -245,7 +251,8 @@ export default function IncomingCallScreen({ route }) {
           <TouchableOpacity style={styles.buttonWrapper} onPress={handleAccept}>
             <LinearGradient
               colors={["#4ecdc4", "#44a08d"]}
-              style={[styles.button, styles.accept]}>
+              style={[styles.button, styles.accept]}
+            >
               <Ionicons name="call" size={32} color="#fff" />
             </LinearGradient>
             <Text style={styles.buttonLabel}>Accept</Text>
