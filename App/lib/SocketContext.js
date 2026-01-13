@@ -47,133 +47,116 @@ export function SocketProvider({ children }) {
     return socketRef.current;
   }, []);
 
-  const handleMessageNotification = useCallback(async (notificationData) => {
-    try {
-      const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
-      const { room, sender, message: socketMessage } = notificationData;
+  const handleMessageNotification = useCallback(
+    async (notificationData) => {
+      try {
+        const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
+        const { room, sender, message: socketMessage } = notificationData;
 
-      if (!sender || !room) return;
-      if (sender.id === loggedInUserId) return;
+        if (!sender || !room) return;
+        if (sender.id === loggedInUserId) return;
 
-      const senderName = sender.name || "Someone";
+        const senderName = sender.name || "Someone";
+        let finalMessage = socketMessage?.trim();
+        let messageTimestamp = null;
 
-      // 🔥 1. USE SOCKET MESSAGE FIRST (no race condition)
-      let finalMessage = socketMessage?.trim();
-
-      // 🔄 2. FALL BACK TO API ONLY IF SOCKET MESSAGE IS MISSING
-      if (!finalMessage) {
-        const token = await AsyncStorage.getItem("userToken");
-        if (token) {
-          try {
-            const response = await fetch(
-              "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
-              {
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            );
-
-            if (response.ok) {
-              const result = await response.json();
-              const chats = result?.data || [];
-
-              const chat = chats.find(
-                (c) =>
-                  c.room === room ||
-                  c.chat_room_id === room ||
-                  c.roomId === room
+        // 🔄 1. API FALLBACK (If socket message is missing)
+        if (!finalMessage) {
+          const token = await AsyncStorage.getItem("userToken");
+          if (token) {
+            try {
+              const response = await fetch(
+                "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
+                {
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
               );
 
-              const lm = chat?.lastMessage;
-              finalMessage =
-                typeof lm === "string"
-                  ? lm
-                  : typeof lm === "object"
-                  ? lm?.message
-                  : null;
+              if (response.ok) {
+                const result = await response.json();
+                console.log("final message result::: ", result); // Log you requested
+
+                const chats = result?.data || [];
+                const chat = chats.find((c) =>
+                  [c.room, c.chat_room_id, c.roomId].includes(room)
+                );
+
+                const lm = chat?.lastMessage;
+                finalMessage = typeof lm === "string" ? lm : lm?.message;
+                messageTimestamp = lm?.createdAt || lm?.sent_at;
+              }
+            } catch (e) {
+              console.warn("Fallback fetch failed", e);
             }
-          } catch (e) {
-            console.warn("Last message fallback failed");
           }
         }
+
+        // 🛟 2. GUARANTEE CONTENT
+        if (!finalMessage) finalMessage = "Sent you a message";
+
+        // 🎯 3. CALL NOTIFICATION LOGIC
+        const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+        const linkMatch = finalMessage.match(callLinkPattern);
+
+        if (linkMatch) {
+          const callUrl = linkMatch[0];
+
+          // Time check: Only show call screen if sent within last 2 mins
+          const messageTime = messageTimestamp
+            ? new Date(messageTimestamp)
+            : new Date();
+          const timeDiffInMins = (new Date() - messageTime) / 1000 / 60;
+
+          if (timeDiffInMins <= 2) {
+            // Log the call detection
+            console.log(
+              "📞 Call Link Detected! Navigating to IncomingCallScreen..."
+            );
+
+            // Store call data for persistence
+            await Promise.all([
+              AsyncStorage.setItem("callUrl", callUrl),
+              AsyncStorage.setItem("partnerId", sender.id),
+              AsyncStorage.setItem("partnerName", senderName),
+            ]);
+
+            // Navigate to the Call UI
+            navigation.navigate("IncomingCallScreen", {
+              callerName: senderName,
+              partnerId: sender.id,
+              callUrl,
+              room: room,
+              callType: "video",
+              isCaller: false,
+            });
+
+            // Optional: Also fire a high-priority push notification for the call
+            await sendMessageNotification(
+              "Incoming Call",
+              `Incoming call from ${senderName}`,
+              `call-${Date.now()}`,
+              room
+            );
+            return; // Stop here so we don't send a double notification
+          }
+        }
+
+        // ✉️ 4. REGULAR MESSAGE NOTIFICATION
+        await sendMessageNotification(
+          senderName,
+          finalMessage,
+          `msg-${Date.now()}`,
+          room
+        );
+      } catch (error) {
+        console.error("Failed to process message notification", error);
       }
-
-      // 🛟 FINAL GUARANTEED FALLBACK
-      if (!finalMessage) {
-        finalMessage = "Sent you a new message";
-      }
-
-      await sendMessageNotification(
-        senderName,
-        finalMessage,
-        `msg-${Date.now()}`,
-        room
-      );
-    } catch (error) {
-      console.error("Failed to process message notification", error);
-    }
-  }, []);
-
-  // const handleIncomingCall = useCallback(async (notificationData) => {
-  //   try {
-  //     console.log(
-  //       "🔔 handleIncomingCall called with payload:",
-  //       notificationData
-  //     );
-
-  //     const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
-  //     console.log("🆔 Logged in user ID:", loggedInUserId);
-
-  //     const { caller, room, callType = "voice", callId } = notificationData;
-  //     console.log("📞 Extracted call info:", {
-  //       caller,
-  //       room,
-  //       callType,
-  //       callId,
-  //     });
-
-  //     if (!caller || !room) {
-  //       logger.warn(
-  //         "⚠ Invalid call payload, missing caller or room",
-  //         notificationData
-  //       );
-  //       console.log("⚠ Aborting handleIncomingCall due to invalid payload");
-  //       return;
-  //     }
-
-  //     // Prevent self-call notification
-  //     if (caller.id === loggedInUserId) {
-  //       logger.info("Skipping own call notification");
-  //       console.log(
-  //         "ℹ Caller is the same as logged in user. No notification sent."
-  //       );
-  //       return;
-  //     }
-
-  //     const callerName = caller.name || "Someone";
-  //     console.log("👤 Caller name resolved as:", callerName);
-
-  //     logger.info("Incoming call notification", { callerName, callType, room });
-  //     console.log("💬 Preparing to send call notification...");
-
-  //     await sendCallNotification(
-  //       callerName,
-  //       callType, // ⚠ Check: this might need to be `callUrl` if your sendCallNotification expects a URL
-  //       callId || `call-${Date.now()}`,
-  //       room
-  //     );
-
-  //     console.log("✅ Call notification sent successfully");
-  //     logger.success("Call notification sent");
-  //   } catch (err) {
-  //     console.error("❌ Failed to handle incoming call:", err);
-  //     logger.error("Failed to handle incoming call", err);
-  //   }
-  // }, []);
-
-  // ✅ IMPROVED: Better data extraction and validation
+    },
+    [navigation]
+  );
 
   const handleChatMessage = useCallback(async (messageData) => {
     console.log("messageData: ", messageData);
@@ -430,28 +413,6 @@ export function SocketProvider({ children }) {
 
         // 📩 MESSAGE NOTIFICATION
         socket.on("messageNotification", handleMessageNotification);
-
-        // 📞 INCOMING CALL (SINGLE SOURCE OF TRUTH)
-        socket.on("callInvitation", (data) => {
-          console.log("📞 Incoming call:", data);
-
-          // 1️⃣ Update call context
-          setInCall(true);
-          setParticipant(data.callerName || "Unknown");
-
-          // 2️⃣ Navigate
-          navigation.navigate("IncomingCallScreen", {
-            callerName: data.callerName,
-            partnerId: data.callerId,
-            callUrl: data.callUrl,
-            room: data.room,
-            callType: data.callType || "video",
-            isCaller: false,
-          });
-
-          // 3️⃣ System notification (PWA)
-          sendCallNotification(data.callerName, data.callUrl, data.callerId);
-        });
 
         // 🧪 DEV DEBUG
         if (__DEV__) {
