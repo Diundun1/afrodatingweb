@@ -368,7 +368,8 @@ export default function VideoCallScreen() {
             <Text
               style={styles.partnerName}
               numberOfLines={1}
-              ellipsizeMode="tail">
+              ellipsizeMode="tail"
+            >
               {partnerName}
             </Text>
             <Text style={styles.duration}>
@@ -379,15 +380,16 @@ export default function VideoCallScreen() {
 
         {/* Bottom Controls */}
         <View style={styles.bottomControls}>
-          {/* Mute Button */}
-          <TouchableOpacity
+          {/* Mute Button  */}
+          {/* <TouchableOpacity
             style={[
               styles.controlButton,
               isMuted
                 ? styles.controlButtonActive
                 : styles.controlButtonInactive,
             ]}
-            onPress={toggleMute}>
+            onPress={toggleMute}
+          >
             <Ionicons
               name={isMuted ? "mic-off" : "mic"}
               size={24}
@@ -396,17 +398,18 @@ export default function VideoCallScreen() {
             <Text style={styles.controlButtonText}>
               {isMuted ? "Unmute" : "Mute"}
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Video Toggle Button */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={[
               styles.controlButton,
               !isVideoOn
                 ? styles.controlButtonActive
                 : styles.controlButtonInactive,
             ]}
-            onPress={toggleVideo}>
+            onPress={toggleVideo}
+          >
             <Ionicons
               name={isVideoOn ? "videocam" : "videocam-off"}
               size={24}
@@ -415,7 +418,7 @@ export default function VideoCallScreen() {
             <Text style={styles.controlButtonText}>
               {isVideoOn ? "Video Off" : "Video On"}
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* End Call Button */}
           <TouchableOpacity style={styles.endCallButton} onPress={endCall}>
