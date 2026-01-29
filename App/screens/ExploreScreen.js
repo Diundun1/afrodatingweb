@@ -139,7 +139,7 @@ export default function ExploreScreen({ navigation }) {
 
     try {
       const response = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
           method: "POST",
           headers: {
@@ -193,7 +193,7 @@ export default function ExploreScreen({ navigation }) {
 
     try {
       const response = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
           method: "POST",
           headers: {
@@ -254,7 +254,7 @@ export default function ExploreScreen({ navigation }) {
       console.log("Fetching users from API...");
 
       const response = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/by-preferences",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/by-preferences",
         {
           method: "GET",
           headers: {

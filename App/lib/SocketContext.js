@@ -66,7 +66,7 @@ export function SocketProvider({ children }) {
           if (token) {
             try {
               const response = await fetch(
-                "https:backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
+                "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
                 {
                   headers: {
                     "Content-Type": "application/json",
@@ -241,7 +241,7 @@ export function SocketProvider({ children }) {
         if (!token || !userId) return;
 
         const socket = initializeSocket(
-          "https:backend-afrodate-8q6k.onrender.com/messaging",
+          "https://backend-afrodate-8q6k.onrender.com/messaging",
           token,
         );
 

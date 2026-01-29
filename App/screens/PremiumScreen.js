@@ -50,7 +50,7 @@ const PremiumScreen = () => {
         }
 
         const response = await fetch(
-          "https:backend-afrodate-8q6k.onrender.com/api/v1/subscription/status",
+          "https://backend-afrodate-8q6k.onrender.com/api/v1/subscription/status",
           {
             method: "GET",
             headers: {
@@ -130,7 +130,7 @@ const PremiumScreen = () => {
         }
 
         const response = await fetch(
-          "https:backend-afrodate-8q6k.onrender.com/api/v1/plans",
+          "https://backend-afrodate-8q6k.onrender.com/api/v1/plans",
           {
             method: "GET",
             headers: {
@@ -212,7 +212,7 @@ const PremiumScreen = () => {
       }
 
       const response = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/payment/subscribe",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/payment/subscribe",
         {
           method: "POST",
           headers: {
