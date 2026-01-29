@@ -53,7 +53,7 @@ const NotificationsScreen = () => {
     const token = await AsyncStorage.getItem("userToken");
     try {
       const res = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/notifications",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/notifications",
         {
           method: "GET",
           headers: {

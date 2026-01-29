@@ -27,7 +27,7 @@ const { width, height } = Dimensions.get("window");
 const chatService = {
   fetchChats: async (token) => {
     const response = await fetch(
-      `https:backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users`,
+      `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -46,7 +46,7 @@ const chatService = {
 
   deleteChat: async (token, otherUserId) => {
     const response = await fetch(
-      `https:backend-afrodate-8q6k.onrender.com/api/v1/messages/conversations/${otherUserId}`,
+      `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/conversations/${otherUserId}`,
       {
         method: "DELETE",
         headers: {

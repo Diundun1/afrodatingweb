@@ -52,7 +52,7 @@ export default function LoginScreen() {
 
     try {
       const response = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/login",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/login",
         {
           method: "POST",
           headers: {

@@ -64,7 +64,7 @@ export default function EditAccountScreen({ navigation }) {
       }
 
       const response = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/me",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
         {
           method: "GET",
           headers: {
@@ -115,7 +115,7 @@ export default function EditAccountScreen({ navigation }) {
       }
 
       const response = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
         {
           method: "GET",
           headers: {
@@ -205,7 +205,7 @@ export default function EditAccountScreen({ navigation }) {
       );
 
       const uploadResponse = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
         {
           method: "POST",
           headers: {
@@ -348,7 +348,7 @@ export default function EditAccountScreen({ navigation }) {
       };
 
       const response = await fetch(
-        `https:backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
+        `https://backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
         {
           method: "PUT",
           headers: {

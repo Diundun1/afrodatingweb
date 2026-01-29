@@ -32,7 +32,7 @@ const ForgotPasswordScreen = () => {
 
     try {
       const response = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/forgot-password",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/forgot-password",
         {
           method: "POST",
           headers: {

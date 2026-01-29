@@ -45,7 +45,7 @@ const ResetPasswordScreen = () => {
 
     try {
       const verifyResponse = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/verify-otp",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/verify-otp",
         {
           method: "POST",
           headers: {
@@ -69,7 +69,7 @@ const ResetPasswordScreen = () => {
       console.log(token);
 
       const resetResponse = await fetch(
-        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/reset-password",
+        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/reset-password",
         {
           method: "POST",
           headers: {
