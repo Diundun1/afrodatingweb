@@ -153,7 +153,7 @@ export default function ChatScreen({ navigation }) {
       if (!token) throw new Error("No token found");
 
       const response = await axios.get(
-        `http://localhost:5000/api/v1/messages/chat-users`,
+        `https:backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -265,7 +265,7 @@ export default function ChatScreen({ navigation }) {
       const token = await AsyncStorage.getItem("userToken");
 
       const response = await fetch(
-        `http://localhost:5000/api/v1/messages/conversations/${extractedOtherUserId}`,
+        `https:backend-afrodate-8q6k.onrender.com/api/v1/messages/conversations/${extractedOtherUserId}`,
         {
           method: "DELETE",
           headers: {

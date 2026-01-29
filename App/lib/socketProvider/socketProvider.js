@@ -235,7 +235,7 @@ export function SocketProvider({ children }) {
         logger.info("Initializing socket connection...");
 
         const socket = initializeSocket(
-          "http://localhost:5000/messaging",
+          "https:backend-afrodate-8q6k.onrender.com/messaging",
           token,
         );
 

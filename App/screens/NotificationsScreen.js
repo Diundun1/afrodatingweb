@@ -52,13 +52,16 @@ const NotificationsScreen = () => {
     setLoading(true);
     const token = await AsyncStorage.getItem("userToken");
     try {
-      const res = await fetch("http://localhost:5000/api/v1/notifications", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/notifications",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
       console.log(
         "This is the request and its header before the response for the notification thingy",
       );

@@ -23,10 +23,9 @@ const SwipeableCard = ({
     const token = await AsyncStorage.getItem("userToken");
     const loggedInUserId = await AsyncStorage.getItem("loggedInUserId"); // Fixed typo
     const action = direction === "right" ? "like" : "dislike";
-
     try {
       const response = await fetch(
-        "http://localhost:5000/api/v1/match/like-or-dislike",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
           method: "POST",
           headers: {

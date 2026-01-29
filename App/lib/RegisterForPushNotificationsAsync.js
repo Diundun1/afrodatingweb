@@ -109,8 +109,8 @@ const showNotificationViaServiceWorker = async (title, options = {}) => {
 // const sendSubscriptionToBackend = async (subscription, userId) => {
 //   try {
 //     const response = await fetch(
-//       "http://localhost:5000/api/push/subscribe",
-//       // "http://localhost:5000/api/v1/push/subscribe",
+//       "https:backend-afrodate-8q6k.onrender.com/api/push/subscribe",
+//       // "https:backend-afrodate-8q6k.onrender.com/api/v1/push/subscribe",
 //       {
 //         method: "POST",
 //         headers: { "Content-Type": "application/json" },
@@ -218,7 +218,7 @@ const sendSubscriptionToBackend = async (subscription) => {
     console.log("JWT token:", token);
 
     const response = await fetch(
-      "http://localhost:5000/api/v1/push/subscribe",
+      "https:backend-afrodate-8q6k.onrender.com/api/v1/push/subscribe",
       {
         method: "POST",
         headers: {

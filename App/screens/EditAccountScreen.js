@@ -63,13 +63,16 @@ export default function EditAccountScreen({ navigation }) {
         return;
       }
 
-      const response = await fetch("http://localhost:5000/api/v1/users/me", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/me",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       const data = await response.json();
       console.log("User data fetched:", data);
@@ -112,7 +115,7 @@ export default function EditAccountScreen({ navigation }) {
       }
 
       const response = await fetch(
-        "http://localhost:5000/api/v1/users/profile-pictures",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
         {
           method: "GET",
           headers: {
@@ -202,7 +205,7 @@ export default function EditAccountScreen({ navigation }) {
       );
 
       const uploadResponse = await fetch(
-        "http://localhost:5000/api/v1/users/profile-pictures",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
         {
           method: "POST",
           headers: {
@@ -345,7 +348,7 @@ export default function EditAccountScreen({ navigation }) {
       };
 
       const response = await fetch(
-        `http://localhost:5000/api/v1/users/${userId}`,
+        `https:backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
         {
           method: "PUT",
           headers: {

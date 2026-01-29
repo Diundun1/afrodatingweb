@@ -51,17 +51,20 @@ export default function LoginScreen() {
     setErrorMessage("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/v1/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
+      const response = await fetch(
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            email: email,
+            password: password,
+          }),
         },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-        }),
-      });
+      );
 
       console.log("Response status:", response.status);
 

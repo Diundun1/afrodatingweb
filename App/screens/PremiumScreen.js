@@ -50,7 +50,7 @@ const PremiumScreen = () => {
         }
 
         const response = await fetch(
-          "http://localhost:5000/api/v1/subscription/status",
+          "https:backend-afrodate-8q6k.onrender.com/api/v1/subscription/status",
           {
             method: "GET",
             headers: {
@@ -129,13 +129,16 @@ const PremiumScreen = () => {
           return;
         }
 
-        const response = await fetch("http://localhost:5000/api/v1/plans", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+        const response = await fetch(
+          "https:backend-afrodate-8q6k.onrender.com/api/v1/plans",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
 
         const data = await response.json();
         console.log("Fetched Plans:", data);
@@ -209,7 +212,7 @@ const PremiumScreen = () => {
       }
 
       const response = await fetch(
-        "http://localhost:5000/api/v1/payment/subscribe",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/payment/subscribe",
         {
           method: "POST",
           headers: {

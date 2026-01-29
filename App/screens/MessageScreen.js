@@ -332,9 +332,9 @@ const MessageScreen = ({ route }) => {
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
-        // http://localhost:5000
+        // https:backend-afrodate-8q6k.onrender.com
         const response = await fetch(
-          `http://localhost:5000/api/v1/messages/chat-room/${dynamicOtherUserId}`,
+          `https:backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-room/${dynamicOtherUserId}`,
           {
             headers: {
               "Content-Type": "application/json",

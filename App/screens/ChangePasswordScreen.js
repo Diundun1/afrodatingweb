@@ -50,7 +50,7 @@ const ChangePasswordScreen = () => {
       }
 
       const response = await fetch(
-        "http://localhost:5000/api/v1/auth/reset-password",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/reset-password",
         {
           method: "POST",
           headers: {
