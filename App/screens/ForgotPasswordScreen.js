@@ -32,7 +32,7 @@ const ForgotPasswordScreen = () => {
 
     try {
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/forgot-password",
+        "http://localhost:5000/api/v1/auth/forgot-password",
         {
           method: "POST",
           headers: {
@@ -40,7 +40,7 @@ const ForgotPasswordScreen = () => {
             Accept: "application/json",
           },
           body: JSON.stringify({ email }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -51,7 +51,7 @@ const ForgotPasswordScreen = () => {
         setMessage("Password reset instructions sent! Check your email.");
         setTimeout(
           () => navigation.navigate("ResetPasswordScreen", { email }),
-          2000
+          2000,
         );
       } else {
         if (response.status === 404) {
@@ -73,11 +73,13 @@ const ForgotPasswordScreen = () => {
 
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Back button */}
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color="#7B61FF" />
         </TouchableOpacity>
 
@@ -107,7 +109,8 @@ const ForgotPasswordScreen = () => {
                   message.includes("sent")
                     ? styles.successMessage
                     : styles.errorMessage,
-                ]}>
+                ]}
+              >
                 {message}
               </NunitoText>
             ) : null}
@@ -115,7 +118,8 @@ const ForgotPasswordScreen = () => {
             <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleForgotPassword}
-              disabled={loading}>
+              disabled={loading}
+            >
               {loading ? (
                 <ActivityIndicator size={20} color="#fff" />
               ) : (
@@ -125,7 +129,8 @@ const ForgotPasswordScreen = () => {
 
             <TouchableOpacity
               style={styles.backToLoginButton}
-              onPress={() => navigation.goBack()}>
+              onPress={() => navigation.goBack()}
+            >
               <NunitoText style={styles.backToLoginText}>
                 Back to Login
               </NunitoText>

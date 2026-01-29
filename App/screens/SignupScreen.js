@@ -197,12 +197,12 @@ export default function SignupScreen() {
 
     try {
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/register",
+        "http://localhost:5000/api/v1/auth/register",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
-        }
+        },
       );
 
       // Get the response text first

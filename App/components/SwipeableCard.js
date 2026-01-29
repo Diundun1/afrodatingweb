@@ -26,7 +26,7 @@ const SwipeableCard = ({
 
     try {
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
+        "http://localhost:5000/api/v1/match/like-or-dislike",
         {
           method: "POST",
           headers: {
@@ -37,13 +37,13 @@ const SwipeableCard = ({
             userId: userId,
             action: action,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
         const text = await response.text();
         throw new Error(
-          `HTTP error! Status: ${response.status}, Response: ${text}`
+          `HTTP error! Status: ${response.status}, Response: ${text}`,
         );
       }
 
@@ -67,7 +67,7 @@ const SwipeableCard = ({
       } else {
         Alert.alert(
           "Swipe Error",
-          "Failed to register swipe. Please try again."
+          "Failed to register swipe. Please try again.",
         );
       }
 
@@ -95,7 +95,7 @@ const SwipeableCard = ({
               dy: pan.y,
             },
           ],
-          { useNativeDriver: false }
+          { useNativeDriver: false },
         )(_, gestureState);
       },
       onPanResponderRelease: (_, gestureState) => {
@@ -140,7 +140,7 @@ const SwipeableCard = ({
           useNativeDriver: false,
         }).start();
       },
-    })
+    }),
   ).current;
 
   const rotate = pan.x.interpolate({
@@ -160,7 +160,8 @@ const SwipeableCard = ({
   return (
     <Animated.View
       style={[styles.container, animatedStyle]}
-      {...panResponder.panHandlers}>
+      {...panResponder.panHandlers}
+    >
       {children}
     </Animated.View>
   );

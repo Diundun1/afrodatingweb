@@ -63,16 +63,13 @@ export default function EditAccountScreen({ navigation }) {
         return;
       }
 
-      const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch("http://localhost:5000/api/v1/users/me", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await response.json();
       console.log("User data fetched:", data);
@@ -115,13 +112,13 @@ export default function EditAccountScreen({ navigation }) {
       }
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
+        "http://localhost:5000/api/v1/users/profile-pictures",
         {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -201,18 +198,18 @@ export default function EditAccountScreen({ navigation }) {
       formData.append(
         "profilePictures",
         blob,
-        `profile_${position}_${Date.now()}.jpg`
+        `profile_${position}_${Date.now()}.jpg`,
       );
 
       const uploadResponse = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
+        "http://localhost:5000/api/v1/users/profile-pictures",
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
           },
           body: formData,
-        }
+        },
       );
 
       const result = await uploadResponse.json();
@@ -348,7 +345,7 @@ export default function EditAccountScreen({ navigation }) {
       };
 
       const response = await fetch(
-        `https://backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
+        `http://localhost:5000/api/v1/users/${userId}`,
         {
           method: "PUT",
           headers: {
@@ -356,7 +353,7 @@ export default function EditAccountScreen({ navigation }) {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(updateData),
-        }
+        },
       );
 
       const data = await response.json();

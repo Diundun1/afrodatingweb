@@ -50,14 +50,14 @@ const PremiumScreen = () => {
         }
 
         const response = await fetch(
-          "https://backend-afrodate-8q6k.onrender.com/api/v1/subscription/status",
+          "http://localhost:5000/api/v1/subscription/status",
           {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         const SubStatusdata = await response.json();
@@ -81,7 +81,7 @@ const PremiumScreen = () => {
     // 1️⃣ Try matching by PLAN ID (BEST)
     if (currentSubscription?._id) {
       const indexById = plansList.findIndex(
-        (plan) => plan.id === currentSubscription._id
+        (plan) => plan.id === currentSubscription._id,
       );
 
       if (indexById !== -1) {
@@ -97,7 +97,7 @@ const PremiumScreen = () => {
           plan.planTime?.toLowerCase() ===
             currentSubscription.name.toLowerCase() &&
           plan.interval?.toLowerCase() ===
-            currentSubscription.interval?.toLowerCase()
+            currentSubscription.interval?.toLowerCase(),
       );
 
       if (indexByName !== -1) {
@@ -129,16 +129,13 @@ const PremiumScreen = () => {
           return;
         }
 
-        const response = await fetch(
-          "https://backend-afrodate-8q6k.onrender.com/api/v1/plans",
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await fetch("http://localhost:5000/api/v1/plans", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         const data = await response.json();
         console.log("Fetched Plans:", data);
@@ -212,7 +209,7 @@ const PremiumScreen = () => {
       }
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/payment/subscribe",
+        "http://localhost:5000/api/v1/payment/subscribe",
         {
           method: "POST",
           headers: {
@@ -220,7 +217,7 @@ const PremiumScreen = () => {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ plan_id: selectedPlan.id }),
-        }
+        },
       );
 
       const text = await response.text();

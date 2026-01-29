@@ -153,13 +153,13 @@ export default function ChatScreen({ navigation }) {
       if (!token) throw new Error("No token found");
 
       const response = await axios.get(
-        `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users`,
+        `http://localhost:5000/api/v1/messages/chat-users`,
         {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const { data } = response.data;
@@ -205,13 +205,13 @@ export default function ChatScreen({ navigation }) {
     useCallback(() => {
       setLoading(true);
       fetchChats();
-    }, [socketRef?.current])
+    }, [socketRef?.current]),
   );
 
   const startChatWithUser = async (roomId) => {
     if (!roomId)
       throw new Error(
-        "Room ID is missing, function cannot proceed without this!!!"
+        "Room ID is missing, function cannot proceed without this!!!",
       );
 
     try {
@@ -265,14 +265,14 @@ export default function ChatScreen({ navigation }) {
       const token = await AsyncStorage.getItem("userToken");
 
       const response = await fetch(
-        `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/conversations/${extractedOtherUserId}`,
+        `http://localhost:5000/api/v1/messages/conversations/${extractedOtherUserId}`,
         {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -310,7 +310,8 @@ export default function ChatScreen({ navigation }) {
   const MessageItem = ({ message, isLast = false }) => (
     <TouchableOpacity
       style={[styles.messageItem, isLast && styles.lastMessageItem]}
-      onPress={() => navigation.navigate("ChatDetail", { user: message })}>
+      onPress={() => navigation.navigate("ChatDetail", { user: message })}
+    >
       <View style={styles.messageLeft}>
         <View style={styles.avatarContainer}>
           <Image
@@ -340,7 +341,8 @@ export default function ChatScreen({ navigation }) {
 
   const SectionHeader = ({ title, showBorder = true }) => (
     <View
-      style={[styles.sectionHeader, showBorder && styles.sectionHeaderBorder]}>
+      style={[styles.sectionHeader, showBorder && styles.sectionHeaderBorder]}
+    >
       <NunitoTitle style={styles.sectionTitle}>{title}</NunitoTitle>
     </View>
   );
@@ -360,7 +362,8 @@ export default function ChatScreen({ navigation }) {
         ref={scrollViewRef}
         style={[styles.scrollView, { opacity: fadeAnim }]}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}>
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Search Bar */}
 
         {/* Recent Matches */}
@@ -370,7 +373,8 @@ export default function ChatScreen({ navigation }) {
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.recentMatchesScroll}
-            contentContainerStyle={styles.recentMatchesContent}>
+            contentContainerStyle={styles.recentMatchesContent}
+          >
             {dummyData.recentMatches.map((user) => (
               <RecentMatchItem key={user.id} user={user} />
             ))}

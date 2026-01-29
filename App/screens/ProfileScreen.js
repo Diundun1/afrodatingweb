@@ -60,14 +60,14 @@ export default function ProfileScreen({}) {
 
       // 1️⃣ Fetch user details
       const userResponse = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
+        "http://localhost:5000/api/v1/users/me",
         {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (!userResponse.ok) {
@@ -101,13 +101,13 @@ export default function ProfileScreen({}) {
 
       // 4️⃣ Optionally fetch all profile pictures (if needed)
       const profilePicResponse = await fetch(
-        `https://backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}/profile-pictures`,
+        `http://localhost:5000/api/v1/users/${userId}/profile-pictures`,
         {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (profilePicResponse.ok) {
@@ -150,7 +150,8 @@ export default function ProfileScreen({}) {
           <Text style={styles.errorText}>Error: {error}</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={fetchUserAndProfilePics}>
+            onPress={fetchUserAndProfilePics}
+          >
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -164,20 +165,23 @@ export default function ProfileScreen({}) {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("ExploreScreen")}>
+          onPress={() => navigation.navigate("ExploreScreen")}
+        >
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <NunitoTitle style={styles.headerTitle}>Profile</NunitoTitle>
         <TouchableOpacity
           style={styles.editButton}
-          onPress={() => navigation.navigate("EditAccountScreen")}>
+          onPress={() => navigation.navigate("EditAccountScreen")}
+        >
           <Ionicons name="pencil-outline" size={20} color="#7B61FF" />
         </TouchableOpacity>
       </View>
       {user ? (
         <ScrollView
           style={styles.scrollView}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header */}
 
           {/* Profile Section */}
@@ -227,7 +231,8 @@ export default function ProfileScreen({}) {
             <View style={styles.menuContainer}>
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => navigation.navigate("PremiumScreen")}>
+                onPress={() => navigation.navigate("PremiumScreen")}
+              >
                 <View style={styles.menuLeft}>
                   <Ionicons name={"diamond"} size={22} color="#FB923C" />
                   <NunitoTitle style={styles.menuText}>
@@ -240,7 +245,8 @@ export default function ProfileScreen({}) {
                 <TouchableOpacity
                   key={item.id}
                   style={styles.menuItem}
-                  onPress={() => navigation.navigate(item.screen)}>
+                  onPress={() => navigation.navigate(item.screen)}
+                >
                   <View style={styles.menuLeft}>
                     <Ionicons name={item.icon} size={22} color="#7B61FF" />
                     <NunitoTitle style={styles.menuText}>

@@ -28,16 +28,13 @@ export default function AccountInfoScreen({ navigation }) {
         return;
       }
 
-      const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch("http://localhost:5000/api/v1/users/me", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await response.json();
       console.log("User data fetched:", data);
@@ -132,7 +129,8 @@ export default function AccountInfoScreen({ navigation }) {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
           <NunitoTitle style={styles.headerTitle}>Account Info</NunitoTitle>
@@ -154,7 +152,8 @@ export default function AccountInfoScreen({ navigation }) {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
           <NunitoTitle style={styles.headerTitle}>Account Info</NunitoTitle>
@@ -165,7 +164,8 @@ export default function AccountInfoScreen({ navigation }) {
           <NunitoTitle style={styles.errorText}>{error}</NunitoTitle>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={fetchUserProfile}>
+            onPress={fetchUserProfile}
+          >
             <NunitoTitle style={styles.retryButtonText}>Try Again</NunitoTitle>
           </TouchableOpacity>
         </View>
@@ -178,20 +178,23 @@ export default function AccountInfoScreen({ navigation }) {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <NunitoTitle style={styles.headerTitle}>Account Info</NunitoTitle>
         <TouchableOpacity
           style={styles.editButton}
-          onPress={() => navigation.navigate("EditAccountScreen")}>
+          onPress={() => navigation.navigate("EditAccountScreen")}
+        >
           <Ionicons name="pencil" size={20} color="#7B61FF" />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.scrollView}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile Section */}
         <View style={styles.profileSection}>
           <Image
@@ -221,7 +224,8 @@ export default function AccountInfoScreen({ navigation }) {
                       styles.infoItem,
                       itemIndex < section.items.length - 1 &&
                         styles.infoItemBorder,
-                    ]}>
+                    ]}
+                  >
                     <NunitoTitle style={styles.infoLabel}>
                       {item.label}
                     </NunitoTitle>
@@ -238,7 +242,8 @@ export default function AccountInfoScreen({ navigation }) {
         {/* Edit Button */}
         <TouchableOpacity
           style={styles.editAccountButton}
-          onPress={() => navigation.navigate("EditAccountScreen")}>
+          onPress={() => navigation.navigate("EditAccountScreen")}
+        >
           <NunitoTitle style={styles.editAccountText}>
             Edit Account Information
           </NunitoTitle>
