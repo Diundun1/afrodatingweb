@@ -96,7 +96,7 @@ export function SocketProvider({ children }) {
 
       // Check for call URL
       const callUrlMatch = messageContent.match(
-        /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+        /https:\/\/test\.unigate\.com\.ng\/[^\s]+/,
       );
 
       if (!callUrlMatch) {
@@ -161,7 +161,7 @@ export function SocketProvider({ children }) {
       logger.info("Checking notification for call URL", messageContent);
 
       const isCallLink = messageContent.match(
-        /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+        /https:\/\/test\.unigate\.com\.ng\/[^\s]+/,
       );
 
       if (isCallLink) {
@@ -202,7 +202,7 @@ export function SocketProvider({ children }) {
 
       // Check if this is a call message
       const isCallLink = messageContent.match(
-        /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+        /https:\/\/test\.unigate\.com\.ng\/[^\s]+/,
       );
       if (isCallLink) {
         logger.info("Call detected in chat_message");
@@ -235,8 +235,8 @@ export function SocketProvider({ children }) {
         logger.info("Initializing socket connection...");
 
         const socket = initializeSocket(
-          "https://backend-afrodate-8q6k.onrender.com/messaging",
-          token
+          "https:backend-afrodate-8q6k.onrender.com/messaging",
+          token,
         );
 
         socketRef.current = socket;

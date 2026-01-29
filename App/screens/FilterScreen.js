@@ -63,7 +63,7 @@ export default function FilterScreen() {
       console.log("Token:", token);
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/set-preference",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/set-preference",
         {
           method: "PUT",
           headers: {
@@ -71,7 +71,7 @@ export default function FilterScreen() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       // Get response text first
@@ -108,7 +108,7 @@ export default function FilterScreen() {
           setNotif("Server error. Please try again later.");
         } else {
           setNotif(
-            data.message || `Failed to save preferences (${response.status})`
+            data.message || `Failed to save preferences (${response.status})`,
           );
         }
 

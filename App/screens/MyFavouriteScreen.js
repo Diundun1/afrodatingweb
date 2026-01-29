@@ -45,8 +45,10 @@ export default function MyFavouriteScreen() {
       if (!token) throw new Error("No auth token found");
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
-        { headers: { Authorization: `Bearer ${token}` } }
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/me",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
       );
       if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
@@ -99,8 +101,8 @@ export default function MyFavouriteScreen() {
       if (!token) throw new Error("No auth token found");
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/you-liked",
-        { headers: { Authorization: `Bearer ${token}` } }
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/you-liked",
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       //  const fetchDataXcc = await response.json();
       //   console.log(fetchDataXcc);
@@ -122,8 +124,8 @@ export default function MyFavouriteScreen() {
         uniqueUserIds.map(async (userId) => {
           try {
             const userRes = await fetch(
-              `https://backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
-              { headers: { Authorization: `Bearer ${token}` } }
+              `https:backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
+              { headers: { Authorization: `Bearer ${token}` } },
             );
             if (!userRes.ok) {
               console.error(`Failed to fetch user ${userId}:`, userRes.status);
@@ -132,7 +134,7 @@ export default function MyFavouriteScreen() {
             const user = await userRes.json();
 
             const primaryPic = user.profile_pic?.find(
-              (pic) => pic.isPrimary
+              (pic) => pic.isPrimary,
             )?.url;
 
             // Calculate distance based on coordinates
@@ -140,7 +142,7 @@ export default function MyFavouriteScreen() {
               currentUserLocation && user.location?.coordinates
                 ? calculateDistance(
                     currentUserLocation,
-                    user.location.coordinates
+                    user.location.coordinates,
                   )
                 : "Unknown";
 
@@ -157,7 +159,7 @@ export default function MyFavouriteScreen() {
             console.error(`Error fetching user ${userId}:`, error);
             return null;
           }
-        })
+        }),
       );
 
       const validUsers = userDetails.filter(Boolean);
@@ -176,7 +178,8 @@ export default function MyFavouriteScreen() {
       onPress={() => {
         console.log(item.userId);
         navigation.navigate("ProfileDetailScreen", { user: item.userId });
-      }}>
+      }}
+    >
       <Image source={item.image} style={styles.image} />
       <View style={styles.overlay}>
         <NunitoTitle style={styles.name}>

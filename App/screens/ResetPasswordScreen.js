@@ -45,7 +45,7 @@ const ResetPasswordScreen = () => {
 
     try {
       const verifyResponse = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/verify-otp",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/verify-otp",
         {
           method: "POST",
           headers: {
@@ -53,7 +53,7 @@ const ResetPasswordScreen = () => {
             Accept: "application/json",
           },
           body: JSON.stringify({ email, otp }),
-        }
+        },
       );
 
       const verifyData = await verifyResponse.json();
@@ -69,7 +69,7 @@ const ResetPasswordScreen = () => {
       console.log(token);
 
       const resetResponse = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/reset-password",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/reset-password",
         {
           method: "POST",
           headers: {
@@ -78,7 +78,7 @@ const ResetPasswordScreen = () => {
             Accept: "application/json",
           },
           body: JSON.stringify({ newPassword }),
-        }
+        },
       );
 
       const resetData = await resetResponse.json();
@@ -88,7 +88,7 @@ const ResetPasswordScreen = () => {
         setTimeout(() => navigation.replace("LoginScreen"), 2000);
       } else {
         setMessage(
-          resetData?.message || "Something went wrong. Please try again."
+          resetData?.message || "Something went wrong. Please try again.",
         );
       }
     } catch (error) {
@@ -104,11 +104,13 @@ const ResetPasswordScreen = () => {
 
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Back button */}
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color="#7B61FF" />
         </TouchableOpacity>
 
@@ -142,7 +144,8 @@ const ResetPasswordScreen = () => {
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
-                onPress={togglePasswordVisibility}>
+                onPress={togglePasswordVisibility}
+              >
                 <Ionicons
                   name={showPassword ? "eye-off" : "eye"}
                   size={24}
@@ -158,7 +161,8 @@ const ResetPasswordScreen = () => {
                   message.includes("successful")
                     ? styles.successMessage
                     : styles.errorMessage,
-                ]}>
+                ]}
+              >
                 {message}
               </NunitoText>
             ) : null}
@@ -166,7 +170,8 @@ const ResetPasswordScreen = () => {
             <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleResetPassword}
-              disabled={loading}>
+              disabled={loading}
+            >
               {loading ? (
                 <ActivityIndicator size={20} color="#fff" />
               ) : (
@@ -176,7 +181,8 @@ const ResetPasswordScreen = () => {
 
             <TouchableOpacity
               style={styles.backToLoginButton}
-              onPress={() => navigation.navigate("LoginScreen")}>
+              onPress={() => navigation.navigate("LoginScreen")}
+            >
               <NunitoText style={styles.backToLoginText}>
                 Back to Login
               </NunitoText>

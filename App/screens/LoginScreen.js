@@ -52,7 +52,7 @@ export default function LoginScreen() {
 
     try {
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/login",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/login",
         {
           method: "POST",
           headers: {
@@ -63,7 +63,7 @@ export default function LoginScreen() {
             email: email,
             password: password,
           }),
-        }
+        },
       );
 
       console.log("Response status:", response.status);
@@ -77,7 +77,7 @@ export default function LoginScreen() {
         throw new Error(
           data?.error ||
             data?.message ||
-            `HTTP error! status: ${response.status}`
+            `HTTP error! status: ${response.status}`,
         );
       }
 
@@ -109,7 +109,8 @@ export default function LoginScreen() {
 
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Main content container - centered vertically */}
         <View style={styles.mainContent}>
           {/* Top icon */}
@@ -128,7 +129,8 @@ export default function LoginScreen() {
           {/* Tabs */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
-              onPress={() => navigation.navigate("SignupScreen")}>
+              onPress={() => navigation.navigate("SignupScreen")}
+            >
               <Text style={styles.tabText}>Create Account</Text>
             </TouchableOpacity>
 
@@ -161,7 +163,8 @@ export default function LoginScreen() {
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
-                onPress={togglePasswordVisibility}>
+                onPress={togglePasswordVisibility}
+              >
                 <Ionicons
                   name={showPassword ? "eye-off" : "eye"}
                   size={24}
@@ -172,7 +175,8 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={() => {
                 navigation.navigate("ForgotPasswordScreen");
-              }}>
+              }}
+            >
               <Text style={[styles.label, { fontWeight: "500", fontSize: 13 }]}>
                 Forgotten Password?
               </Text>
@@ -184,7 +188,8 @@ export default function LoginScreen() {
                   color: "red",
                   textAlign: "center",
                   marginVertical: 10,
-                }}>
+                }}
+              >
                 {errorMessage}
               </NunitoText>
             ) : null}

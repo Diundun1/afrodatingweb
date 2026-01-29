@@ -128,12 +128,12 @@ export const NotificationProvider = ({ children }) => {
     if (!token) return;
 
     const res = await fetch(
-      "https://backend-afrodate-8q6k.onrender.com/api/v1/notifications",
+      "https:backend-afrodate-8q6k.onrender.com/api/v1/notifications",
       {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     const data = await res.json();
@@ -144,10 +144,10 @@ export const NotificationProvider = ({ children }) => {
     if (!token) return;
 
     const res = await fetch(
-      "https://backend-afrodate-8q6k.onrender.com/api/v1/notifications/unread-count",
+      "https:backend-afrodate-8q6k.onrender.com/api/v1/notifications/unread-count",
       {
         headers: { Authorization: `Bearer ${token}` },
-      }
+      },
     );
 
     const data = await res.json();
@@ -157,7 +157,7 @@ export const NotificationProvider = ({ children }) => {
   /* -------------------- MARK READ -------------------- */
   const markAsRead = async (id) => {
     await fetch(
-      "https://backend-afrodate-8q6k.onrender.com/api/v1/notifications/mark-read",
+      "https:backend-afrodate-8q6k.onrender.com/api/v1/notifications/mark-read",
       {
         method: "PATCH",
         headers: {
@@ -165,11 +165,11 @@ export const NotificationProvider = ({ children }) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ notificationIds: [id] }),
-      }
+      },
     );
 
     setNotifications((prev) =>
-      prev.map((n) => (n._id === id ? { ...n, read: true } : n))
+      prev.map((n) => (n._id === id ? { ...n, read: true } : n)),
     );
 
     fetchUnreadCount();

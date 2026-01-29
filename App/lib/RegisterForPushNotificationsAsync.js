@@ -42,89 +42,222 @@ const showNotificationViaServiceWorker = async (title, options = {}) => {
   }
 };
 
+// const RegisterForPushNotificationsAsync = async () => {
+//   try {
+//     if (!isPushNotificationSupported()) {
+//       console.log("Push notifications are not supported in this browser");
+//       return null;
+//     }
+
+//     if (
+//       window.location.protocol !== "https:" &&
+//       window.location.hostname !== "localhost"
+//     ) {
+//       console.log("Push notifications require HTTPS (except on localhost)");
+//       return null;
+//     }
+
+//     const registration = await navigator.serviceWorker.register(
+//       "/service-worker.js",
+//       {
+//         scope: "/",
+//       },
+//     );
+//     console.log("Service Worker registered successfully");
+
+//     let permission = await Notification.requestPermission();
+
+//     if (permission !== "granted") {
+//       console.log("Push notification permissions not granted.");
+//       return null;
+//     }
+//     // BD_U_CgT4_b7dizczCDCi8Kzh2ZOPcuSc_KYEm4XcaHksTy2IwioMit5v6ylcUdvKsL5RXqAQYf_CNaUYQ5HyWQ;
+//     const VAPID_PUBLIC_KEY =
+//       "BOqyxnaIO_gNGX9I1XC0hrKDJg8oIfsEAcFlylps0cgb_DBzbwWR9LKwtvU7r3Kmpf3IQVk55BQQNcoMF1JrEPQ";
+
+//     const subscription = await registration.pushManager.subscribe({
+//       userVisibleOnly: true,
+//       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+//     });
+
+//     if (!subscription) {
+//       console.log("Failed to get push subscription.");
+//       return null;
+//     }
+
+//     console.log("Push Subscription:", subscription);
+
+//     if (typeof localStorage !== "undefined") {
+//       await localStorage.setItem(
+//         "webPushSubscription",
+//         JSON.stringify(subscription),
+//       );
+
+//       const userId = localStorage.getItem("loggedInUserId");
+//       if (userId) {
+//         await sendSubscriptionToBackend(subscription, userId);
+//       }
+//     }
+
+//     return subscription;
+//   } catch (error) {
+//     console.error("Error getting push notification subscription:", error);
+//     return null;
+//   }
+// };
+
+// const sendSubscriptionToBackend = async (subscription, userId) => {
+//   try {
+//     const response = await fetch(
+//       "https:backend-afrodate-8q6k.onrender.com/api/push/subscribe",
+//       // "https:backend-afrodate-8q6k.onrender.com/api/v1/push/subscribe",
+//       {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({
+//           user_id: userId,
+//           subscription: subscription,
+//           device: "web",
+//           platform: navigator.platform,
+//           userAgent: navigator.userAgent,
+//         }),
+//       },
+//     );
+
+//     const result = await response.text();
+//     console.log("sendSubBackend response:", result);
+//   } catch (err) {
+//     console.error("Error sending subscription to backend:", err);
+//   }
+// };
+
+// Register service worker first
+
 const RegisterForPushNotificationsAsync = async () => {
   try {
-    if (!isPushNotificationSupported()) {
-      console.log("Push notifications are not supported in this browser");
+    // 1. Basic Support Check
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      console.log("Push notifications not supported");
       return null;
     }
 
+    // 2. HTTPS/Localhost Check
     if (
       window.location.protocol !== "https:" &&
       window.location.hostname !== "localhost"
     ) {
-      console.log("Push notifications require HTTPS (except on localhost)");
+      console.warn("Push notifications require HTTPS");
       return null;
     }
 
-    const registration = await navigator.serviceWorker.register("/sw.js", {
-      scope: "/",
-    });
-    console.log("Service Worker registered successfully");
+    // 3. Register and WAIT for activation
+    const registration =
+      await navigator.serviceWorker.register("/service-worker.js");
+    await navigator.serviceWorker.ready; // Ensures the worker is live
 
+    // 4. Request Permission
     let permission = await Notification.requestPermission();
-
-    if (permission !== "granted") {
-      console.log("Push notification permissions not granted.");
-      return null;
-    }
+    if (permission !== "granted") return null;
 
     const VAPID_PUBLIC_KEY =
-      "BD_U_CgT4_b7dizczCDCi8Kzh2ZOPcuSc_KYEm4XcaHksTy2IwioMit5v6ylcUdvKsL5RXqAQYf_CNaUYQ5HyWQ";
+      "BOqyxnaIO_gNGX9I1XC0hrKDJg8oIfsEAcFlylps0cgb_DBzbwWR9LKwtvU7r3Kmpf3IQVk55BQQNcoMF1JrEPQ";
 
+    // 5. Subscribe
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
 
-    if (!subscription) {
-      console.log("Failed to get push subscription.");
-      return null;
-    }
-
-    console.log("Push Subscription:", subscription);
+    // 6. Convert to JSON before sending to your Service
+    const subJSON = subscription.toJSON();
 
     if (typeof localStorage !== "undefined") {
-      await localStorage.setItem(
-        "webPushSubscription",
-        JSON.stringify(subscription)
-      );
-
+      localStorage.setItem("webPushSubscription", JSON.stringify(subJSON));
       const userId = localStorage.getItem("loggedInUserId");
+
       if (userId) {
-        await sendSubscriptionToBackend(subscription, userId);
+        // This connects to your PushNotificationService.subscribe backend method
+        await sendSubscriptionToBackend(subJSON, userId);
       }
     }
 
-    return subscription;
+    return subJSON;
   } catch (error) {
-    console.error("Error getting push notification subscription:", error);
+    console.error("Subscription Error:", error);
     return null;
   }
 };
 
-const sendSubscriptionToBackend = async (subscription, userId) => {
+const registerServiceWorker = async () => {
+  if (!("serviceWorker" in navigator)) return null;
+
   try {
+    const registration =
+      await navigator.serviceWorker.register("/service-worker.js");
+    console.log("Service worker registered:", registration);
+    return registration;
+  } catch (err) {
+    console.error("❌ Service worker registration failed:", err);
+    return null;
+  }
+};
+
+const sendSubscriptionToBackend = async (subscription) => {
+  if (!subscription) return;
+  console.log("there is subscription");
+  try {
+    const registration = await navigator.serviceWorker.ready; // Wait for ready
+    if (!registration) throw new Error("Service worker not ready");
+
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) {
+      console.log("🔁 Already subscribed");
+    }
+
+    const token = localStorage.getItem("userToken");
+    console.log("JWT token:", token);
+
     const response = await fetch(
-      "https://test.unigate.com.ng/tokenspr/save_tokens.php",
+      "https:backend-afrodate-8q6k.onrender.com/api/v1/push/subscribe",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: userId,
-          subscription: subscription,
-          device: "web",
-          platform: navigator.platform,
-          userAgent: navigator.userAgent,
-        }),
-      }
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ subscription }),
+      },
     );
 
-    const result = await response.text();
-    console.log("Backend response:", result);
+    const result = await response.json();
+    console.log("✅ Backend response:", result);
   } catch (err) {
-    console.error("Error sending subscription to backend:", err);
+    console.error("❌ Error sending subscription to backend:", err);
   }
+};
+
+// Main init function
+export const initPush = async (userId) => {
+  const registration = await registerServiceWorker();
+  if (!registration) return;
+
+  // Request permission
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    console.log("❌ Push notifications permission denied");
+    return;
+  }
+
+  // Subscribe
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(
+      "BOqyxnaIO_gNGX9I1XC0hrKDJg8oIfsEAcFlylps0cgb_DBzbwWR9LKwtvU7r3Kmpf3IQVk55BQQNcoMF1JrEPQ",
+    ),
+  });
+
+  console.log("🔔 Subscription object:", subscription);
+  await sendSubscriptionToBackend(subscription, userId);
 };
 
 const checkPushSubscriptionStatus = async () => {
@@ -143,36 +276,63 @@ const checkPushSubscriptionStatus = async () => {
   };
 };
 
-const unsubscribeFromPushNotifications = async () => {
-  if (!isPushNotificationSupported()) {
-    return false;
-  }
+// const unsubscribeFromPushNotifications = async () => {
+//   if (!isPushNotificationSupported()) {
+//     return false;
+//   }
 
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
+//   try {
+//     const registration = await navigator.serviceWorker.ready;
+//     const subscription = await registration.pushManager.getSubscription();
 
-    if (subscription) {
-      await subscription.unsubscribe();
-      if (typeof localStorage !== "undefined") {
-        await localStorage.removeItem("webPushSubscription");
-      }
-      console.log("Successfully unsubscribed from push notifications");
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error("Error unsubscribing from push notifications:", error);
-    return false;
-  }
-};
+//     if (subscription) {
+//       await subscription.unsubscribe();
+//       if (typeof localStorage !== "undefined") {
+//         await localStorage.removeItem("webPushSubscription");
+//       }
+//       console.log("Successfully unsubscribed from push notifications");
+//       return true;
+//     }
+//     return false;
+//   } catch (error) {
+//     console.error("Error unsubscribing from push notifications:", error);
+//     return false;
+//   }
+// };
 
 // FIXED: Use service worker instead of direct Notification constructor
+
+async function unsubscribeFromPushNotifications() {
+  console.log("unsubscribeFromPushNotifications triggerd");
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+
+  if (!subscription) return;
+  const token = localStorage.getItem("userToken");
+
+  // 1️⃣ Unsubscribe from browser
+  await subscription.unsubscribe();
+
+  console.log("unsubscribeFromPushNotifications triggerd");
+
+  // 2️⃣ Tell backend
+  await fetch("/api/v1/push/unsubscribe", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      endpoint: subscription.endpoint,
+    }),
+  });
+}
+
 const sendMessageNotification = async (
   senderName,
   message,
   messageId,
-  roomId
+  roomId,
 ) => {
   try {
     if (!isPushNotificationSupported()) {
@@ -181,7 +341,7 @@ const sendMessageNotification = async (
     }
 
     const isCallLink = message?.match(
-      /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+      /https:\/\/test\.unigate\.com\.ng\/[^\s]+/,
     );
     if (isCallLink) {
       return;
@@ -316,18 +476,18 @@ const testNotification = async () => {
   console.log("Notification support:", typeof Notification !== "undefined");
   console.log(
     "Service Worker support:",
-    typeof navigator !== "undefined" && "serviceWorker" in navigator
+    typeof navigator !== "undefined" && "serviceWorker" in navigator,
   );
   console.log(
     "Notification permission:",
-    typeof Notification !== "undefined" ? Notification.permission : "N/A"
+    typeof Notification !== "undefined" ? Notification.permission : "N/A",
   );
 
   await sendMessageNotification(
     "Test User",
     "This is a test notification",
     "test-" + Date.now(),
-    "test_room"
+    "test_room",
   );
 };
 

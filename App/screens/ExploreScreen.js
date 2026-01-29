@@ -19,7 +19,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import MyStatusBar from "../components/MyStatusBar";
 import * as Location from "expo-location";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
-import RegisterForPushNotificationsAsync from "../lib/RegisterForPushNotificationsAsync";
+import RegisterForPushNotificationsAsync, {
+  initPush,
+  unsubscribeFromPushNotifications,
+} from "../lib/RegisterForPushNotificationsAsync";
 import NunitoText from "../components/NunitoText";
 const { width, height } = Dimensions.get("window");
 
@@ -47,6 +50,11 @@ const calculateAge = (dateOfBirth) => {
 };
 
 export default function ExploreScreen({ navigation }) {
+  useEffect(() => {
+    const userId = localStorage.getItem("loggedInUserId");
+
+    initPush(userId);
+  }, []);
   const [users, setUsers] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -82,7 +90,7 @@ export default function ExploreScreen({ navigation }) {
           "This is the set location coordinates: ",
           location.coords.latitude,
           " - ",
-          location.coords.longitude
+          location.coords.longitude,
         );
         console.log("This is the latitude and longitude : ", latitude);
 
@@ -93,7 +101,7 @@ export default function ExploreScreen({ navigation }) {
             headers: {
               "User-Agent": "CloseMatchApp v1.0",
             },
-          }
+          },
         )
           .then((res) => res.json())
           .then((data) => {
@@ -131,7 +139,7 @@ export default function ExploreScreen({ navigation }) {
 
     try {
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
           method: "POST",
           headers: {
@@ -142,13 +150,13 @@ export default function ExploreScreen({ navigation }) {
             userId: userId,
             action: action,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
         const text = await response.text();
         throw new Error(
-          `HTTP error! Status: ${response.status}, Response: ${text}`
+          `HTTP error! Status: ${response.status}, Response: ${text}`,
         );
       }
 
@@ -185,7 +193,7 @@ export default function ExploreScreen({ navigation }) {
 
     try {
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
           method: "POST",
           headers: {
@@ -196,13 +204,13 @@ export default function ExploreScreen({ navigation }) {
             userId: userId,
             action: action,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
         const text = await response.text();
         throw new Error(
-          `HTTP error! Status: ${response.status}, Response: ${text}`
+          `HTTP error! Status: ${response.status}, Response: ${text}`,
         );
       }
 
@@ -212,7 +220,7 @@ export default function ExploreScreen({ navigation }) {
       // Remove the card after successful dislike
       //  removeCard(userId);
       setNotif(
-        `You passed on ${users.find((user) => user.id === userId)?.name}`
+        `You passed on ${users.find((user) => user.id === userId)?.name}`,
       );
     } catch (error) {
       console.error("Error sending dislike action:", error.message);
@@ -246,14 +254,14 @@ export default function ExploreScreen({ navigation }) {
       console.log("Fetching users from API...");
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/by-preferences",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/by-preferences",
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       console.log("API Response Status:", response.status);
@@ -448,6 +456,14 @@ export default function ExploreScreen({ navigation }) {
           }}
         />
 
+        {/* <TouchableOpacity
+          onPress={() => {
+            unsubscribeFromPushNotifications();
+          }}
+        >
+          <Text>unsubscribeFromPushNotifications</Text>
+        </TouchableOpacity> */}
+
         {/* Preferences - Right */}
         <View
           style={{
@@ -487,12 +503,12 @@ export default function ExploreScreen({ navigation }) {
                     }
 
                     console.log(
-                      `Swipe completed for user ${userId} with direction ${direction}`
+                      `Swipe completed for user ${userId} with direction ${direction}`,
                     );
                   }}
                   onSwipeError={(error, userId, direction) => {
                     setNotif(
-                      "You do not have access to this feature, please upgrade your plan"
+                      "You do not have access to this feature, please upgrade your plan",
                     );
 
                     console.error(`Swipe error for user ${userId}:`, error);

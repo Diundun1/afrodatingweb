@@ -64,14 +64,14 @@ export default function EditAccountScreen({ navigation }) {
       }
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/me",
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -115,13 +115,13 @@ export default function EditAccountScreen({ navigation }) {
       }
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
         {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -201,18 +201,18 @@ export default function EditAccountScreen({ navigation }) {
       formData.append(
         "profilePictures",
         blob,
-        `profile_${position}_${Date.now()}.jpg`
+        `profile_${position}_${Date.now()}.jpg`,
       );
 
       const uploadResponse = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/profile-pictures",
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
           },
           body: formData,
-        }
+        },
       );
 
       const result = await uploadResponse.json();
@@ -348,7 +348,7 @@ export default function EditAccountScreen({ navigation }) {
       };
 
       const response = await fetch(
-        `https://backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
+        `https:backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
         {
           method: "PUT",
           headers: {
@@ -356,7 +356,7 @@ export default function EditAccountScreen({ navigation }) {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(updateData),
-        }
+        },
       );
 
       const data = await response.json();

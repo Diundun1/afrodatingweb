@@ -53,17 +53,17 @@ const NotificationsScreen = () => {
     const token = await AsyncStorage.getItem("userToken");
     try {
       const res = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/notifications",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/notifications",
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
       console.log(
-        "This is the request and its header before the response for the notification thingy"
+        "This is the request and its header before the response for the notification thingy",
       );
 
       if (!res.ok) {
@@ -110,7 +110,7 @@ const NotificationsScreen = () => {
             Authorization: `Bearer ${token}`,
             "Content-type": "application/json",
           },
-        }
+        },
       );
 
       const processedRequest = await sendRequest.json();
@@ -118,7 +118,7 @@ const NotificationsScreen = () => {
 
       if (!sendRequest.ok) {
         throw new Error(
-          `There was an error with status code ${processedRequest.status}`
+          `There was an error with status code ${processedRequest.status}`,
         );
         //console.log("All notifications successfully marked as read!");
       }
@@ -141,7 +141,7 @@ const NotificationsScreen = () => {
             Authorization: `Bearer ${token}`,
             "Content-type": "application/json",
           },
-        }
+        },
       );
 
       const passedRequest = await sendRequest.json();
@@ -151,7 +151,7 @@ const NotificationsScreen = () => {
 
       if (!passedRequest.ok) {
         throw new Error(
-          `There was an error with status code ${passedRequest.status}`
+          `There was an error with status code ${passedRequest.status}`,
         );
       }
 
@@ -179,14 +179,14 @@ const NotificationsScreen = () => {
             "Content-type": "Application/json",
             Authorization: `Bearer: ${token}`,
           },
-        }
+        },
       );
 
       const parseEndpoint = await endpoint.json();
 
       if (!endpoint.ok) {
         throw new Error(
-          `There was an error with status code: ${parseEndpoint.status}`
+          `There was an error with status code: ${parseEndpoint.status}`,
         );
       }
 
@@ -207,14 +207,16 @@ const NotificationsScreen = () => {
           onLongPress={() => {
             setNotificationHolderId(item._id);
             setDeleteView(true);
-          }}>
+          }}
+        >
           <View
             style={[
               styles.notificationIconContainer,
               item.status === "not opened"
                 ? styles.unreadNotification
                 : styles.readNotification,
-            ]}>
+            ]}
+          >
             <MaterialIcons
               name="notifications"
               size={24}
@@ -227,12 +229,13 @@ const NotificationsScreen = () => {
                 style={[
                   styles.messageContent,
                   item.status === "not opened" && styles.boldText,
-                ]}>
+                ]}
+              >
                 {item.type === "message"
                   ? `${item?.data?.viewerName || "Someone"} sent you a message`
                   : item.type === "profileView"
-                  ? `${item?.data?.viewerName || "Someone"} viewed your profile`
-                  : "New notification"}
+                    ? `${item?.data?.viewerName || "Someone"} viewed your profile`
+                    : "New notification"}
               </Text>
             </Text>
             <Text style={styles.timeText}>{formatTime(item.sent_at)}</Text>
@@ -265,7 +268,8 @@ const NotificationsScreen = () => {
         style={styles.backButton}
         onPress={() => {
           navigation.goBack();
-        }}>
+        }}
+      >
         <MaterialIcons
           name="arrow-back-ios"
           size={20}
@@ -301,13 +305,15 @@ const NotificationsScreen = () => {
           <View style={styles.modalContainer}>
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() => setDeleteView(false)}>
+              onPress={() => setDeleteView(false)}
+            >
               <MaterialIcons name="close" size={25} style={styles.closeIcon} />
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => deleteSpecificNotification()}
-              style={styles.deleteButton}>
+              style={styles.deleteButton}
+            >
               <Text style={styles.deleteButtonText}>Delete Notification</Text>
             </TouchableOpacity>
 

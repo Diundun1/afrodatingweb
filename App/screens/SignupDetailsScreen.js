@@ -126,7 +126,7 @@ export default function SignupDetailsScreen({ navigation }) {
 
     try {
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/register",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/auth/register",
         {
           method: "POST",
           headers: {
@@ -134,7 +134,7 @@ export default function SignupDetailsScreen({ navigation }) {
             Accept: "application/json",
           },
           body: JSON.stringify(requestBody),
-        }
+        },
       );
 
       console.log(response);
@@ -143,7 +143,7 @@ export default function SignupDetailsScreen({ navigation }) {
         "Here is the response:",
         response,
         "... and here is the request body: ",
-        requestBody
+        requestBody,
       );
 
       const responseText = await response.text(); // raw text for debugging
@@ -187,7 +187,8 @@ export default function SignupDetailsScreen({ navigation }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Main content container - centered vertically */}
         <View style={styles.mainContent}>
           <Text style={styles.label}>Country of Residence</Text>
@@ -216,14 +217,16 @@ export default function SignupDetailsScreen({ navigation }) {
               <Text style={styles.label}>Gender</Text>
               <TouchableOpacity
                 style={styles.inputWithIcon}
-                onPress={() => setShowGenderDropdown(!showGenderDropdown)}>
+                onPress={() => setShowGenderDropdown(!showGenderDropdown)}
+              >
                 <Ionicons
                   name={showGenderDropdown ? "chevron-up" : "chevron-down"}
                   size={20}
                   color="#7B61FF"
                 />
                 <Text
-                  style={[styles.inputText, !gender && styles.placeholderText]}>
+                  style={[styles.inputText, !gender && styles.placeholderText]}
+                >
                   {gender || "Select Gender"}
                 </Text>
               </TouchableOpacity>
@@ -233,17 +236,20 @@ export default function SignupDetailsScreen({ navigation }) {
                 <View style={styles.dropdown}>
                   <TouchableOpacity
                     style={styles.dropdownOption}
-                    onPress={() => handleGenderSelect("Male")}>
+                    onPress={() => handleGenderSelect("Male")}
+                  >
                     <Text style={styles.dropdownText}>Male</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.dropdownOption}
-                    onPress={() => handleGenderSelect("Female")}>
+                    onPress={() => handleGenderSelect("Female")}
+                  >
                     <Text style={styles.dropdownText}>Female</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.dropdownOption}
-                    onPress={() => handleGenderSelect("Other")}>
+                    onPress={() => handleGenderSelect("Other")}
+                  >
                     <Text style={styles.dropdownText}>Other</Text>
                   </TouchableOpacity>
                 </View>

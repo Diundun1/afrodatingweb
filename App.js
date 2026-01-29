@@ -15,7 +15,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
-
+import { initPush } from "./App/lib/RegisterForPushNotificationsAsync";
 // Import your screens
 import WelcomeScreen1 from "./App/screens/WelcomeScreen1";
 import LoginScreen from "./App/screens/LoginScreen";
@@ -34,7 +34,7 @@ import PremiumScreen from "./App/screens/PremiumScreen";
 import PaymentWebview from "./App/screens/PaymentWebview";
 import GeneralSettings from "./App/screens/GeneralSettings";
 import ChangePasswordScreen from "./App/screens/ChangePasswordScreen";
-
+import NotificationManager from "./App/components/NotificationManager";
 // Import the PWA installation component
 import InstallPWAButton from "./App/components/InstallPWAButton";
 import MessageScreen from "./App/screens/MessageScreen";
@@ -46,6 +46,7 @@ import RestrictScreen from "./App/components/RestricScreen";
 import NotificationsScreen from "./App/screens/NotificationsScreen";
 import ForgotPasswordScreen from "./App/screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "./App/screens/ResetPasswordScreen";
+import RegisterForPushNotificationsAsync from "./App/lib/RegisterForPushNotificationsAsync";
 
 const Stack = createNativeStackNavigator();
 
@@ -67,7 +68,7 @@ const registerServiceWorker = async () => {
         {
           scope: "/",
           updateViaCache: "none",
-        }
+        },
       );
 
       console.log("✅ Service Worker registered successfully:", registration);
@@ -77,7 +78,7 @@ const registerServiceWorker = async () => {
         console.log("✅ Service Worker is controlling the page");
       } else {
         console.log(
-          "⚠️ Service Worker registered but not controlling the page"
+          "⚠️ Service Worker registered but not controlling the page",
         );
       }
 
@@ -151,6 +152,21 @@ const requestWebNotificationPermission = async () => {
 };
 
 export default function App() {
+  // useEffect(() => {
+  //   // Register for push notifications when app loads
+  //   const initPush = async () => {
+  //     const userId = localStorage.getItem("loggedInUserId");
+  //     const token = localStorage.getItem("userToken");
+
+  //     if (userId && token) {
+  //       await RegisterForPushNotificationsAsync();
+  //       console.log("✅ Push notifications initialized");
+  //     }
+  //   };
+
+  //   initPush();
+  // }, []);
+
   const [loaded] = useFonts({
     Roboto_Light: require("./assets/fonts/Roboto-Light.ttf"),
     Roboto_Regular: require("./assets/fonts/Roboto-Regular.ttf"),
@@ -161,6 +177,7 @@ export default function App() {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
   const navigationRef = useRef();
+
   // Service Worker registration for PWA
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -209,7 +226,7 @@ export default function App() {
           const checkNotificationPermission = async () => {
             try {
               const hasBeenAsked = await AsyncStorage.getItem(
-                "notificationDealDOne"
+                "notificationDealDOne",
               );
 
               if (!hasBeenAsked && Notification.permission === "default") {
@@ -328,6 +345,7 @@ export default function App() {
               screenOptions={{ headerShown: false }}
               initialRouteName="WelcomeScreen"
             >
+              {/* <NotificationManager user={user} token={token} /> */}
               <Stack.Screen name="WelcomeScreen" component={WelcomeScreen1} />
               <Stack.Screen name="WelcomeScreen2" component={WelcomeScreen2} />
               <Stack.Screen name="SignupScreen" component={SignupScreen} />

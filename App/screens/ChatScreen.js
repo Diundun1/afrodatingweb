@@ -27,13 +27,13 @@ const { width, height } = Dimensions.get("window");
 const chatService = {
   fetchChats: async (token) => {
     const response = await fetch(
-      `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users`,
+      `https:backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users`,
       {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -46,14 +46,14 @@ const chatService = {
 
   deleteChat: async (token, otherUserId) => {
     const response = await fetch(
-      `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/conversations/${otherUserId}`,
+      `https:backend-afrodate-8q6k.onrender.com/api/v1/messages/conversations/${otherUserId}`,
       {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -105,8 +105,8 @@ export default function ChatScreen() {
       //   typeof lm === "object" ? lm.message : lm || "No messages yet";
       const lastMessageText =
         typeof lm === "object" && lm !== null
-          ? lm?.message ?? "No messages yet"
-          : lm ?? "No messages yet";
+          ? (lm?.message ?? "No messages yet")
+          : (lm ?? "No messages yet");
 
       // const lastMessageTime =
       //   typeof lm === "object" && lm.sent_at
@@ -159,7 +159,7 @@ export default function ChatScreen() {
   const fetchChats = async (showRefreshing = false) => {
     try {
       updateState(
-        showRefreshing ? { refreshing: true } : { loading: true, error: null }
+        showRefreshing ? { refreshing: true } : { loading: true, error: null },
       );
 
       const token = await AsyncStorage.getItem("userToken");
@@ -253,7 +253,7 @@ export default function ChatScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -261,7 +261,7 @@ export default function ChatScreen() {
   const filteredChats = state.chats.filter(
     (chat) =>
       chat.name.toLowerCase().includes(state.searchQuery.toLowerCase()) ||
-      chat.lastMessage.toLowerCase().includes(state.searchQuery.toLowerCase())
+      chat.lastMessage.toLowerCase().includes(state.searchQuery.toLowerCase()),
   );
 
   // Effects
@@ -278,7 +278,7 @@ export default function ChatScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchChats();
-    }, [])
+    }, []),
   );
 
   const ChatListItem = ({ chat, onPress, onDelete }) => (

@@ -62,7 +62,7 @@ export default function ProfileDetailScreen() {
     if (currentUserLocation && userData?.location?.coordinates) {
       const distanceText = calculateDistance(
         currentUserLocation,
-        userData.location.coordinates
+        userData.location.coordinates,
       );
       setDistance(distanceText);
     }
@@ -79,7 +79,7 @@ export default function ProfileDetailScreen() {
       }
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
           method: "POST",
           headers: {
@@ -90,7 +90,7 @@ export default function ProfileDetailScreen() {
             userId: userId,
             action: "like",
           }),
-        }
+        },
       );
 
       const responseText = await response.text();
@@ -135,7 +135,7 @@ export default function ProfileDetailScreen() {
       }
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/match/like-or-dislike",
         {
           method: "POST",
           headers: {
@@ -146,7 +146,7 @@ export default function ProfileDetailScreen() {
             userId: userId,
             action: "dislike",
           }),
-        }
+        },
       );
 
       const responseText = await response.text();
@@ -213,8 +213,10 @@ export default function ProfileDetailScreen() {
       }
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/me",
-        { headers: { Authorization: `Bearer ${token}` } }
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/me",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
       );
 
       if (!response.ok) {
@@ -239,8 +241,8 @@ export default function ProfileDetailScreen() {
       }
 
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/users/you-liked",
-        { headers: { Authorization: `Bearer ${token}` } }
+        "https:backend-afrodate-8q6k.onrender.com/api/v1/users/you-liked",
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (!response.ok) {
@@ -267,8 +269,8 @@ export default function ProfileDetailScreen() {
       }
 
       const response = await fetch(
-        `https://backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `https:backend-afrodate-8q6k.onrender.com/api/v1/users/${userId}`,
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (!response.ok) {
@@ -306,11 +308,11 @@ export default function ProfileDetailScreen() {
       }
 
       const response = await fetch(
-        `https://backend-afrodate-8q6k.onrender.com/api/v1/users/like-or-dislike/${userId}`,
+        `https:backend-afrodate-8q6k.onrender.com/api/v1/users/like-or-dislike/${userId}`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -458,7 +460,8 @@ export default function ProfileDetailScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Details</Text>
@@ -472,7 +475,8 @@ export default function ProfileDetailScreen() {
           styles.scrollView,
           { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
         ]}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile Images Carousel */}
         <View style={styles.imageCarousel}>
           {profilePictures.length > 0 ? (
@@ -486,7 +490,7 @@ export default function ProfileDetailScreen() {
                 showsHorizontalScrollIndicator={false}
                 onMomentumScrollEnd={(event) => {
                   const newIndex = Math.round(
-                    event.nativeEvent.contentOffset.x / width
+                    event.nativeEvent.contentOffset.x / width,
                   );
                   setSelectedImageIndex(newIndex);
                 }}
@@ -503,7 +507,7 @@ export default function ProfileDetailScreen() {
               {profilePictures.length > 1 && (
                 <View style={styles.imageIndicators}>
                   {profilePictures.map((_, index) =>
-                    renderImageIndicator(_, index)
+                    renderImageIndicator(_, index),
                   )}
                 </View>
               )}
@@ -539,7 +543,8 @@ export default function ProfileDetailScreen() {
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={styles.dislikeButton}
-              onPress={handleDislike}>
+              onPress={handleDislike}
+            >
               <Ionicons name="close" size={30} color="#FF6B6B" />
             </TouchableOpacity>
 
@@ -619,13 +624,15 @@ export default function ProfileDetailScreen() {
           <View style={styles.aboutCard}>
             <Text
               style={styles.aboutText}
-              numberOfLines={isExpanded ? undefined : 4}>
+              numberOfLines={isExpanded ? undefined : 4}
+            >
               {userData.bio || "No bio available"}
             </Text>
             {userData.bio && userData.bio.length > 100 && (
               <TouchableOpacity
                 style={styles.readMoreButton}
-                onPress={() => setIsExpanded(!isExpanded)}>
+                onPress={() => setIsExpanded(!isExpanded)}
+              >
                 <Text style={styles.readMoreText}>
                   {isExpanded ? "Read Less" : "Read More"}
                 </Text>

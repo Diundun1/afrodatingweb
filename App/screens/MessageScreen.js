@@ -184,16 +184,16 @@ const MessageScreen = ({ route }) => {
     const onMessageDelivered = (data) => {
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === data.messageId ? { ...msg, status: "delivered" } : msg
-        )
+          msg.id === data.messageId ? { ...msg, status: "delivered" } : msg,
+        ),
       );
     };
 
     const onMessageRead = (data) => {
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === data.messageId ? { ...msg, isSeen: true } : msg
-        )
+          msg.id === data.messageId ? { ...msg, isSeen: true } : msg,
+        ),
       );
     };
 
@@ -207,7 +207,7 @@ const MessageScreen = ({ route }) => {
       const isDuplicate =
         Array.from(optimisticMessagesRef.current).some(
           (optId) =>
-            data.clientTimestamp === optId || data.message === inputMessage
+            data.clientTimestamp === optId || data.message === inputMessage,
         ) ||
         messages.some((msg) => msg.serverId === data.id || msg.id === data.id);
 
@@ -276,7 +276,7 @@ const MessageScreen = ({ route }) => {
         duration: 1500,
         easing: Easing.linear,
         useNativeDriver: true,
-      })
+      }),
     ).start();
   }, [spinAnim]);
 
@@ -332,16 +332,16 @@ const MessageScreen = ({ route }) => {
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
-
+        // https:backend-afrodate-8q6k.onrender.com
         const response = await fetch(
-          `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-room/${dynamicOtherUserId}`,
+          `https:backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-room/${dynamicOtherUserId}`,
           {
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
             signal: controller.signal,
-          }
+          },
         );
 
         clearTimeout(timeoutId);
@@ -380,8 +380,8 @@ const MessageScreen = ({ route }) => {
               self.findIndex(
                 (m) =>
                   m.id === msg.id ||
-                  (m.message === msg.message && m.isSender === m.isSender)
-              )
+                  (m.message === msg.message && m.isSender === m.isSender),
+              ),
           );
           return uniqueMessages;
         });
@@ -398,12 +398,12 @@ const MessageScreen = ({ route }) => {
 
         // 🎯 CALL NOTIFICATION CHECK
         const linkMatch = latestMessage.message.match(
-          /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+          /https:\/\/test\.unigate\.com\.ng\/[^\s]+/,
         );
 
         if (linkMatch) {
           const messageTime = new Date(
-            latestMessage.createdAt || latestMessage.sent_at
+            latestMessage.createdAt || latestMessage.sent_at,
           );
           const currentTime = new Date();
           const timeDifference = (currentTime - messageTime) / 1000 / 60;
@@ -494,7 +494,7 @@ const MessageScreen = ({ route }) => {
     if (!inputMessage.trim() || !partnerData || !userId) {
       Alert.alert(
         "Error",
-        "Cannot send message. Please check your connection."
+        "Cannot send message. Please check your connection.",
       );
       return;
     }
@@ -547,7 +547,7 @@ const MessageScreen = ({ route }) => {
 
     console.log(
       "❗ Immediately after setMessages (React not updated yet):",
-      messages
+      messages,
     );
 
     // If not connected, mark as failed immediately
@@ -559,7 +559,7 @@ const MessageScreen = ({ route }) => {
           const updated = prev.map((msg) =>
             msg.id === optimisticId
               ? { ...msg, status: "failed", fromServer: false }
-              : msg
+              : msg,
           );
           console.log("❌ Updated messages (FAILED, offline):", updated);
           return updated;
@@ -582,7 +582,7 @@ const MessageScreen = ({ route }) => {
             const updated = prev.map((msg) =>
               msg.id === optimisticId
                 ? { ...msg, status: "failed", fromServer: false }
-                : msg
+                : msg,
             );
             console.log("❌ Updated messages (FAILED, emit error):", updated);
             return updated;
@@ -603,11 +603,11 @@ const MessageScreen = ({ route }) => {
                   status: "failed",
                   fromServer: false,
                 }
-              : msg
+              : msg,
           );
           console.log(
             "❌ Updated messages (FAILED, no confirmation):",
-            updated
+            updated,
           );
           return updated;
         });
@@ -629,7 +629,7 @@ const MessageScreen = ({ route }) => {
                   fromServer: true,
                   status: "sent",
                 }
-              : msg
+              : msg,
           );
           console.log("✅ Updated messages (CONFIRMED):", updated);
           return updated;
@@ -661,7 +661,7 @@ const MessageScreen = ({ route }) => {
           const updated = prev.map((msg) =>
             msg.id === optimisticId
               ? { ...msg, status: "failed", fromServer: false }
-              : msg
+              : msg,
           );
           console.log("❌ Updated messages (FAILED, catch block):", updated);
           return updated;
@@ -685,8 +685,8 @@ const MessageScreen = ({ route }) => {
       // Failed to send → mark as pending
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === optimisticId ? { ...msg, status: "pending" } : msg
-        )
+          msg.id === optimisticId ? { ...msg, status: "pending" } : msg,
+        ),
       );
       return;
     }
@@ -702,8 +702,8 @@ const MessageScreen = ({ route }) => {
                 status: "sent", // delivered after server ACK
                 localOnly: false,
               }
-            : msg
-        )
+            : msg,
+        ),
       );
     });
   };
@@ -743,7 +743,7 @@ const MessageScreen = ({ route }) => {
 
     // Find all pending messages and resend them
     const pendingMessages = messages.filter(
-      (m) => m.status === "pending" && m.localOnly
+      (m) => m.status === "pending" && m.localOnly,
     );
 
     pendingMessages.forEach((msg) => {
@@ -855,8 +855,8 @@ const MessageScreen = ({ route }) => {
             prev.map((msg) =>
               msg.id === optimisticId
                 ? { ...msg, id: data.id || msg.id, fromServer: true }
-                : msg
-            )
+                : msg,
+            ),
           );
         };
 
@@ -887,7 +887,7 @@ const MessageScreen = ({ route }) => {
       console.error("Video call error:", e);
       Alert.alert(
         "Call Failed",
-        "Unable to initiate video call. Please try again."
+        "Unable to initiate video call. Please try again.",
       );
     } finally {
       setIsProcessingCall(false);
@@ -981,8 +981,8 @@ const MessageScreen = ({ route }) => {
             prev.map((msg) =>
               msg.id === optimisticId
                 ? { ...msg, id: data.id || msg.id, fromServer: true }
-                : msg
-            )
+                : msg,
+            ),
           );
         };
 
@@ -1084,11 +1084,11 @@ const MessageScreen = ({ route }) => {
                           style: "destructive",
                           onPress: () => {
                             setMessages((prev) =>
-                              prev.filter((msg) => msg.id !== item.id)
+                              prev.filter((msg) => msg.id !== item.id),
                             );
                           },
                         },
-                      ]
+                      ],
                     );
                   }
                 }}
