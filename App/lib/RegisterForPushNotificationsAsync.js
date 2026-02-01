@@ -202,20 +202,73 @@ const registerServiceWorker = async () => {
   }
 };
 
-const sendSubscriptionToBackend = async (subscription) => {
-  if (!subscription) return;
-  console.log("there is subscription");
+// const sendSubscriptionToBackend = async (subscription) => {
+//   if (!subscription) return;
+//   console.log("there is subscription");
+//   try {
+//     const registration = await navigator.serviceWorker.ready; // Wait for ready
+//     if (!registration) throw new Error("Service worker not ready");
+
+//     const existing = await registration.pushManager.getSubscription();
+//     if (existing) {
+//       console.log("🔁 Already subscribed");
+
+//     }
+
+//     const token = localStorage.getItem("userToken");
+//     console.log("JWT token:", token);
+
+//     const response = await fetch(
+//       "https://backend-afrodate-8q6k.onrender.com/api/v1/push/subscribe",
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           Authorization: `Bearer ${token}`,
+//         },
+//         body: JSON.stringify({ subscription }),
+//       },
+//     );
+
+//     const result = await response.json();
+//     console.log("✅ Backend response:", result);
+//   } catch (err) {
+//     console.error("❌ Error sending subscription to backend:", err);
+//   }
+// };
+
+// Main init function
+
+const sendSubscriptionToBackend = async () => {
   try {
-    const registration = await navigator.serviceWorker.ready; // Wait for ready
+    const registration = await navigator.serviceWorker.ready;
     if (!registration) throw new Error("Service worker not ready");
 
-    const existing = await registration.pushManager.getSubscription();
-    if (existing) {
-      console.log("🔁 Already subscribed");
+    let subscription = await registration.pushManager.getSubscription();
+
+    // Create subscription ONLY if it doesn't exist
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: VAPID_PUBLIC_KEY,
+      });
+      console.log("🆕 New subscription created");
+    } else {
+      console.log("🔁 Existing subscription found");
+    }
+
+    // Prevent resending same subscription repeatedly
+    const alreadySent = localStorage.getItem("pushSubscriptionSent");
+    if (alreadySent) {
+      console.log("🚫 Subscription already sent to backend");
+      return;
     }
 
     const token = localStorage.getItem("userToken");
-    console.log("JWT token:", token);
+    if (!token) {
+      console.warn("No auth token found");
+      return;
+    }
 
     const response = await fetch(
       "https://backend-afrodate-8q6k.onrender.com/api/v1/push/subscribe",
@@ -225,9 +278,18 @@ const sendSubscriptionToBackend = async (subscription) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ subscription }),
+        body: JSON.stringify({
+          subscription,
+          userAgent: navigator.userAgent,
+        }),
       },
     );
+
+    if (!response.ok) {
+      throw new Error("Failed to send subscription");
+    }
+
+    localStorage.setItem("pushSubscriptionSent", "true");
 
     const result = await response.json();
     console.log("✅ Backend response:", result);
@@ -236,7 +298,29 @@ const sendSubscriptionToBackend = async (subscription) => {
   }
 };
 
-// Main init function
+// export const initPush = async (userId) => {
+//   const registration = await registerServiceWorker();
+//   if (!registration) return;
+
+//   // Request permission
+//   const permission = await Notification.requestPermission();
+//   if (permission !== "granted") {
+//     console.log("❌ Push notifications permission denied");
+//     return;
+//   }
+
+//   // Subscribe
+//   const subscription = await registration.pushManager.subscribe({
+//     userVisibleOnly: true,
+//     applicationServerKey: urlBase64ToUint8Array(
+//       "BOqyxnaIO_gNGX9I1XC0hrKDJg8oIfsEAcFlylps0cgb_DBzbwWR9LKwtvU7r3Kmpf3IQVk55BQQNcoMF1JrEPQ",
+//     ),
+//   });
+
+//   console.log("🔔 Subscription object:", subscription);
+//   await sendSubscriptionToBackend(subscription, userId);
+// };
+
 export const initPush = async (userId) => {
   const registration = await registerServiceWorker();
   if (!registration) return;
@@ -248,13 +332,19 @@ export const initPush = async (userId) => {
     return;
   }
 
-  // Subscribe
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(
-      "BOqyxnaIO_gNGX9I1XC0hrKDJg8oIfsEAcFlylps0cgb_DBzbwWR9LKwtvU7r3Kmpf3IQVk55BQQNcoMF1JrEPQ",
-    ),
-  });
+  // Check if already subscribed
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(
+        "BOqyxnaIO_gNGX9I1XC0hrKDJg8oIfsEAcFlylps0cgb_DBzbwWR9LKwtvU7r3Kmpf3IQVk55BQQNcoMF1JrEPQ",
+      ),
+    });
+    console.log("🔔 New subscription created");
+  } else {
+    console.log("🔁 Already subscribed");
+  }
 
   console.log("🔔 Subscription object:", subscription);
   await sendSubscriptionToBackend(subscription, userId);
