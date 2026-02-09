@@ -378,132 +378,274 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Function to get token from IndexedDB (since localStorage is forbidden in SW)
+async function getAuthToken() {
+  return new Promise((resolve) => {
+    const request = indexedDB.open("keyval-store"); // Change to your DB name
+    request.onsuccess = () => {
+      try {
+        const db = request.result;
+        const tx = db.transaction("keyval", "readonly");
+        const store = tx.objectStore("keyval");
+        const getReq = store.get("userToken");
+        getReq.onsuccess = () => resolve(getReq.result);
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    request.onerror = () => resolve(null);
+  });
+}
+
 // ===== ENHANCED PUSH NOTIFICATION HANDLER =====
-self.addEventListener("push", function (event) {
-  console.log("🔔 Push notification received", event);
+// self.addEventListener("push", async (event) => {
+//   console.log("🔔 Push notification received", event);
 
-  let data = {};
+//   const clientsList = await self.clients.matchAll({
+//     type: "window",
+//     includeUncontrolled: true,
+//   });
 
-  try {
-    data = event.data?.json() || {};
-  } catch (e) {
-    data = {
-      title: "Diundun",
-      body: event.data?.text() || "You have a new notification",
-    };
-  }
+//   // Check if any client is focused
+//   const isAppOpen = clientsList.some(
+//     (client) => client.visibilityState === "visible",
+//   );
 
-  // Enhanced notification options based on type
-  const getNotificationConfig = (notifData) => {
-    const baseConfig = {
-      body: notifData.body || "You have a new notification",
-      icon: notifData.icon || "/icon-192x192.png",
-      badge: notifData.badge || "/badge-72x72.png",
-      image: notifData.image,
-      vibrate: notifData.vibrate || [200, 100, 200],
-      requireInteraction: notifData.requireInteraction || false,
-      data: {
-        url: notifData.url || "/",
-        notificationId: notifData.data?.notificationId,
-        type: notifData.data?.type,
-        ...notifData.data,
-      },
-      actions: notifData.actions || [],
-      timestamp: Date.now(),
-    };
+//   if (isAppOpen) {
+//     // App is open → don't show notification
+//     console.log("User is still in app");
+//     // return;
+//   }
 
-    // Customize based on notification type
-    const type = notifData.data?.type;
+//   let data = {};
 
-    switch (type) {
-      case "message":
-      case "new_message":
-        return {
-          ...baseConfig,
-          tag: `message-${notifData.data?.roomId || notifData.data?.messageId}`,
-          requireInteraction: true,
-          actions: [
-            { action: "view", title: "👀 View" },
-            { action: "reply", title: "💬 Reply" },
-          ],
-        };
+//   try {
+//     data = event.data?.json() || {};
+//   } catch (e) {
+//     data = {
+//       title: "Diundun",
+//       body: event.data?.text() || "You have a new notification",
+//     };
+//   }
 
-      case "match":
-        return {
-          ...baseConfig,
-          tag: `match-${notifData.data?.matchId}`,
-          requireInteraction: true,
-          actions: [
-            { action: "view", title: "👀 View Profile" },
-            { action: "message", title: "💬 Send Message" },
-          ],
-        };
+//   // Enhanced notification options based on type
+//   const getNotificationConfig = async (notifData) => {
+//     const token = localStorage.getItem("userToken");
 
-      case "like":
-        return {
-          ...baseConfig,
-          tag: "new-likes",
-          actions: [{ action: "view", title: "👀 View Likes" }],
-        };
+//     if (token) {
+//       try {
+//         const response = await fetch(
+//           "https://backend-afrodate-8q6k.onrender.com",
+//           {
+//             headers: {
+//               "Content-Type": "application/json",
+//               Authorization: `Bearer ${token}`,
+//             },
+//           },
+//         );
 
-      case "incoming_call":
-        return {
-          ...baseConfig,
-          tag: `call-${notifData.data?.callerId}`,
-          requireInteraction: true,
-          vibrate: [500, 250, 500, 250, 500],
-          actions: [
-            { action: "answer", title: "📞 Answer" },
-            { action: "decline", title: "❌ Decline" },
-          ],
-        };
+//         if (response.ok) {
+//           const result = await response.json();
+//           const room = data.data?.room;
+//           const chat = result?.data?.find((c) =>
+//             [c.room, c.chat_room_id, c.roomId].includes(room),
+//           );
 
-      case "profileView":
-        return {
-          ...baseConfig,
-          tag: "profile-views",
-        };
+//           if (chat?.lastMessage) {
+//             const lm = chat.lastMessage;
+//             finalMessage = typeof lm === "string" ? lm : lm.message;
+//             messageTimestamp = lm.createdAt || lm.sent_at;
+//           }
+//         }
+//       } catch (e) {
+//         console.warn("API Fallback failed", e);
+//       }
+//     } else {
+//       console.log("No token");
+//     }
 
-      default:
-        return {
-          ...baseConfig,
-          tag: "diundun-notification",
-        };
-    }
-  };
+//     const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+//     const linkMatch = finalMessage.match(callLinkPattern);
+//     const isCall =
+//       linkMatch && (Date.now() - new Date(messageTimestamp)) / 1000 / 60 <= 2;
 
-  const options = getNotificationConfig(data);
+//     const baseConfig = {
+//       body: isCall
+//         ? "Incoming Call"
+//         : notifData.body || "You have a new notification",
+//       icon: notifData.icon || "/icon-192x192.png",
+//       badge: notifData.badge || "/badge-72x72.png",
+//       image: notifData.image,
+//       vibrate: notifData.vibrate || [200, 100, 200],
+//       requireInteraction: notifData.requireInteraction || false,
+//       data: {
+//         url: notifData.url || "/",
+//         notificationId: notifData.data?.notificationId,
+//         type: notifData.data?.type,
+//         ...notifData.data,
+//       },
+//       actions: notifData.actions || [],
+//       timestamp: Date.now(),
+//     };
 
+//     console.log("baseConfig: ", baseConfig);
+//     // Customize based on notification type
+//     const type = notifData.data?.type;
+
+//     switch (type) {
+//       case "message":
+//       case "new_message":
+//         return {
+//           ...baseConfig,
+//           tag: `message-${notifData.data?.roomId || notifData.data?.messageId}`,
+//           requireInteraction: true,
+//           actions: [
+//             { action: "view", title: "👀 View" },
+//             // { action: "reply", title: "💬 Reply" },
+//           ],
+//         };
+
+//       case "match":
+//         return {
+//           ...baseConfig,
+//           tag: `match-${notifData.data?.matchId}`,
+//           requireInteraction: true,
+//           actions: [
+//             { action: "view", title: "👀 View Profile" },
+//             { action: "message", title: "💬 Send Message" },
+//           ],
+//         };
+
+//       case "like":
+//         return {
+//           ...baseConfig,
+//           tag: "new-likes",
+//           actions: [{ action: "view", title: "👀 View Likes" }],
+//         };
+
+//       case "incoming_call":
+//         return {
+//           ...baseConfig,
+//           tag: `call-${notifData.data?.callerId}`,
+//           requireInteraction: true,
+//           vibrate: [500, 250, 500, 250, 500],
+//           actions: [
+//             { action: "answer", title: "📞 Answer" },
+//             { action: "decline", title: "❌ Decline" },
+//           ],
+//         };
+
+//       case "profileView":
+//         return {
+//           ...baseConfig,
+//           tag: "profile-views",
+//         };
+
+//       default:
+//         return {
+//           ...baseConfig,
+//           tag: "diundun-notification",
+//         };
+//     }
+//   };
+
+//   const options = getNotificationConfig(data);
+
+//   event.waitUntil(
+//     self.registration
+//       .showNotification(data.title || "Diundun", options)
+//       .then(() => {
+//         console.log("✅ Notification shown successfully");
+//       })
+//       .catch((error) => {
+//         console.error("❌ Failed to show notification:", error);
+//       }),
+//   );
+// });
+self.addEventListener("push", async (event) => {
   event.waitUntil(
-    self.registration
-      .showNotification(data.title || "Diundun", options)
-      .then(() => {
-        console.log("✅ Notification shown successfully");
-      })
-      .catch((error) => {
-        console.error("❌ Failed to show notification:", error);
-      }),
+    (async () => {
+      let data = {};
+      try {
+        data = event.data?.json() || {};
+      } catch (e) {
+        data = { title: "Diundun", body: event.data?.text() || "" };
+      }
+
+      let finalMessage = data.body || "You have a new notification";
+      let messageTimestamp = Date.now();
+
+      // 1. Fetch API Fallback
+      const token = await getAuthToken();
+      if (token) {
+        try {
+          const response = await fetch(
+            "https://backend-afrodate-8q6k.onrender.com",
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+          if (response.ok) {
+            const result = await response.json();
+            const room = data.data?.room;
+            const chat = result?.data?.find((c) =>
+              [c.room, c.chat_room_id, c.roomId].includes(room),
+            );
+            if (chat?.lastMessage) {
+              const lm = chat.lastMessage;
+              finalMessage = typeof lm === "string" ? lm : lm.message;
+              messageTimestamp = lm.createdAt || lm.sent_at;
+            }
+          }
+        } catch (e) {
+          console.warn("Fallback fetch failed", e);
+        }
+      }
+
+      // 2. Call Detection
+      const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+      const linkMatch = finalMessage.match(callLinkPattern);
+      const isCall =
+        linkMatch && (Date.now() - new Date(messageTimestamp)) / 1000 / 60 <= 2;
+
+      // 3. Build Config
+      const callUrl = linkMatch ? linkMatch[0] : null;
+      const type = isCall ? "incoming_call" : data.data?.type || "default";
+
+      const options = {
+        body: isCall
+          ? `Incoming call from ${data.data?.senderName || "User"}`
+          : finalMessage,
+        icon: data.icon || "/icon-192x192.png",
+        badge: "/badge-72x72.png",
+        vibrate: isCall ? [500, 250, 500, 250, 500] : [200, 100, 200],
+        requireInteraction: isCall ? true : false,
+        data: {
+          ...data.data,
+          url: isCall
+            ? `/incoming-call?url=${encodeURIComponent(callUrl)}`
+            : data.data?.url || "/",
+          isCall: isCall,
+        },
+        tag: isCall
+          ? `call-${data.data?.room}`
+          : `msg-${data.data?.room || "default"}`,
+        actions: isCall
+          ? [
+              { action: "answer", title: "📞 Answer" },
+              { action: "decline", title: "❌ Decline" },
+            ]
+          : [{ action: "view", title: "👀 View" }],
+      };
+
+      return self.registration.showNotification(
+        isCall ? "Incoming Call" : data.title || "Diundun",
+        options,
+      );
+    })(),
   );
 });
 
-// self.addEventListener("push", (e) => {
-//   const data = e.data.json();
-
-//   self.registration.showNotification(data.title, {
-//     body: data.body,
-//     icon: data.icon,
-//     badge: data.badge,
-//     data: { url: data.url }, // Pass the URL to the click event
-//     actions: data.actions,
-//     vibrate: data.vibrate,
-//   });
-// });
-
-// self.addEventListener("notificationclick", (e) => {
-//   e.notification.close();
-//   // Open the specific chat room
-//   e.waitUntil(clients.openWindow(e.notification.data.url));
-// });
 // ===== ENHANCED NOTIFICATION CLICK HANDLER =====
 self.addEventListener("notificationclick", function (event) {
   console.log("🔔 Notification clicked:", event.notification.data);
@@ -609,6 +751,31 @@ self.addEventListener("notificationclick", function (event) {
         if (self.clients.openWindow) {
           return self.clients.openWindow(url);
         }
+      }),
+  );
+});
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const notifData = event.notification.data;
+  const targetUrl = notifData.url || "/";
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        // Focus existing tab if open
+        for (const client of clientList) {
+          if (client.url.includes(location.origin) && "focus" in client) {
+            client.postMessage({
+              type: "NAVIGATE",
+              url: targetUrl,
+              isCall: notifData.isCall,
+            });
+            return client.focus();
+          }
+        }
+        // Otherwise open new window
+        if (clients.openWindow) return clients.openWindow(targetUrl);
       }),
   );
 });
