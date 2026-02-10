@@ -84,6 +84,21 @@ export default function LoginScreen() {
       if (data.token) {
         await AsyncStorage.setItem("userToken", data.token);
         await AsyncStorage.setItem("loggedInUserId", data.user._id);
+
+        // 2. NEW: Save to IndexedDB (so the Service Worker can see it)
+        const dbRequest = indexedDB.open("keyval-store");
+        dbRequest.onupgradeneeded = () => {
+          dbRequest.result.createObjectStore("keyval");
+        };
+        dbRequest.onsuccess = () => {
+          const db = dbRequest.result;
+          const tx = db.transaction("keyval", "readwrite");
+          tx.objectStore("keyval").put(data.token, "userToken");
+        };
+
+        console.log("Token stored in AsyncStorage & IndexedDB");
+        navigation.replace("ExploreScreen");
+
         console.log("Token stored:", data.token);
         navigation.replace("ExploreScreen");
       } else {
