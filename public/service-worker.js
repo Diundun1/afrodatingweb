@@ -273,8 +273,28 @@
 // });
 
 // service-worker.js
+
 const CACHE_NAME = "Diundun-cache-v2";
 const urlsToCache = ["/", "/index.html"];
+
+async function getAuthTokenFromDB() {
+  return new Promise((resolve) => {
+    const request = indexedDB.open("keyval-store");
+    request.onsuccess = () => {
+      try {
+        const db = request.result;
+        const tx = db.transaction("keyval", "readonly");
+        const store = tx.objectStore("keyval");
+        const getReq = store.get("userToken");
+        getReq.onsuccess = () => resolve(getReq.result);
+        getReq.onerror = () => resolve(null);
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    request.onerror = () => resolve(null);
+  });
+}
 
 self.addEventListener("install", (event) => {
   console.log("Service Worker installing");
@@ -377,25 +397,6 @@ self.addEventListener("activate", (event) => {
     }),
   );
 });
-
-// Function to get token from IndexedDB (since localStorage is forbidden in SW)
-async function getAuthToken() {
-  return new Promise((resolve) => {
-    const request = indexedDB.open("keyval-store"); // Change to your DB name
-    request.onsuccess = () => {
-      try {
-        const db = request.result;
-        const tx = db.transaction("keyval", "readonly");
-        const store = tx.objectStore("keyval");
-        const getReq = store.get("userToken");
-        getReq.onsuccess = () => resolve(getReq.result);
-      } catch (e) {
-        resolve(null);
-      }
-    };
-    request.onerror = () => resolve(null);
-  });
-}
 
 // ===== ENHANCED PUSH NOTIFICATION HANDLER =====
 // self.addEventListener("push", async (event) => {
@@ -562,19 +563,6 @@ async function getAuthToken() {
 //       }),
 //   );
 // });
-
-// Add this helper at the top
-async function getAuthToken() {
-  console.log("🔑 [AUTH] Attempting to get auth token");
-  // Implement your token retrieval logic
-  // Example: return await self.registration.sync.getTags() or from IndexedDB
-  const token = null; // Replace with actual implementation
-  console.log(
-    "🔑 [AUTH] Token retrieved:",
-    token ? "✅ Found" : "❌ Not found",
-  );
-  return token;
-}
 
 // self.addEventListener("push", async (event) => {
 //   console.log("📨 [PUSH] Push event received");
@@ -1111,7 +1099,7 @@ self.addEventListener("push", async (event) => {
       console.log("📨 [PUSH] Initial timestamp:", messageTimestamp);
 
       // 1. Fetch API Fallback
-      const token = await getAuthToken();
+      const token = await getAuthTokenFromDB();
       if (token) {
         console.log("🌐 [API] Making fetch request to chat-users endpoint");
         try {
