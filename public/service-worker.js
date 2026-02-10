@@ -1338,7 +1338,9 @@ self.addEventListener("notificationclick", function (event) {
 
         // Routing Logic: Call vs Message
         if (callUrl) {
-          url = `/incoming-call?url=${encodeURIComponent(callUrl)}&room=${data.room}&callerName=${encodeURIComponent(senderName)}&callerId=${senderId}`;
+          // url = `/incoming-call?url=${encodeURIComponent(callUrl)}&room=${data.room}&callerName=${encodeURIComponent(senderName)}&callerId=${senderId}`;
+          url = `/chat/${data.roomId || data.room || senderId}`;
+
           console.log("📞 [ROUTING] This is a CALL");
         } else {
           url = `/chat/${data.roomId || data.room || senderId}`;
