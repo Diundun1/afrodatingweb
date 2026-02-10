@@ -647,62 +647,151 @@ self.addEventListener("push", async (event) => {
 });
 
 // ===== ENHANCED NOTIFICATION CLICK HANDLER =====
+
+// self.addEventListener("notificationclick", function (event) {
+//   console.log("🔔 Notification clicked:", event.notification.data);
+
+//   event.notification.close();
+
+//   const data = event.notification.data || {};
+//   const action = event.action;
+//   const type = data.type;
+
+//   // 1. Mark notification as opened in backend
+//   if (data.notificationId) {
+//     fetch(`/api/push/notifications/${data.notificationId}/open`, {
+//       method: "PATCH",
+//       headers: { "Content-Type": "application/json" },
+//     }).catch((err) => console.error("Failed to mark as opened:", err));
+//   }
+
+//   // 2. Handle specific button actions
+//   if (action === "decline") {
+//     console.log("Call declined by user");
+//     // You could also trigger a fetch here to notify the caller the call was declined
+//     return;
+//   }
+
+//   event.waitUntil(
+//     self.clients
+//       .matchAll({
+//         type: "window",
+//         includeUncontrolled: true,
+//       })
+//       .then(async (clientList) => {
+//         // 3. Determine the URL to open (if app is closed)
+//         let url = data.url || "/";
+
+//         if (type === "message" || type === "new_message") {
+//           url = `/chat/${data.roomId || data.sender}`;
+//         } else if (type === "match") {
+//           url = `/matches/${data.matchId}`;
+//         } else if (type === "like") {
+//           url = "/likes";
+//         } else if (type === "profileView") {
+//           url = "/profile/views";
+//         } else if (type === "incoming_call") {
+//           // Construct deep-link URL for the call
+//           const params = new URLSearchParams({
+//             incomingCall: "true",
+//             callUrl: data.callUrl || "",
+//             callerId: data.callerId || "",
+//             callerName: data.callerName || "",
+//             room: data.room || "",
+//             callType: data.callType || "video",
+//           });
+//           url = `/?${params.toString()}`;
+//         }
+
+//         // 4. Try to focus an existing window
+//         for (const client of clientList) {
+//           if (
+//             client.url.startsWith(self.location.origin) &&
+//             "focus" in client
+//           ) {
+//             await client.focus();
+
+//             // Notify the frontend via postMessage so it can navigate internally
+//             if (type === "incoming_call") {
+//               client.postMessage({
+//                 type: "INCOMING_CALL",
+//                 payload: {
+//                   callUrl: data.callUrl,
+//                   callerId: data.callerId,
+//                   callerName: data.callerName,
+//                   room: data.room,
+//                   callType: data.callType,
+//                   autoAnswer: action === "answer", // Let the app know if they clicked "Answer" button
+//                 },
+//               });
+//             } else if (type === "new_message" || type === "message") {
+//               client.postMessage({
+//                 type: "OPEN_CHAT",
+//                 payload: {
+//                   roomId: data.roomId,
+//                   messageId: data.messageId,
+//                   senderId: data.sender || data.senderId,
+//                 },
+//               });
+//             } else {
+//               client.postMessage({
+//                 type: "NAVIGATE",
+//                 payload: { url },
+//               });
+//             }
+//             return;
+//           }
+//         }
+
+//         // 5. If no existing window found, open a new one with the deep-link URL
+//         if (self.clients.openWindow) {
+//           return self.clients.openWindow(url);
+//         }
+//       }),
+//   );
+// });
+
 self.addEventListener("notificationclick", function (event) {
   console.log("🔔 Notification clicked:", event.notification.data);
-  console.log("Action:", event.action);
-
   event.notification.close();
 
-  const data = event.notification.data;
+  const data = event.notification.data || {};
   const action = event.action;
-  const type = data.type;
 
-  // Mark notification as opened in backend
+  // 1. Detect if it's a call based on the URL pattern you provided
+  const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+  // Check preview first (from your log), then url, then callUrl
+  const callUrlMatch = (data.preview || data.url || "").match(callLinkPattern);
+  const callUrl = callUrlMatch ? callUrlMatch[0] : null;
+
+  // 2. Mark as opened
   if (data.notificationId) {
     fetch(`/api/push/notifications/${data.notificationId}/open`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     }).catch((err) => console.error("Failed to mark as opened:", err));
   }
 
-  // Handle action buttons
-  if (action === "decline") {
-    console.log("Call declined");
-    return; // Don't open app
-  }
+  if (action === "decline") return;
 
   event.waitUntil(
     self.clients
-      .matchAll({
-        type: "window",
-        includeUncontrolled: true,
-      })
+      .matchAll({ type: "window", includeUncontrolled: true })
       .then(async (clientList) => {
-        // Determine the URL to open
-        let url = data.url || "/";
+        let url = "/";
+        const senderId = data.sender?.id || data.sender;
+        const senderName = data.sender?.name || "User";
 
-        // Override URL based on type
-        if (type === "message" || type === "new_message") {
-          url = `/chat/${data.roomId || data.sender}`;
-        } else if (type === "match") {
-          url = `/matches/${data.matchId}`;
-        } else if (type === "like") {
-          url = "/likes";
-        } else if (type === "profileView") {
-          url = "/profile/views";
-        } else if (type === "incoming_call") {
-          url =
-            `/?incomingCall=true` +
-            `&callUrl=${encodeURIComponent(data.callUrl)}` +
-            `&callerId=${data.callerId}` +
-            `&callerName=${encodeURIComponent(data.callerName || "")}` +
-            `&room=${data.room || ""}` +
-            `&callType=${data.callType || ""}`;
+        // 3. Routing Logic: Call vs Message
+        if (callUrl) {
+          // It is a CALL
+          url = `/incoming-call?url=${encodeURIComponent(callUrl)}&room=${data.room}&callerName=${encodeURIComponent(senderName)}&callerId=${senderId}`;
+        } else {
+          // It is a MESSAGE
+          url = `/chat/${data.roomId || senderId}`;
         }
 
-        // 1️⃣ Try to focus an existing window
+        // 4. Try to focus an existing window
         for (const client of clientList) {
           if (
             client.url.startsWith(self.location.origin) &&
@@ -710,72 +799,35 @@ self.addEventListener("notificationclick", function (event) {
           ) {
             await client.focus();
 
-            // Send message to the client to navigate/perform action
-            if (type === "new_message" || type === "message") {
-              client.postMessage({
-                type: "OPEN_CHAT",
-                payload: {
-                  roomId: data.roomId,
-                  messageId: data.messageId,
-                  senderId: data.sender || data.senderId,
-                },
-              });
-            } else if (type === "incoming_call") {
-              client.postMessage({
+            if (callUrl) {
+              // Send CALL event to foreground
+              return client.postMessage({
                 type: "INCOMING_CALL",
                 payload: {
-                  callUrl: data.callUrl,
-                  callerId: data.callerId,
-                  callerName: data.callerName,
+                  callUrl: callUrl,
+                  callerId: senderId,
+                  callerName: senderName,
                   room: data.room,
-                  callType: data.callType,
+                  autoAnswer: action === "answer",
                 },
               });
-            } else if (type === "match") {
-              client.postMessage({
-                type: "NAVIGATE",
-                payload: { url: `/matches/${data.matchId}` },
-              });
             } else {
-              client.postMessage({
-                type: "NAVIGATE",
-                payload: { url },
+              // Send CHAT event to foreground
+              return client.postMessage({
+                type: "OPEN_CHAT",
+                payload: {
+                  roomId: data.roomId || data.room,
+                  senderId: senderId,
+                },
               });
             }
-
-            return;
           }
         }
 
-        // 2️⃣ No existing window found - open new one
+        // 5. If app is closed, open the specific route
         if (self.clients.openWindow) {
           return self.clients.openWindow(url);
         }
-      }),
-  );
-});
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  const notifData = event.notification.data;
-  const targetUrl = notifData.url || "/";
-
-  event.waitUntil(
-    clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clientList) => {
-        // Focus existing tab if open
-        for (const client of clientList) {
-          if (client.url.includes(location.origin) && "focus" in client) {
-            client.postMessage({
-              type: "NAVIGATE",
-              url: targetUrl,
-              isCall: notifData.isCall,
-            });
-            return client.focus();
-          }
-        }
-        // Otherwise open new window
-        if (clients.openWindow) return clients.openWindow(targetUrl);
       }),
   );
 });
