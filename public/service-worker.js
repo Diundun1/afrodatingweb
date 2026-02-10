@@ -576,325 +576,323 @@ async function getAuthToken() {
   return token;
 }
 
-self.addEventListener("push", async (event) => {
-  console.log("📨 [PUSH] Push event received");
+// self.addEventListener("push", async (event) => {
+//   console.log("📨 [PUSH] Push event received");
 
-  event.waitUntil(
-    (async () => {
-      let data = {};
-      try {
-        data = event.data?.json() || {};
-        console.log(
-          "📨 [PUSH] Push data parsed:",
-          JSON.stringify(data, null, 2),
-        );
-      } catch (e) {
-        console.error(
-          "📨 [PUSH] Failed to parse JSON, using text fallback:",
-          e,
-        );
-        data = { title: "Diundun", body: event.data?.text() || "" };
-        console.log("📨 [PUSH] Fallback data:", data);
-      }
+//   event.waitUntil(
+//     (async () => {
+//       let data = {};
+//       try {
+//         data = event.data?.json() || {};
+//         console.log(
+//           "📨 [PUSH] Push data parsed:",
+//           JSON.stringify(data, null, 2),
+//         );
+//       } catch (e) {
+//         console.error(
+//           "📨 [PUSH] Failed to parse JSON, using text fallback:",
+//           e,
+//         );
+//         data = { title: "Diundun", body: event.data?.text() || "" };
+//         console.log("📨 [PUSH] Fallback data:", data);
+//       }
 
-      let finalMessage = data.body || "You have a new notification";
-      let messageTimestamp = data.data?.timestamp || Date.now();
+//       let finalMessage = data.body || "You have a new notification";
+//       let messageTimestamp = data.data?.timestamp || Date.now();
 
-      console.log("📨 [PUSH] Initial message:", finalMessage);
-      console.log("📨 [PUSH] Initial timestamp:", messageTimestamp);
+//       console.log("📨 [PUSH] Initial message:", finalMessage);
+//       console.log("📨 [PUSH] Initial timestamp:", messageTimestamp);
 
-      // 1. Fetch API Fallback
-      const token = await getAuthToken();
-      if (token) {
-        console.log("🌐 [API] Making fetch request to chat-users endpoint");
-        try {
-          const response = await fetch(
-            "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
+//       // 1. Fetch API Fallback
+//       const token = await getAuthToken();
+//       if (token) {
+//         console.log("🌐 [API] Making fetch request to chat-users endpoint");
+//         try {
+//           const response = await fetch(
+//             "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
+//             {
+//               headers: { Authorization: `Bearer ${token}` },
+//             },
+//           );
 
-          console.log("🌐 [API] Response status:", response.status);
+//           console.log("🌐 [API] Response status:", response.status);
 
-          if (response.ok) {
-            const result = await response.json();
-            console.log(
-              "🌐 [API] Response data:",
-              JSON.stringify(result, null, 2),
-            );
+//           if (response.ok) {
+//             const result = await response.json();
+//             console.log(
+//               "🌐 [API] Response data:",
+//               JSON.stringify(result, null, 2),
+//             );
 
-            const room = data.data?.room;
-            console.log("🔍 [API] Looking for room:", room);
+//             const room = data.data?.room;
+//             console.log("🔍 [API] Looking for room:", room);
 
-            const chat = result?.data?.find((c) =>
-              [c.room, c.chat_room_id, c.roomId].includes(room),
-            );
+//             const chat = result?.data?.find((c) =>
+//               [c.room, c.chat_room_id, c.roomId].includes(room),
+//             );
 
-            if (chat) {
-              console.log(
-                "✅ [API] Chat found:",
-                JSON.stringify(chat, null, 2),
-              );
+//             if (chat) {
+//               console.log(
+//                 "✅ [API] Chat found:",
+//                 JSON.stringify(chat, null, 2),
+//               );
 
-              if (chat?.lastMessage) {
-                const lm = chat.lastMessage;
-                finalMessage = typeof lm === "string" ? lm : lm.message;
-                messageTimestamp =
-                  lm.createdAt || lm.sent_at || messageTimestamp;
+//               if (chat?.lastMessage) {
+//                 const lm = chat.lastMessage;
+//                 finalMessage = typeof lm === "string" ? lm : lm.message;
+//                 messageTimestamp =
+//                   lm.createdAt || lm.sent_at || messageTimestamp;
 
-                console.log("📝 [API] Updated message from API:", finalMessage);
-                console.log(
-                  "⏰ [API] Updated timestamp from API:",
-                  messageTimestamp,
-                );
-              } else {
-                console.warn("⚠️ [API] Chat found but no lastMessage");
-              }
-            } else {
-              console.warn("⚠️ [API] No matching chat found for room:", room);
-              console.log(
-                "🔍 [API] Available rooms:",
-                result?.data?.map((c) => ({
-                  room: c.room,
-                  chat_room_id: c.chat_room_id,
-                  roomId: c.roomId,
-                })),
-              );
-            }
-          } else {
-            console.error(
-              "❌ [API] Fetch failed with status:",
-              response.status,
-            );
-          }
-        } catch (e) {
-          console.error("❌ [API] Fallback fetch failed:", e);
-        }
-      } else {
-        console.log("⏭️ [API] Skipping API fetch - no token available");
-      }
+//                 console.log("📝 [API] Updated message from API:", finalMessage);
+//                 console.log(
+//                   "⏰ [API] Updated timestamp from API:",
+//                   messageTimestamp,
+//                 );
+//               } else {
+//                 console.warn("⚠️ [API] Chat found but no lastMessage");
+//               }
+//             } else {
+//               console.warn("⚠️ [API] No matching chat found for room:", room);
+//               console.log(
+//                 "🔍 [API] Available rooms:",
+//                 result?.data?.map((c) => ({
+//                   room: c.room,
+//                   chat_room_id: c.chat_room_id,
+//                   roomId: c.roomId,
+//                 })),
+//               );
+//             }
+//           } else {
+//             console.error(
+//               "❌ [API] Fetch failed with status:",
+//               response.status,
+//             );
+//           }
+//         } catch (e) {
+//           console.error("❌ [API] Fallback fetch failed:", e);
+//         }
+//       } else {
+//         console.log("⏭️ [API] Skipping API fetch - no token available");
+//       }
 
-      // 2. Call Detection
-      const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
-      const linkMatch = finalMessage.match(callLinkPattern);
+//       // 2. Call Detection
+//       const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+//       const linkMatch = finalMessage.match(callLinkPattern);
 
-      console.log("🔗 [CALL] Message:", finalMessage);
-      console.log("🔗 [CALL] Link match result:", linkMatch);
+//       console.log("🔗 [CALL] Message:", finalMessage);
+//       console.log("🔗 [CALL] Link match result:", linkMatch);
 
-      // Fix: Ensure timestamp is a number
-      const timestamp =
-        typeof messageTimestamp === "number"
-          ? messageTimestamp
-          : new Date(messageTimestamp).getTime();
+//       // Fix: Ensure timestamp is a number
+//       const timestamp =
+//         typeof messageTimestamp === "number"
+//           ? messageTimestamp
+//           : new Date(messageTimestamp).getTime();
 
-      console.log("⏰ [CALL] Timestamp type:", typeof messageTimestamp);
-      console.log("⏰ [CALL] Parsed timestamp:", timestamp);
-      console.log("⏰ [CALL] Current time:", Date.now());
+//       console.log("⏰ [CALL] Timestamp type:", typeof messageTimestamp);
+//       console.log("⏰ [CALL] Parsed timestamp:", timestamp);
+//       console.log("⏰ [CALL] Current time:", Date.now());
 
-      const ageInMinutes = (Date.now() - timestamp) / 1000 / 60;
-      console.log("⏰ [CALL] Message age (minutes):", ageInMinutes.toFixed(2));
+//       const ageInMinutes = (Date.now() - timestamp) / 1000 / 60;
+//       console.log("⏰ [CALL] Message age (minutes):", ageInMinutes.toFixed(2));
 
-      const isCall = linkMatch && ageInMinutes <= 2;
-      console.log("📞 [CALL] Is this a call?", isCall ? "✅ YES" : "❌ NO");
+//       const isCall = linkMatch && ageInMinutes <= 2;
+//       console.log("📞 [CALL] Is this a call?", isCall ? "✅ YES" : "❌ NO");
 
-      if (linkMatch && !isCall) {
-        console.warn("⚠️ [CALL] Link found but message too old (>2 min)");
-      }
+//       if (linkMatch && !isCall) {
+//         console.warn("⚠️ [CALL] Link found but message too old (>2 min)");
+//       }
 
-      // 3. Build Config
-      const callUrl = linkMatch ? linkMatch[0] : null;
-      const type = isCall ? "incoming_call" : data.data?.type || "default";
+//       // 3. Build Config
+//       const callUrl = linkMatch ? linkMatch[0] : null;
+//       const type = isCall ? "incoming_call" : data.data?.type || "default";
 
-      console.log("🔗 [CALL] Extracted call URL:", callUrl);
-      console.log("📋 [CONFIG] Notification type:", type);
+//       console.log("🔗 [CALL] Extracted call URL:", callUrl);
+//       console.log("📋 [CONFIG] Notification type:", type);
 
-      const options = {
-        body: isCall
-          ? `Incoming call from ${data.data?.senderName || "User"}`
-          : finalMessage,
-        icon: data.icon || "/icon-192x192.png",
-        badge: "/badge-72x72.png",
-        vibrate: isCall ? [500, 250, 500, 250, 500] : [200, 100, 200],
-        requireInteraction: isCall ? true : false,
-        data: {
-          ...data.data,
-          url: isCall ? `/incoming-call` : data.data?.url || "/",
-          callUrl: callUrl, // Store separately
-          isCall: isCall,
-          originalMessage: finalMessage, // Keep for debugging
-          timestamp: timestamp, // Store parsed timestamp
-        },
-        tag: isCall
-          ? `call-${data.data?.room}`
-          : `msg-${data.data?.room || "default"}`,
-        actions: isCall
-          ? [
-              { action: "answer", title: "📞 Answer" },
-              { action: "decline", title: "❌ Decline" },
-            ]
-          : [{ action: "view", title: "👀 View" }],
-      };
+//       const options = {
+//         body: isCall
+//           ? `Incoming call from ${data.data?.senderName || "User"}`
+//           : finalMessage,
+//         icon: data.icon || "/icon-192x192.png",
+//         badge: "/badge-72x72.png",
+//         vibrate: isCall ? [500, 250, 500, 250, 500] : [200, 100, 200],
+//         requireInteraction: isCall ? true : false,
+//         data: {
+//           ...data.data,
+//           url: isCall ? `/incoming-call` : data.data?.url || "/",
+//           callUrl: callUrl, // Store separately
+//           isCall: isCall,
+//           originalMessage: finalMessage, // Keep for debugging
+//           timestamp: timestamp, // Store parsed timestamp
+//         },
+//         tag: isCall
+//           ? `call-${data.data?.room}`
+//           : `msg-${data.data?.room || "default"}`,
+//         actions: isCall
+//           ? [
+//               { action: "answer", title: "📞 Answer" },
+//               { action: "decline", title: "❌ Decline" },
+//             ]
+//           : [{ action: "view", title: "👀 View" }],
+//       };
 
-      console.log(
-        "🔔 [NOTIFICATION] Options:",
-        JSON.stringify(
-          {
-            title: isCall ? "Incoming Call" : data.title || "Diundun",
-            body: options.body,
-            tag: options.tag,
-            requireInteraction: options.requireInteraction,
-            dataKeys: Object.keys(options.data),
-            isCall: isCall,
-          },
-          null,
-          2,
-        ),
-      );
+//       console.log(
+//         "🔔 [NOTIFICATION] Options:",
+//         JSON.stringify(
+//           {
+//             title: isCall ? "Incoming Call" : data.title || "Diundun",
+//             body: options.body,
+//             tag: options.tag,
+//             requireInteraction: options.requireInteraction,
+//             dataKeys: Object.keys(options.data),
+//             isCall: isCall,
+//           },
+//           null,
+//           2,
+//         ),
+//       );
 
-      const notification = await self.registration.showNotification(
-        isCall ? "Incoming Call" : data.title || "Diundun",
-        options,
-      );
+//       const notification = await self.registration.showNotification(
+//         isCall ? "Incoming Call" : data.title || "Diundun",
+//         options,
+//       );
 
-      console.log("✅ [NOTIFICATION] Notification displayed successfully");
-      return notification;
-    })(),
-  );
-});
+//       console.log("✅ [NOTIFICATION] Notification displayed successfully");
+//       return notification;
+//     })(),
+//   );
+// });
 
-self.addEventListener("notificationclick", function (event) {
-  console.log("🔔 [CLICK] Notification clicked");
-  console.log("🔔 [CLICK] Event action:", event.action || "default");
-  console.log(
-    "🔔 [CLICK] Notification data:",
-    JSON.stringify(event.notification.data, null, 2),
-  );
+// self.addEventListener("notificationclick", function (event) {
+//   console.log("🔔 [CLICK] Notification clicked");
+//   console.log("🔔 [CLICK] Event action:", event.action || "default");
+//   console.log(
+//     "🔔 [CLICK] Notification data:",
+//     JSON.stringify(event.notification.data, null, 2),
+//   );
 
-  event.notification.close();
-  console.log("🔔 [CLICK] Notification closed");
+//   event.notification.close();
+//   console.log("🔔 [CLICK] Notification closed");
 
-  const data = event.notification.data || {};
-  const action = event.action;
+//   const data = event.notification.data || {};
+//   const action = event.action;
 
-  // Mark as opened
-  if (data.notificationId) {
-    console.log(
-      "📊 [TRACKING] Marking notification as opened:",
-      data.notificationId,
-    );
-    fetch(`/api/push/notifications/${data.notificationId}/open`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-    })
-      .then(() => console.log("✅ [TRACKING] Notification marked as opened"))
-      .catch((err) =>
-        console.error("❌ [TRACKING] Failed to mark as opened:", err),
-      );
-  } else {
-    console.log("⏭️ [TRACKING] No notificationId to track");
-  }
+//   // Mark as opened
+//   if (data.notificationId) {
+//     console.log(
+//       "📊 [TRACKING] Marking notification as opened:",
+//       data.notificationId,
+//     );
+//     fetch(`/api/push/notifications/${data.notificationId}/open`, {
+//       method: "PATCH",
+//       headers: { "Content-Type": "application/json" },
+//     })
+//       .then(() => console.log("✅ [TRACKING] Notification marked as opened"))
+//       .catch((err) =>
+//         console.error("❌ [TRACKING] Failed to mark as opened:", err),
+//       );
+//   } else {
+//     console.log("⏭️ [TRACKING] No notificationId to track");
+//   }
 
-  if (action === "decline") {
-    console.log("❌ [CLICK] Call declined - no action needed");
-    return;
-  }
+//   if (action === "decline") {
+//     console.log("❌ [CLICK] Call declined - no action needed");
+//     return;
+//   }
 
-  event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then(async (clientList) => {
-        console.log("🪟 [CLIENTS] Found clients:", clientList.length);
+//   event.waitUntil(
+//     self.clients
+//       .matchAll({ type: "window", includeUncontrolled: true })
+//       .then(async (clientList) => {
+//         console.log("🪟 [CLIENTS] Found clients:", clientList.length);
 
-        let url = "/";
-        const senderId = data.sender?.id || data.sender;
-        const senderName = data.sender?.name || "User";
-        const callUrl = data.callUrl; // Use stored callUrl
+//         let url = "/";
+//         const senderId = data.sender?.id || data.sender;
+//         const senderName = data.sender?.name || "User";
+//         const callUrl = data.callUrl; // Use stored callUrl
 
-        console.log("👤 [ROUTING] Sender ID:", senderId);
-        console.log("👤 [ROUTING] Sender name:", senderName);
-        console.log("🔗 [ROUTING] Call URL:", callUrl);
-        console.log("🏠 [ROUTING] Room:", data.room);
-        console.log("🏠 [ROUTING] Room ID:", data.roomId);
+//         console.log("👤 [ROUTING] Sender ID:", senderId);
+//         console.log("👤 [ROUTING] Sender name:", senderName);
+//         console.log("🔗 [ROUTING] Call URL:", callUrl);
+//         console.log("🏠 [ROUTING] Room:", data.room);
+//         console.log("🏠 [ROUTING] Room ID:", data.roomId);
 
-        // Routing Logic: Call vs Message
-        if (callUrl) {
-          url = `/incoming-call?url=${encodeURIComponent(callUrl)}&room=${data.room}&callerName=${encodeURIComponent(senderName)}&callerId=${senderId}`;
-          console.log("📞 [ROUTING] This is a CALL");
-        } else {
-          url = `/chat/${data.roomId || senderId}`;
-          console.log("💬 [ROUTING] This is a MESSAGE");
-        }
+//         // Routing Logic: Call vs Message
+//         if (callUrl) {
+//           url = `/incoming-call?url=${encodeURIComponent(callUrl)}&room=${data.room}&callerName=${encodeURIComponent(senderName)}&callerId=${senderId}`;
+//           console.log("📞 [ROUTING] This is a CALL");
+//         } else {
+//           url = `/chat/${data.roomId || senderId}`;
+//           console.log("💬 [ROUTING] This is a MESSAGE");
+//         }
 
-        console.log("🎯 [ROUTING] Target URL:", url);
+//         console.log("🎯 [ROUTING] Target URL:", url);
 
-        // Try to focus existing window
-        for (let i = 0; i < clientList.length; i++) {
-          const client = clientList[i];
-          console.log(`🪟 [CLIENTS] Client ${i}:`, {
-            url: client.url,
-            id: client.id,
-            type: client.type,
-          });
+//         // Try to focus existing window
+//         for (let i = 0; i < clientList.length; i++) {
+//           const client = clientList[i];
+//           console.log(`🪟 [CLIENTS] Client ${i}:`, {
+//             url: client.url,
+//             id: client.id,
+//             type: client.type,
+//           });
 
-          if (
-            client.url.startsWith(self.location.origin) &&
-            "focus" in client
-          ) {
-            console.log(`✅ [CLIENTS] Focusing existing client ${i}`);
-            await client.focus();
+//           if (
+//             client.url.startsWith(self.location.origin) &&
+//             "focus" in client
+//           ) {
+//             console.log(`✅ [CLIENTS] Focusing existing client ${i}`);
+//             await client.focus();
 
-            if (callUrl) {
-              const payload = {
-                type: "INCOMING_CALL",
-                payload: {
-                  callUrl: callUrl,
-                  callerId: senderId,
-                  callerName: senderName,
-                  room: data.room,
-                  autoAnswer: action === "answer",
-                },
-              };
-              console.log(
-                "📞 [MESSAGE] Posting INCOMING_CALL to client:",
-                JSON.stringify(payload, null, 2),
-              );
-              return client.postMessage(payload);
-            } else {
-              const payload = {
-                type: "OPEN_CHAT",
-                payload: {
-                  roomId: data.roomId || data.room,
-                  senderId: senderId,
-                },
-              };
-              console.log(
-                "💬 [MESSAGE] Posting OPEN_CHAT to client:",
-                JSON.stringify(payload, null, 2),
-              );
-              return client.postMessage(payload);
-            }
-          }
-        }
+//             if (callUrl) {
+//               const payload = {
+//                 type: "INCOMING_CALL",
+//                 payload: {
+//                   callUrl: callUrl,
+//                   callerId: senderId,
+//                   callerName: senderName,
+//                   room: data.room,
+//                   autoAnswer: action === "answer",
+//                 },
+//               };
+//               console.log(
+//                 "📞 [MESSAGE] Posting INCOMING_CALL to client:",
+//                 JSON.stringify(payload, null, 2),
+//               );
+//               return client.postMessage(payload);
+//             } else {
+//               const payload = {
+//                 type: "OPEN_CHAT",
+//                 payload: {
+//                   roomId: data.roomId || data.room,
+//                   senderId: senderId,
+//                 },
+//               };
+//               console.log(
+//                 "💬 [MESSAGE] Posting OPEN_CHAT to client:",
+//                 JSON.stringify(payload, null, 2),
+//               );
+//               return client.postMessage(payload);
+//             }
+//           }
+//         }
 
-        // Open new window if none exist
-        console.log(
-          "🆕 [CLIENTS] No suitable client found, opening new window",
-        );
-        if (self.clients.openWindow) {
-          console.log("🆕 [CLIENTS] Opening window with URL:", url);
-          return self.clients.openWindow(url);
-        } else {
-          console.error("❌ [CLIENTS] openWindow not available");
-        }
-      })
-      .catch((err) => {
-        console.error("❌ [CLICK] Error in notification click handler:", err);
-      }),
-  );
-});
-
-console.log("✅ [SERVICE WORKER] Push notification handlers registered");
+//         // Open new window if none exist
+//         console.log(
+//           "🆕 [CLIENTS] No suitable client found, opening new window",
+//         );
+//         if (self.clients.openWindow) {
+//           console.log("🆕 [CLIENTS] Opening window with URL:", url);
+//           return self.clients.openWindow(url);
+//         } else {
+//           console.error("❌ [CLIENTS] openWindow not available");
+//         }
+//       })
+//       .catch((err) => {
+//         console.error("❌ [CLICK] Error in notification click handler:", err);
+//       }),
+//   );
+// });
 
 // ===== ENHANCED NOTIFICATION CLICK HANDLER =====
 
@@ -1082,6 +1080,340 @@ console.log("✅ [SERVICE WORKER] Push notification handlers registered");
 //   );
 // });
 
+self.addEventListener("push", async (event) => {
+  console.log("📨 [PUSH] Push event received");
+
+  event.waitUntil(
+    (async () => {
+      let data = {};
+      try {
+        data = event.data?.json() || {};
+        console.log("📨 [PUSH] ===== RAW PUSH PAYLOAD =====");
+        console.log("📨 [PUSH] Full payload:", JSON.stringify(data, null, 2));
+        console.log("📨 [PUSH] title:", data.title);
+        console.log("📨 [PUSH] body:", data.body);
+        console.log("📨 [PUSH] url:", data.url);
+        console.log(
+          "📨 [PUSH] data object:",
+          JSON.stringify(data.data, null, 2),
+        );
+        console.log("📨 [PUSH] =====================================");
+      } catch (e) {
+        console.error("📨 [PUSH] Failed to parse JSON:", e);
+        data = { title: "Diundun", body: event.data?.text() || "" };
+      }
+
+      let finalMessage = data.body || "You have a new notification";
+      let messageTimestamp =
+        data.data?.timestamp || data.data?.sent_at || Date.now();
+
+      console.log("📨 [PUSH] Initial message:", finalMessage);
+      console.log("📨 [PUSH] Initial timestamp:", messageTimestamp);
+
+      // 1. Fetch API Fallback
+      const token = await getAuthToken();
+      if (token) {
+        console.log("🌐 [API] Making fetch request to chat-users endpoint");
+        try {
+          const response = await fetch(
+            "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+
+          console.log("🌐 [API] Response status:", response.status);
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log(
+              "🌐 [API] Response data received, chats count:",
+              result?.data?.length,
+            );
+
+            const room = data.data?.room || data.data?.roomId;
+            console.log("🔍 [API] Looking for room:", room);
+
+            const chat = result?.data?.find((c) =>
+              [c.room, c.chat_room_id, c.roomId].includes(room),
+            );
+
+            if (chat) {
+              console.log(
+                "✅ [API] Chat found:",
+                JSON.stringify(chat, null, 2),
+              );
+
+              if (chat?.lastMessage) {
+                const lm = chat.lastMessage;
+                finalMessage =
+                  typeof lm === "string" ? lm : lm.message || lm.text;
+                messageTimestamp =
+                  lm.createdAt || lm.sent_at || messageTimestamp;
+
+                console.log("📝 [API] Updated message from API:", finalMessage);
+                console.log(
+                  "⏰ [API] Updated timestamp from API:",
+                  messageTimestamp,
+                );
+              } else {
+                console.warn("⚠️ [API] Chat found but no lastMessage");
+              }
+            } else {
+              console.warn("⚠️ [API] No matching chat found for room:", room);
+            }
+          }
+        } catch (e) {
+          console.error("❌ [API] Fallback fetch failed:", e);
+        }
+      } else {
+        console.log("⏭️ [API] Skipping API fetch - no token available");
+      }
+
+      // 2. Call Detection
+      const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+      const linkMatch = finalMessage.match(callLinkPattern);
+
+      console.log("🔗 [CALL] Checking message for call link");
+      console.log("🔗 [CALL] Message:", finalMessage);
+      console.log("🔗 [CALL] Link match:", linkMatch);
+
+      const timestamp =
+        typeof messageTimestamp === "number"
+          ? messageTimestamp
+          : new Date(messageTimestamp).getTime();
+
+      console.log("⏰ [CALL] Timestamp type:", typeof messageTimestamp);
+      console.log("⏰ [CALL] Parsed timestamp:", timestamp);
+      console.log("⏰ [CALL] Current time:", Date.now());
+
+      const ageInMinutes = (Date.now() - timestamp) / 1000 / 60;
+      console.log("⏰ [CALL] Message age (minutes):", ageInMinutes.toFixed(2));
+
+      const isCall = linkMatch && ageInMinutes <= 2;
+      console.log("📞 [CALL] Is this a call?", isCall ? "✅ YES" : "❌ NO");
+
+      if (linkMatch && !isCall) {
+        console.warn("⚠️ [CALL] Link found but message too old (>2 min)");
+      }
+
+      // 3. Get sender name - THE FIX IS HERE!
+      // Since data.sender is spread into payload.data, it's at data.data.sender
+      const senderName =
+        data.data?.sender?.name ||
+        data.data?.senderName ||
+        data.title || // Fallback to title since that's where sender name goes
+        "User";
+
+      console.log("👤 [SENDER] ===== SENDER NAME RESOLUTION =====");
+      console.log(
+        "👤 [SENDER] data.data?.sender:",
+        JSON.stringify(data.data?.sender),
+      );
+      console.log(
+        "👤 [SENDER] data.data?.sender?.name:",
+        data.data?.sender?.name,
+      );
+      console.log("👤 [SENDER] data.data?.senderName:", data.data?.senderName);
+      console.log("👤 [SENDER] data.title:", data.title);
+      console.log("👤 [SENDER] Final sender name:", senderName);
+      console.log("👤 [SENDER] ========================================");
+
+      // 4. Build Config
+      const callUrl = linkMatch ? linkMatch[0] : null;
+      const type = isCall ? "incoming_call" : data.data?.type || "default";
+
+      console.log("🔗 [CALL] Extracted call URL:", callUrl);
+      console.log("📋 [CONFIG] Notification type:", type);
+
+      const options = {
+        body: isCall ? `Incoming call from ${senderName}` : finalMessage,
+        icon: data.icon || "/icon-192x192.png",
+        badge: data.badge || "/badge-72x72.png",
+        vibrate: isCall ? [500, 250, 500, 250, 500] : [200, 100, 200],
+        requireInteraction: isCall ? true : false,
+        data: {
+          ...data.data,
+          url: isCall ? `/incoming-call` : data.url || "/",
+          callUrl: callUrl,
+          isCall: isCall,
+          originalMessage: finalMessage,
+          timestamp: timestamp,
+          senderName: senderName, // Store resolved sender name
+        },
+        tag: isCall
+          ? `call-${data.data?.room}`
+          : `msg-${data.data?.room || "default"}`,
+        actions: isCall
+          ? [
+              { action: "answer", title: "📞 Answer" },
+              { action: "decline", title: "❌ Decline" },
+            ]
+          : [{ action: "view", title: "👀 View" }],
+      };
+
+      console.log("🔔 [NOTIFICATION] ===== NOTIFICATION CONFIG =====");
+      console.log(
+        "🔔 [NOTIFICATION] Title:",
+        isCall ? "Incoming Call" : data.title || "Diundun",
+      );
+      console.log("🔔 [NOTIFICATION] Body:", options.body);
+      console.log("🔔 [NOTIFICATION] Tag:", options.tag);
+      console.log(
+        "🔔 [NOTIFICATION] RequireInteraction:",
+        options.requireInteraction,
+      );
+      console.log("🔔 [NOTIFICATION] Sender name used:", senderName);
+      console.log(
+        "🔔 [NOTIFICATION] Full data:",
+        JSON.stringify(options.data, null, 2),
+      );
+      console.log("🔔 [NOTIFICATION] ===============================");
+
+      const notification = await self.registration.showNotification(
+        isCall ? "Incoming Call" : data.title || "Diundun",
+        options,
+      );
+
+      console.log("✅ [NOTIFICATION] Notification displayed successfully");
+      return notification;
+    })(),
+  );
+});
+
+self.addEventListener("notificationclick", function (event) {
+  console.log("🔔 [CLICK] Notification clicked");
+  console.log("🔔 [CLICK] Event action:", event.action || "default");
+  console.log(
+    "🔔 [CLICK] Notification data:",
+    JSON.stringify(event.notification.data, null, 2),
+  );
+
+  event.notification.close();
+  console.log("🔔 [CLICK] Notification closed");
+
+  const data = event.notification.data || {};
+  const action = event.action;
+
+  // Mark as opened
+  if (data.notificationId) {
+    console.log(
+      "📊 [TRACKING] Marking notification as opened:",
+      data.notificationId,
+    );
+    fetch(`/api/push/notifications/${data.notificationId}/open`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then(() => console.log("✅ [TRACKING] Notification marked as opened"))
+      .catch((err) =>
+        console.error("❌ [TRACKING] Failed to mark as opened:", err),
+      );
+  } else {
+    console.log("⏭️ [TRACKING] No notificationId to track");
+  }
+
+  if (action === "decline") {
+    console.log("❌ [CLICK] Call declined - no action needed");
+    return;
+  }
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then(async (clientList) => {
+        console.log("🪟 [CLIENTS] Found clients:", clientList.length);
+
+        let url = "/";
+        const senderId = data.sender?.id || data.sender;
+        const senderName = data.senderName || data.sender?.name || "User";
+        const callUrl = data.callUrl;
+
+        console.log("👤 [ROUTING] Sender ID:", senderId);
+        console.log("👤 [ROUTING] Sender name:", senderName);
+        console.log("👤 [ROUTING] Sender object:", JSON.stringify(data.sender));
+        console.log("🔗 [ROUTING] Call URL:", callUrl);
+        console.log("🏠 [ROUTING] Room:", data.room);
+        console.log("🏠 [ROUTING] Room ID:", data.roomId);
+
+        // Routing Logic: Call vs Message
+        if (callUrl) {
+          url = `/incoming-call?url=${encodeURIComponent(callUrl)}&room=${data.room}&callerName=${encodeURIComponent(senderName)}&callerId=${senderId}`;
+          console.log("📞 [ROUTING] This is a CALL");
+        } else {
+          url = `/chat/${data.roomId || data.room || senderId}`;
+          console.log("💬 [ROUTING] This is a MESSAGE");
+        }
+
+        console.log("🎯 [ROUTING] Target URL:", url);
+
+        // Try to focus existing window
+        for (let i = 0; i < clientList.length; i++) {
+          const client = clientList[i];
+          console.log(`🪟 [CLIENTS] Client ${i}:`, {
+            url: client.url,
+            id: client.id,
+            type: client.type,
+          });
+
+          if (
+            client.url.startsWith(self.location.origin) &&
+            "focus" in client
+          ) {
+            console.log(`✅ [CLIENTS] Focusing existing client ${i}`);
+            await client.focus();
+
+            if (callUrl) {
+              const payload = {
+                type: "INCOMING_CALL",
+                payload: {
+                  callUrl: callUrl,
+                  callerId: senderId,
+                  callerName: senderName,
+                  room: data.room,
+                  autoAnswer: action === "answer",
+                },
+              };
+              console.log(
+                "📞 [MESSAGE] Posting INCOMING_CALL to client:",
+                JSON.stringify(payload, null, 2),
+              );
+              return client.postMessage(payload);
+            } else {
+              const payload = {
+                type: "OPEN_CHAT",
+                payload: {
+                  roomId: data.roomId || data.room,
+                  senderId: senderId,
+                },
+              };
+              console.log(
+                "💬 [MESSAGE] Posting OPEN_CHAT to client:",
+                JSON.stringify(payload, null, 2),
+              );
+              return client.postMessage(payload);
+            }
+          }
+        }
+
+        // Open new window if none exist
+        console.log(
+          "🆕 [CLIENTS] No suitable client found, opening new window",
+        );
+        if (self.clients.openWindow) {
+          console.log("🆕 [CLIENTS] Opening window with URL:", url);
+          return self.clients.openWindow(url);
+        } else {
+          console.error("❌ [CLIENTS] openWindow not available");
+        }
+      })
+      .catch((err) => {
+        console.error("❌ [CLICK] Error in notification click handler:", err);
+      }),
+  );
+});
+
+console.log("✅ [SERVICE WORKER] Push notification handlers registered");
 self.addEventListener("notificationclose", function (event) {
   console.log("Notification closed", event.notification.data);
 
