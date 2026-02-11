@@ -52,6 +52,14 @@ import { createNavigationContainerRef } from "@react-navigation/native";
 // 1. Create a ref to the navigation object
 export const navigationRef = createNavigationContainerRef();
 
+// 1. Device-Specific Ringtone Selector
+const getRingtonePath = () => {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return "/sounds/ios_ringtone.mp3";
+  if (/android/.test(ua)) return "/sounds/android_ringtone.mp3";
+  return "/sounds/android_ringtone.mp3";
+};
+
 const linking = {
   // ✅ This tells the browser that links from this domain belong to the app
   prefixes: ["https://afrodatingweb.vercel.app", window.location.origin],
@@ -168,16 +176,6 @@ const requestWebNotificationPermission = async () => {
   }
 };
 
-// 1. Device Detection Utility
-const getDeviceRingtone = () => {
-  const ua = navigator.userAgent.toLowerCase();
-  if (/iphone|ipad|ipod/.test(ua)) {
-    return "/sounds/iphone_ringtone.mp3";
-  } else if (/android/.test(ua)) {
-    return "/sounds/android_ringtone.mp3";
-  }
-  return "/sounds/android_ringtone.mp3";
-};
 export default function App() {
   // useEffect(() => {
   //   // Register for push notifications when app loads
@@ -201,34 +199,31 @@ export default function App() {
     Roboto_Bold: require("./assets/fonts/Roboto-Bold.ttf"),
   });
 
-  const ringtoneRef = useRef(null);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
-  const navigationRef = useRef();
+  // const navigationRef = useRef();
+  const audioRef = useRef(null);
 
   useEffect(() => {
-    // 2. Initialize Audio Instance
-    ringtoneRef.current = new Audio(getDeviceRingtone());
-    ringtoneRef.current.loop = true;
+    // 2. Initialize Audio Object
+    audioRef.current = new Audio(getRingtonePath());
+    audioRef.current.loop = true;
 
-    const handleSWMessage = async (event) => {
+    const handleMessage = async (event) => {
       const { type, payload } = event.data;
 
-      // Logic: If SW sends NAVIGATE to /explore, we treat it as a Call
+      // Match the 'NAVIGATE' type and '/explore' url from your SW click logic
       if (type === "NAVIGATE" && payload.url === "/explore") {
-        console.log("📞 Incoming call detected. Playing device ringtone...");
+        console.log("📞 Call link detected! Starting ringtone...");
 
         try {
-          // 3. Play sound (Browsers require a previous user click to allow this)
-          await ringtoneRef.current.play();
-        } catch (error) {
-          console.warn(
-            "Ringtone blocked. User must interact with app first.",
-            error,
-          );
+          // Play the sound (Note: User must have clicked the app once before this works)
+          await audioRef.current.play();
+        } catch (err) {
+          console.warn("Audio blocked: User interaction required.", err);
         }
 
-        // 4. Navigate to ExploreScreen
+        // Navigate to the Explore Screen
         if (navigationRef.current) {
           navigationRef.current.navigate("ExploreScreen");
         }
@@ -236,19 +231,25 @@ export default function App() {
     };
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.addEventListener("message", handleSWMessage);
+      navigator.serviceWorker.addEventListener("message", handleMessage);
       return () =>
-        navigator.serviceWorker.removeEventListener("message", handleSWMessage);
+        navigator.serviceWorker.removeEventListener("message", handleMessage);
     }
   }, []);
 
-  // 5. Stop ringtone when navigating away from Explore
+  // 3. Stop Ringtone when user navigates away or answers
   useEffect(() => {
     const unsubscribe = navigationRef.current?.addListener("state", () => {
       const currentRoute = navigationRef.current?.getCurrentRoute()?.name;
-      if (currentRoute !== "ExploreScreen" && ringtoneRef.current) {
-        ringtoneRef.current.pause();
-        ringtoneRef.current.currentTime = 0;
+      // Stop ringing if they leave the Explore/IncomingCall screen
+      if (
+        currentRoute !== "ExploreScreen" &&
+        currentRoute !== "IncomingCallScreen"
+      ) {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
       }
     });
     return unsubscribe;
