@@ -47,6 +47,23 @@ import NotificationsScreen from "./App/screens/NotificationsScreen";
 import ForgotPasswordScreen from "./App/screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "./App/screens/ResetPasswordScreen";
 import RegisterForPushNotificationsAsync from "./App/lib/RegisterForPushNotificationsAsync";
+import { createNavigationContainerRef } from "@react-navigation/native";
+
+// 1. Create a ref to the navigation object
+export const navigationRef = createNavigationContainerRef();
+
+const linking = {
+  // ✅ This tells the browser that links from this domain belong to the app
+  prefixes: ["https://afrodatingweb.vercel.app", window.location.origin],
+  config: {
+    screens: {
+      // ✅ This matches the path used in your Service Worker targetUrl
+      IncomingCallScreen: "incoming-call",
+      ExploreScreen: "explore",
+      ChatScreen: "chat/:roomId",
+    },
+  },
+};
 
 const Stack = createNativeStackNavigator();
 
@@ -177,6 +194,43 @@ export default function App() {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
   const navigationRef = useRef();
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      const handleMessage = (event) => {
+        if (event.data.type === "NAVIGATE_TO_CALL") {
+          // Force internal navigation
+          navigation.navigate("IncomingCallScreen", event.data.payload);
+        }
+      };
+      navigator.serviceWorker.addEventListener("message", handleMessage);
+      return () =>
+        navigator.serviceWorker.removeEventListener("message", handleMessage);
+    }
+  }, []);
+
+  // useEffect(() => {
+  //   if ("serviceWorker" in navigator) {
+  //     const handleMessage = (event) => {
+  //       // ✅ Use navigationRef.current to access the helper functions
+  //       if (event.data.type === "NAVIGATE" && navigationRef.current) {
+  //         const url = event.data.payload.url;
+
+  //         console.log("🚀 Navigating to:", url);
+
+  //         if (url === "/explore") {
+  //           navigationRef.current.navigate("ExploreScreen");
+  //         } else if (url.startsWith("/chat/")) {
+  //           const roomId = url.split("/").pop();
+  //           navigationRef.current.navigate("ChatScreen", { roomId });
+  //         }
+  //       }
+  //     };
+
+  //     navigator.serviceWorker.addEventListener("message", handleMessage);
+  //     return () =>
+  //       navigator.serviceWorker.removeEventListener("message", handleMessage);
+  //   }
+  // }, []);
 
   // Service Worker registration for PWA
   useEffect(() => {
@@ -338,7 +392,11 @@ export default function App() {
 
   return (
     <>
-      <NavigationContainer ref={navigationRef}>
+      <NavigationContainer
+        ref={navigationRef}
+        linking={linking}
+        fallback={<Text>Loading...</Text>}
+      >
         <CallProvider>
           <SocketProvider>
             <Stack.Navigator
