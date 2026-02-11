@@ -549,7 +549,9 @@ self.addEventListener("push", async (event) => {
         body: isCall ? `Incoming call from ${senderName}` : finalMessage,
         icon: data.icon || "/icon-192x192.png",
         badge: data.badge || "/badge-72x72.png",
-        vibrate: isCall ? [500, 250, 500, 250, 500] : [200, 100, 200],
+        vibrate: isCall
+          ? [500, 200, 500, 200, 500, 200, 500, 200, 500]
+          : [200, 100, 200],
         requireInteraction: isCall ? true : false,
         data: {
           ...data.data,
@@ -563,12 +565,6 @@ self.addEventListener("push", async (event) => {
         tag: isCall
           ? `call-${data.data?.room}`
           : `msg-${data.data?.room || "default"}`,
-        actions: isCall
-          ? [
-              { action: "answer", title: "📞 Answer" },
-              { action: "decline", title: "❌ Decline" },
-            ]
-          : [{ action: "view", title: "👀 View" }],
       };
 
       console.log("🔔 [NOTIFICATION] ===== NOTIFICATION CONFIG =====");
@@ -650,51 +646,6 @@ self.addEventListener("notificationclick", (event) => {
       }),
   );
 });
-
-// self.addEventListener("notificationclick", (event) => {
-//   console.log("🔔 Notification clicked:", event.notification.data);
-//   event.notification.close();
-
-//   const data = event.notification.data || {};
-//   const action = event.action;
-
-//   // 1. Detection: Is this a call?
-//   const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
-//   const hasCallLink = (data.preview || data.url || data.body || "").match(
-//     callLinkPattern,
-//   );
-//   const isCall = data.isCall === true || !!hasCallLink;
-
-//   // 2. Routing: Explore for calls, Chat for messages
-//   const room = data.room || data.roomId || data.sender?.id || data.sender;
-//   const targetUrl = isCall ? "/explore" : `/chat/${room}`;
-
-//   event.waitUntil(
-//     clients
-//       .matchAll({ type: "window", includeUncontrolled: true })
-//       .then(async (clientList) => {
-//         for (const client of clientList) {
-//           if (
-//             client.url.startsWith(self.location.origin) &&
-//             "focus" in client
-//           ) {
-//             await client.focus();
-
-//             // 3. Signal app to navigate
-//             return client.postMessage({
-//               type: "NAVIGATE",
-//               payload: { url: targetUrl },
-//             });
-//           }
-//         }
-
-//         // 4. Fallback for closed app
-//         if (clients.openWindow) {
-//           return clients.openWindow(targetUrl);
-//         }
-//       }),
-//   );
-// });
 
 console.log("✅ [SERVICE WORKER] Push notification handlers registered");
 
