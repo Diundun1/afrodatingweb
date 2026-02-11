@@ -168,6 +168,16 @@ const requestWebNotificationPermission = async () => {
   }
 };
 
+// 1. Device Detection Utility
+const getDeviceRingtone = () => {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) {
+    return "/sounds/iphone_ringtone.mp3";
+  } else if (/android/.test(ua)) {
+    return "/sounds/android_ringtone.mp3";
+  }
+  return "/sounds/android_ringtone.mp3";
+};
 export default function App() {
   // useEffect(() => {
   //   // Register for push notifications when app loads
@@ -191,9 +201,59 @@ export default function App() {
     Roboto_Bold: require("./assets/fonts/Roboto-Bold.ttf"),
   });
 
+  const ringtoneRef = useRef(null);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
   const navigationRef = useRef();
+
+  useEffect(() => {
+    // 2. Initialize Audio Instance
+    ringtoneRef.current = new Audio(getDeviceRingtone());
+    ringtoneRef.current.loop = true;
+
+    const handleSWMessage = async (event) => {
+      const { type, payload } = event.data;
+
+      // Logic: If SW sends NAVIGATE to /explore, we treat it as a Call
+      if (type === "NAVIGATE" && payload.url === "/explore") {
+        console.log("📞 Incoming call detected. Playing device ringtone...");
+
+        try {
+          // 3. Play sound (Browsers require a previous user click to allow this)
+          await ringtoneRef.current.play();
+        } catch (error) {
+          console.warn(
+            "Ringtone blocked. User must interact with app first.",
+            error,
+          );
+        }
+
+        // 4. Navigate to ExploreScreen
+        if (navigationRef.current) {
+          navigationRef.current.navigate("ExploreScreen");
+        }
+      }
+    };
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", handleSWMessage);
+      return () =>
+        navigator.serviceWorker.removeEventListener("message", handleSWMessage);
+    }
+  }, []);
+
+  // 5. Stop ringtone when navigating away from Explore
+  useEffect(() => {
+    const unsubscribe = navigationRef.current?.addListener("state", () => {
+      const currentRoute = navigationRef.current?.getCurrentRoute()?.name;
+      if (currentRoute !== "ExploreScreen" && ringtoneRef.current) {
+        ringtoneRef.current.pause();
+        ringtoneRef.current.currentTime = 0;
+      }
+    });
+    return unsubscribe;
+  }, []);
+
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       const handleMessage = (event) => {
@@ -207,30 +267,6 @@ export default function App() {
         navigator.serviceWorker.removeEventListener("message", handleMessage);
     }
   }, []);
-
-  // useEffect(() => {
-  //   if ("serviceWorker" in navigator) {
-  //     const handleMessage = (event) => {
-  //       // ✅ Use navigationRef.current to access the helper functions
-  //       if (event.data.type === "NAVIGATE" && navigationRef.current) {
-  //         const url = event.data.payload.url;
-
-  //         console.log("🚀 Navigating to:", url);
-
-  //         if (url === "/explore") {
-  //           navigationRef.current.navigate("ExploreScreen");
-  //         } else if (url.startsWith("/chat/")) {
-  //           const roomId = url.split("/").pop();
-  //           navigationRef.current.navigate("ChatScreen", { roomId });
-  //         }
-  //       }
-  //     };
-
-  //     navigator.serviceWorker.addEventListener("message", handleMessage);
-  //     return () =>
-  //       navigator.serviceWorker.removeEventListener("message", handleMessage);
-  //   }
-  // }, []);
 
   // Service Worker registration for PWA
   useEffect(() => {
