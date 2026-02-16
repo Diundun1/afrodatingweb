@@ -202,57 +202,13 @@ export default function App() {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
   // const navigationRef = useRef();
-  const audioRef = useRef(null);
 
   useEffect(() => {
-    // 2. Initialize Audio Object
-    audioRef.current = new Audio(getRingtonePath());
-    audioRef.current.loop = true;
-
-    const handleMessage = async (event) => {
-      const { type, payload } = event.data;
-
-      // Match the 'NAVIGATE' type and '/explore' url from your SW click logic
-      if (type === "NAVIGATE" && payload.url === "/explore") {
-        console.log("📞 Call link detected! Starting ringtone...");
-
-        try {
-          // Play the sound (Note: User must have clicked the app once before this works)
-          await audioRef.current.play();
-        } catch (err) {
-          console.warn("Audio blocked: User interaction required.", err);
-        }
-
-        // Navigate to the Explore Screen
-        if (navigationRef.current) {
-          navigationRef.current.navigate("ExploreScreen");
-        }
-      }
-    };
-
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.addEventListener("message", handleMessage);
-      return () =>
-        navigator.serviceWorker.removeEventListener("message", handleMessage);
-    }
-  }, []);
-
-  // 3. Stop Ringtone when user navigates away or answers
-  useEffect(() => {
-    const unsubscribe = navigationRef.current?.addListener("state", () => {
-      const currentRoute = navigationRef.current?.getCurrentRoute()?.name;
-      // Stop ringing if they leave the Explore/IncomingCall screen
-      if (
-        currentRoute !== "ExploreScreen" &&
-        currentRoute !== "IncomingCallScreen"
-      ) {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        }
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data?.type === "INCOMING_CALL") {
+        startRingtone();
       }
     });
-    return unsubscribe;
   }, []);
 
   useEffect(() => {
