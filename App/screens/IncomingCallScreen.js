@@ -14,6 +14,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Audio } from "expo-av";
+import { startRingtone, stopRingtone } from "../../ringtone";
 
 const { width, height } = Dimensions.get("window");
 
@@ -85,7 +86,7 @@ export default function IncomingCallScreen({ route }) {
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     ).start();
 
     // Slide up animation for buttons
@@ -117,7 +118,7 @@ export default function IncomingCallScreen({ route }) {
           volume: 1.0,
           shouldPlay: true,
         },
-        onPlaybackStatusUpdate
+        onPlaybackStatusUpdate,
       );
 
       soundRef.current = sound;
@@ -140,24 +141,24 @@ export default function IncomingCallScreen({ route }) {
     }
   };
 
-  const stopRingtone = async () => {
-    try {
-      if (soundRef.current) {
-        console.log("Stopping ringtone...");
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-        console.log("Ringtone stopped");
-      }
-    } catch (err) {
-      console.error("Error stopping ringtone:", err);
-    }
-  };
+  // const stopRingtone = async () => {
+  //   try {
+  //     if (soundRef.current) {
+  //       console.log("Stopping ringtone...");
+  //       await soundRef.current.stopAsync();
+  //       await soundRef.current.unloadAsync();
+  //       soundRef.current = null;
+  //       console.log("Ringtone stopped");
+  //     }
+  //   } catch (err) {
+  //     console.error("Error stopping ringtone:", err);
+  //   }
+  // };
 
   const handleAccept = async () => {
     console.log("Accepting call...");
     Vibration.cancel();
-    await stopRingtone();
+    stopRingtone();
 
     navigation.replace("VideoCallScreen", {
       callUrl,
@@ -169,8 +170,8 @@ export default function IncomingCallScreen({ route }) {
   const handleDecline = async () => {
     console.log("Declining call...");
     Vibration.cancel();
-    await stopRingtone();
     navigation.goBack();
+    stopRingtone();
   };
 
   return (

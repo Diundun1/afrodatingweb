@@ -65,6 +65,22 @@ export default function ExploreScreen({ navigation }) {
   const [locationName, setLocationName] = useState("Fetching location...");
 
   useEffect(() => {
+    const unlockAudio = () => {
+      const tempAudio = new Audio("/sounds/android_ringtone.mp3");
+      tempAudio.volume = 0;
+      tempAudio
+        .play()
+        .then(() => {
+          tempAudio.pause();
+          tempAudio.currentTime = 0;
+        })
+        .catch(() => {});
+    };
+
+    document.addEventListener("click", unlockAudio, { once: true });
+  }, []);
+
+  useEffect(() => {
     fetchUsers();
   }, []);
 
