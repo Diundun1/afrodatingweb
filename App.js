@@ -42,6 +42,7 @@ import { CallProvider } from "./App/lib/CallContext";
 import { SocketProvider } from "./App/lib/SocketContext";
 import IncomingCallScreen from "./App/screens/IncomingCallScreen";
 import VideoCallScreen from "./App/screens/VideoCallScreen";
+import OutgoingCallScreen from "./App/screens/OutgoingCallScreen";
 import RestrictScreen from "./App/components/RestricScreen";
 import NotificationsScreen from "./App/screens/NotificationsScreen";
 import ForgotPasswordScreen from "./App/screens/ForgotPasswordScreen";
@@ -422,6 +423,10 @@ export default function App() {
               <Stack.Screen
                 name="VideoCallScreen"
                 component={VideoCallScreen}
+              />
+              <Stack.Screen
+                name="OutgoingCallScreen"
+                component={OutgoingCallScreen}
               />
               <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
               <Stack.Screen

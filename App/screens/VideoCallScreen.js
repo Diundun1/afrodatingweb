@@ -46,6 +46,8 @@ export default function VideoCallScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [callType, setCallType] = useState("video"); // "video" | "voice"
+  const [upgradeRequested, setUpgradeRequested] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -68,17 +70,17 @@ export default function VideoCallScreen() {
         const storedCallUrl = await AsyncStorage.getItem("callUrl");
         const storedPartnerName = await AsyncStorage.getItem("partnerName");
         const storedPartnerId = await AsyncStorage.getItem("partnerId");
+        const storedCallType = await AsyncStorage.getItem("callType");
 
         if (storedCallUrl) {
           setCallUrl(storedCallUrl);
           setPartnerName(storedPartnerName || "Partner");
+          setCallType(storedCallType || "video");
           partnerIdRef.current = storedPartnerId || null;
 
-          // Safely call context methods
           if (setInCall) setInCall(true);
           if (setParticipant) setParticipant(storedPartnerName || "Partner");
 
-          // Request permissions immediately
           await requestPermissions();
         } else {
           console.log("No call URL found");
@@ -301,6 +303,7 @@ export default function VideoCallScreen() {
         const token = await AsyncStorage.getItem("userToken");
         const partnerId = await AsyncStorage.getItem("partnerId");
         const storedRoom = await AsyncStorage.getItem("callRoom");
+        const isCaller = await AsyncStorage.getItem("isCaller");
         partnerIdRef.current = partnerId;
         roomRef.current = storedRoom;
 
@@ -312,11 +315,56 @@ export default function VideoCallScreen() {
         );
         socketRef.current = socket;
 
-        // Listen for the other party ending the call
+        socket.on("connect", async () => {
+          // Callee: signal to caller that call was accepted
+          if (isCaller !== "true" && partnerId && socket.connected) {
+            socket.emit("callAccepted", {
+              room: storedRoom,
+              recipientId: partnerId,
+              callUrl: await AsyncStorage.getItem("callUrl"),
+            });
+            console.log("✅ Emitted callAccepted to caller");
+          }
+        });
+
+        // Other party ended the call
         socket.on("callEnded", () => {
           console.log("📞 Other party ended the call — closing room");
           endCall();
         });
+
+        // Other party requesting voice→video upgrade
+        socket.on("callUpgradeRequest", ({ upgradeType, requestedBy }) => {
+          Alert.alert(
+            "Switch to Video?",
+            `${partnerName || "Your partner"} wants to switch to video call.`,
+            [
+              {
+                text: "Accept",
+                onPress: () => {
+                  setCallType("video");
+                  setUpgradeRequested(false);
+                  if (socket.connected && partnerIdRef.current) {
+                    socket.emit("callUpgradeAccepted", {
+                      room: roomRef.current,
+                      recipientId: partnerIdRef.current,
+                      upgradeType,
+                    });
+                  }
+                },
+              },
+              { text: "Decline", style: "cancel" },
+            ]
+          );
+        });
+
+        // Our upgrade request was accepted by the other party
+        socket.on("callUpgradeAccepted", () => {
+          setCallType("video");
+          setUpgradeRequested(false);
+          console.log("✅ Video upgrade accepted");
+        });
+
       } catch (err) {
         console.error("VideoCallScreen socket setup failed", err);
       }
@@ -326,7 +374,7 @@ export default function VideoCallScreen() {
 
     return () => {
       if (socket) {
-        socket.removeAllListeners("callEnded");
+        socket.removeAllListeners();
         socket.disconnect();
       }
     };
@@ -437,45 +485,35 @@ export default function VideoCallScreen() {
 
         {/* Bottom Controls */}
         <View style={styles.bottomControls}>
-          {/* Mute Button  */}
-          {/* <TouchableOpacity
-            style={[
-              styles.controlButton,
-              isMuted
-                ? styles.controlButtonActive
-                : styles.controlButtonInactive,
-            ]}
-            onPress={toggleMute}
-          >
-            <Ionicons
-              name={isMuted ? "mic-off" : "mic"}
-              size={24}
-              color="#fff"
-            />
-            <Text style={styles.controlButtonText}>
-              {isMuted ? "Unmute" : "Mute"}
-            </Text>
-          </TouchableOpacity> */}
 
-          {/* Video Toggle Button */}
-          {/* <TouchableOpacity
-            style={[
-              styles.controlButton,
-              !isVideoOn
-                ? styles.controlButtonActive
-                : styles.controlButtonInactive,
-            ]}
-            onPress={toggleVideo}
-          >
-            <Ionicons
-              name={isVideoOn ? "videocam" : "videocam-off"}
-              size={24}
-              color="#fff"
-            />
-            <Text style={styles.controlButtonText}>
-              {isVideoOn ? "Video Off" : "Video On"}
-            </Text>
-          </TouchableOpacity> */}
+          {/* Switch to Video — only on voice calls */}
+          {callType === "voice" && !upgradeRequested && (
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={() => {
+                setUpgradeRequested(true);
+                if (socketRef.current?.connected && partnerIdRef.current) {
+                  socketRef.current.emit("callUpgradeRequest", {
+                    room: roomRef.current,
+                    recipientId: partnerIdRef.current,
+                    upgradeType: "video",
+                  });
+                }
+              }}
+            >
+              <View style={styles.controlBtnCircle}>
+                <Ionicons name="videocam" size={22} color="#fff" />
+              </View>
+              <Text style={styles.controlButtonText}>Switch to Video</Text>
+            </TouchableOpacity>
+          )}
+
+          {upgradeRequested && (
+            <View style={styles.pendingBadge}>
+              <Ionicons name="videocam" size={14} color="#4ecdc4" />
+              <Text style={styles.pendingText}>Waiting…</Text>
+            </View>
+          )}
 
           {/* End Call Button */}
           <TouchableOpacity style={styles.endCallButton} onPress={endCall}>
@@ -634,5 +672,31 @@ const styles = StyleSheet.create({
   callEndedSubtext: {
     color: "rgba(255, 255, 255, 0.7)",
     fontSize: 16,
+  },
+  controlBtnCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  pendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(78,205,196,0.15)",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(78,205,196,0.35)",
+    marginBottom: 8,
+  },
+  pendingText: {
+    color: "#4ecdc4",
+    fontSize: 13,
+    fontWeight: "500",
   },
 });

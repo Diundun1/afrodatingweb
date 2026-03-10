@@ -125,10 +125,11 @@ export default function IncomingCallScreen({ route }) {
     Vibration.cancel();
     stopRingtone();
 
-    // Persist room so VideoCallScreen can signal callEnded to the correct room
-    if (room) {
-      await AsyncStorage.setItem("callRoom", room);
-    }
+    // Persist room and caller-flag so VideoCallScreen knows its role
+    await Promise.all([
+      room ? AsyncStorage.setItem("callRoom", room) : Promise.resolve(),
+      AsyncStorage.setItem("isCaller", "false"),
+    ]);
 
     navigation.replace("VideoCallScreen", {
       callUrl,

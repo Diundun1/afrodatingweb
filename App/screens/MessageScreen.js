@@ -37,7 +37,7 @@ try {
   useSocket = () => ({
     socketRef: { current: null },
     isConnected: false,
-    onMessageReceived: () => () => {},
+    onMessageReceived: () => () => { },
   });
 }
 
@@ -48,8 +48,8 @@ try {
 } catch (e) {
   console.warn("CallContext not found, using fallback");
   useCall = () => ({
-    setInCall: () => {},
-    setParticipant: () => {},
+    setInCall: () => { },
+    setParticipant: () => { },
   });
 }
 
@@ -599,10 +599,10 @@ const MessageScreen = ({ route }) => {
           const updated = prev.map((msg) =>
             msg.id === optimisticId || msg.clientTimestamp === clientTimestamp
               ? {
-                  ...msg,
-                  status: "failed",
-                  fromServer: false,
-                }
+                ...msg,
+                status: "failed",
+                fromServer: false,
+              }
               : msg,
           );
           console.log(
@@ -624,11 +624,11 @@ const MessageScreen = ({ route }) => {
           const updated = prev.map((msg) =>
             msg.id === optimisticId || msg.clientTimestamp === clientTimestamp
               ? {
-                  ...msg,
-                  serverId: data.id,
-                  fromServer: true,
-                  status: "sent",
-                }
+                ...msg,
+                serverId: data.id,
+                fromServer: true,
+                status: "sent",
+              }
               : msg,
           );
           console.log("✅ Updated messages (CONFIRMED):", updated);
@@ -697,11 +697,11 @@ const MessageScreen = ({ route }) => {
         prev.map((msg) =>
           msg.id === optimisticId
             ? {
-                ...msg,
-                id: data.id,
-                status: "sent", // delivered after server ACK
-                localOnly: false,
-              }
+              ...msg,
+              id: data.id,
+              status: "sent", // delivered after server ACK
+              localOnly: false,
+            }
             : msg,
         ),
       );
@@ -797,9 +797,11 @@ const MessageScreen = ({ route }) => {
           AsyncStorage.setItem("callUrl", response.final_url),
           AsyncStorage.setItem("partnerId", partnerData._id),
           AsyncStorage.setItem("partnerName", partnerData.name),
+          AsyncStorage.setItem("callRoom", roomIdxccd),
+          AsyncStorage.setItem("callType", "video"),
+          AsyncStorage.setItem("isCaller", "true"),
         ]);
 
-        // ✅ EMIT CALL INVITATION USING NEW METHOD
         const callPayload = {
           room: roomIdxccd,
           recipientId: partnerData._id,
@@ -867,10 +869,12 @@ const MessageScreen = ({ route }) => {
         }
 
         if (!connectionError) {
-          navigation.navigate("VideoCallScreen", {
+          navigation.navigate("OutgoingCallScreen", {
             callUrl: response.final_url,
             partnerId: partnerData._id,
             partnerName: partnerData.name,
+            room: roomIdxccd,
+            callType: "video",
             isCaller: true,
           });
 
@@ -990,10 +994,12 @@ const MessageScreen = ({ route }) => {
         socketRef.current.on("messageSent", handleMessageSent);
 
         if (!connectionError) {
-          navigation.navigate("VideoCallScreen", {
+          navigation.navigate("OutgoingCallScreen", {
             callUrl: response.final_url,
             partnerId: partnerData._id,
             partnerName: partnerData.name,
+            room: roomIdxccd,
+            callType: "voice",
             isCaller: true,
           });
 
@@ -1435,7 +1441,7 @@ const MessageScreen = ({ route }) => {
                 marginLeft: 8,
               }}
               onPress={sendMessage}
-              // disabled={!inputMessage.trim() || loading}
+            // disabled={!inputMessage.trim() || loading}
             >
               <Ionicons
                 name="send"
