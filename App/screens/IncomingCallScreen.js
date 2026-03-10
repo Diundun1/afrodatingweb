@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,11 +9,11 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Platform,
 } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Audio } from "expo-av";
 import { startRingtone, stopRingtone } from "../../ringtone";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -23,49 +23,22 @@ export default function IncomingCallScreen({ route }) {
   const navigation = useNavigation();
 
   const { callerName, callUrl, callerId, room, callType } = route.params || {};
-  const [vibrating, setVibrating] = useState(false);
-  const [isAudioReady, setIsAudioReady] = useState(false);
-  const soundRef = useRef(null);
 
-  const pulseAnim = new Animated.Value(1);
-  const slideAnim = new Animated.Value(100);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(100)).current;
+  const ringtoneStarted = useRef(false);
 
-  // Initialize audio system
+  // Start animations + ringtone as soon as the screen mounts
   useEffect(() => {
-    const setupAudio = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
-        setIsAudioReady(true);
-        console.log("Audio system ready");
-      } catch (error) {
-        console.error("Error setting up audio:", error);
-      }
-    };
-
-    setupAudio();
-
-    return () => {
-      stopRingtone();
-    };
-  }, []);
-
-  useEffect(() => {
-    // Start call animations and ringtone
     startCallAnimations();
-    playRingtone();
+    attemptPlayRingtone();
 
     return () => {
       Vibration.cancel();
       stopRingtone();
-      setVibrating(false);
+      ringtoneStarted.current = false;
     };
-  }, [isAudioReady]);
+  }, []);
 
   const startCallAnimations = () => {
     // Simulate phone vibration on incoming call
@@ -99,46 +72,37 @@ export default function IncomingCallScreen({ route }) {
     }).start();
   };
 
-  const playRingtone = async () => {
-    try {
-      // Stop any existing ringtone first
-      await stopRingtone();
+  // Browsers block autoplay without a prior user gesture.
+  // This function tries to play immediately; if blocked it sets up a
+  // one-time interaction listener that unlocks and plays on first tap/key.
+  const attemptPlayRingtone = () => {
+    if (ringtoneStarted.current) return;
 
-      if (!isAudioReady) {
-        console.log("Audio not ready yet, retrying in 100ms");
-        setTimeout(playRingtone, 100);
-        return;
+    const tryPlay = () => {
+      if (ringtoneStarted.current) return;
+      try {
+        startRingtone();
+        ringtoneStarted.current = true;
+        console.log("✅ Ringtone started");
+        // Remove autoplay-unlock listeners once playing
+        if (Platform.OS === "web") {
+          document.removeEventListener("click", tryPlay);
+          document.removeEventListener("touchstart", tryPlay);
+          document.removeEventListener("keydown", tryPlay);
+        }
+      } catch (err) {
+        console.error("Ringtone play failed:", err);
       }
+    };
 
-      console.log("Playing ringtone for incoming call...");
+    // Attempt immediate play
+    tryPlay();
 
-      const { sound } = await Audio.Sound.createAsync(
-        require("https://unigate.com.ng/ringtones/ringtone.mp3"),
-        {
-          isLooping: true,
-          volume: 1.0,
-          shouldPlay: true,
-        },
-        onPlaybackStatusUpdate,
-      );
-
-      soundRef.current = sound;
-      await sound.playAsync();
-      console.log("Ringtone started successfully");
-    } catch (err) {
-      console.error("Error playing ringtone:", err);
-      // Retry after a short delay
-      setTimeout(playRingtone, 500);
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status) => {
-    if (!status.isLoaded) {
-      if (status.error) {
-        console.error(`Playback error: ${status.error}`);
-      }
-    } else {
-      console.log("Ringtone playback status:", status);
+    // Fallback: unlock on first user interaction (browser autoplay policy)
+    if (!ringtoneStarted.current && Platform.OS === "web") {
+      document.addEventListener("click", tryPlay, { once: true });
+      document.addEventListener("touchstart", tryPlay, { once: true });
+      document.addEventListener("keydown", tryPlay, { once: true });
     }
   };
 
