@@ -1,0 +1,305 @@
+const isPushNotificationSupported = () => {
+  return (
+    typeof navigator !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window
+  );
+};
+
+const urlBase64ToUint8Array = (base64String) => {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+};
+
+// FIXED: Use service worker for notifications
+const showNotificationViaServiceWorker = async (title, options = {}) => {
+  try {
+    if (!isPushNotificationSupported()) {
+      console.log("Service worker not supported for notifications");
+      return null;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+
+    await registration.showNotification(title, {
+      icon: "/favicon.ico",
+      badge: "/favicon.ico",
+      ...options,
+    });
+
+    console.log("Notification sent via service worker:", title);
+    return true;
+  } catch (error) {
+    console.error("Failed to show notification via service worker:", error);
+    return false;
+  }
+};
+
+const RegisterForPushNotificationsAsync = async () => {
+  try {
+    if (!isPushNotificationSupported()) {
+      console.log("Push notifications are not supported in this browser");
+      return null;
+    }
+
+    if (
+      window.location.protocol !== "https:" &&
+      window.location.hostname !== "localhost"
+    ) {
+      console.log("Push notifications require HTTPS (except on localhost)");
+      return null;
+    }
+
+    const registration = await navigator.serviceWorker.register("/sw.js", {
+      scope: "/",
+    });
+    console.log("Service Worker registered successfully");
+
+    let permission = await Notification.requestPermission();
+
+    if (permission !== "granted") {
+      console.log("Push notification permissions not granted.");
+      return null;
+    }
+
+    const VAPID_PUBLIC_KEY =
+      "BD_U_CgT4_b7dizczCDCi8Kzh2ZOPcuSc_KYEm4XcaHksTy2IwioMit5v6ylcUdvKsL5RXqAQYf_CNaUYQ5HyWQ";
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+
+    if (!subscription) {
+      console.log("Failed to get push subscription.");
+      return null;
+    }
+
+    console.log("Push Subscription:", subscription);
+
+    if (typeof localStorage !== "undefined") {
+      await localStorage.setItem(
+        "webPushSubscription",
+        JSON.stringify(subscription)
+      );
+
+      const userId = localStorage.getItem("loggedInUserId");
+      if (userId) {
+        await sendSubscriptionToBackend(subscription, userId);
+      }
+    }
+
+    return subscription;
+  } catch (error) {
+    console.error("Error getting push notification subscription:", error);
+    return null;
+  }
+};
+
+const sendSubscriptionToBackend = async (subscription, userId) => {
+  try {
+    const token = localStorage.getItem("userToken");
+    const response = await fetch(
+      "https://backend-afrodate-8q6k.onrender.com/api/v1/push/subscribe",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          subscription: subscription,
+          userAgent: navigator.userAgent,
+        }),
+      }
+    );
+
+    const result = await response.json();
+    console.log("Backend response:", result);
+  } catch (err) {
+    console.error("Error sending subscription to backend:", err);
+  }
+};
+
+const checkPushSubscriptionStatus = async () => {
+  if (!isPushNotificationSupported()) {
+    return { supported: false };
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+
+  return {
+    supported: true,
+    subscribed: !!subscription,
+    permission: Notification.permission,
+    subscription: subscription,
+  };
+};
+
+const unsubscribeFromPushNotifications = async () => {
+  if (!isPushNotificationSupported()) {
+    return false;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+
+    if (subscription) {
+      await subscription.unsubscribe();
+      if (typeof localStorage !== "undefined") {
+        await localStorage.removeItem("webPushSubscription");
+      }
+      console.log("Successfully unsubscribed from push notifications");
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Error unsubscribing from push notifications:", error);
+    return false;
+  }
+};
+
+
+const sendMessageNotification = async (
+  senderName,
+  message,
+  messageId,
+  roomId
+) => {
+  try {
+    if (!isPushNotificationSupported()) {
+      console.log("Notifications not supported in this environment");
+      return;
+    }
+
+    // ✅ HARD NORMALIZATION (CRITICAL)
+    const safeMessage =
+      typeof message === "string" && message.trim().length > 0
+        ? message
+        : "Sent you a new message";
+
+    const isCallLink = safeMessage.match(
+      /https:\/\/test\.unigate\.com\.ng\/[^\s]+/
+    );
+    if (isCallLink) return;
+
+    if (Notification.permission !== "granted") {
+      console.log("Notification permission not granted");
+      return;
+    }
+
+    const truncatedMessage =
+      safeMessage.length > 100
+        ? safeMessage.substring(0, 100) + "..."
+        : safeMessage;
+
+    await showNotificationViaServiceWorker(`💬 ${senderName}`, {
+      body: truncatedMessage,
+      tag: `message_${messageId}`,
+      data: {
+        type: "new_message",
+        senderName,
+        messageId,
+        roomId,
+        fullMessage: safeMessage,
+      },
+    });
+
+    console.log("Message notification sent from:", senderName);
+  } catch (error) {
+    console.error("Failed to send message notification:", error);
+  }
+};
+
+// FIXED: Use service worker for local notifications
+const sendLocalNotification = async (title, body, data = {}) => {
+  try {
+    if (
+      !isPushNotificationSupported() ||
+      Notification.permission !== "granted"
+    ) {
+      return;
+    }
+
+    await showNotificationViaServiceWorker(title, {
+      body: body,
+      tag: data.type || "general",
+      data: data,
+    });
+
+    console.log("Local notification sent:", title);
+  } catch (error) {
+    console.error("Failed to send local notification:", error);
+  }
+};
+
+// FIXED: Use service worker for call notifications
+const sendCallNotification = async (callerName, callUrl, callerId) => {
+  try {
+    if (
+      !isPushNotificationSupported() ||
+      Notification.permission !== "granted"
+    ) {
+      return;
+    }
+
+    await showNotificationViaServiceWorker(
+      `📞 Incoming Call from ${callerName}`,
+      {
+        body: "Tap to answer the video call",
+        tag: "incoming_call",
+        requireInteraction: true,
+        data: {
+          callUrl,
+          callerId,
+          type: "incoming_call",
+        },
+      }
+    );
+
+    console.log("Call notification sent for:", callerName);
+  } catch (error) {
+    console.error("Failed to send call notification:", error);
+  }
+};
+
+const testNotification = async () => {
+  console.log("Testing notification system...");
+  console.log("Notification support:", typeof Notification !== "undefined");
+  console.log(
+    "Service Worker support:",
+    typeof navigator !== "undefined" && "serviceWorker" in navigator
+  );
+  console.log(
+    "Notification permission:",
+    typeof Notification !== "undefined" ? Notification.permission : "N/A"
+  );
+
+  await sendMessageNotification(
+    "Test User",
+    "This is a test notification",
+    "test-" + Date.now(),
+    "test_room"
+  );
+};
+
+export default RegisterForPushNotificationsAsync;
+export {
+  checkPushSubscriptionStatus,
+  unsubscribeFromPushNotifications,
+  isPushNotificationSupported,
+  sendMessageNotification,
+  sendLocalNotification,
+  sendCallNotification,
+  testNotification,
+  showNotificationViaServiceWorker,
+};
