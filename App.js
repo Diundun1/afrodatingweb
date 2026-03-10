@@ -333,9 +333,21 @@ export default function App() {
         }
       }
 
-      // 🔹 Incoming call
+      // 🔹 Incoming call — navigate to IncomingCallScreen first (not directly to video room)
       if (type === "INCOMING_CALL" && payload?.callUrl) {
-        window.location.href = payload?.callUrl;
+        if (navigationRef.current?.isReady?.()) {
+          navigationRef.current.navigate("IncomingCallScreen", {
+            callerName: payload?.callerName || "Unknown",
+            callerId: payload?.callerId || "",
+            callUrl: payload?.callUrl,
+            room: payload?.room || "",
+            callType: payload?.callType || "video",
+            isCaller: false,
+          });
+        } else {
+          // Fallback: open the incoming-call deep link URL if nav not ready yet
+          window.location.href = `/incoming-call?callUrl=${encodeURIComponent(payload.callUrl)}&callerId=${payload?.callerId || ""}&callerName=${encodeURIComponent(payload?.callerName || "")}&room=${payload?.room || ""}`;
+        }
       }
     };
 

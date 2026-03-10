@@ -15,6 +15,7 @@ import {
 import { AppState } from "react-native";
 import { useCall } from "./CallContext";
 import { useNavigation } from "@react-navigation/native";
+import { navigationRef } from "../../App";
 const SocketContext = createContext(null);
 
 export function useSocket() {
@@ -261,6 +262,44 @@ export function SocketProvider({ children }) {
         // 📩 MESSAGE NOTIFICATION
         socket.on("messageNotification", handleMessageNotification);
 
+        // 📞 INCOMING CALL INVITATION (direct socket relay from backend)
+        socket.on("callInvitation", async (data) => {
+          try {
+            const { callerName, callerId, callUrl, room, callType } = data;
+            console.log("📞 callInvitation received:", data);
+
+            // Store call data for VideoCallScreen to pick up
+            await Promise.all([
+              AsyncStorage.setItem("callUrl", callUrl || ""),
+              AsyncStorage.setItem("partnerId", callerId || ""),
+              AsyncStorage.setItem("partnerName", callerName || "Unknown"),
+            ]);
+
+            // Show OS-level push notification (works even when app is backgrounded)
+            sendCallNotification({
+              callerName: callerName || "Unknown",
+              callUrl,
+              callerId,
+              room,
+              callType: callType || "video",
+            });
+
+            // Navigate imperatively so it pops up on any screen
+            if (navigationRef.current?.isReady?.()) {
+              navigationRef.current.navigate("IncomingCallScreen", {
+                callerName: callerName || "Unknown",
+                callerId,
+                callUrl,
+                room,
+                callType: callType || "video",
+                isCaller: false,
+              });
+            }
+          } catch (err) {
+            console.error("Failed to handle callInvitation", err);
+          }
+        });
+
         // 🧪 DEV DEBUG
         if (__DEV__) {
           socket.onAny((event, ...args) => {
@@ -288,7 +327,7 @@ export function SocketProvider({ children }) {
   const onMessageReceived = useCallback((handler) => {
     if (!socketRef.current) {
       logger.warn("Cannot register message listener - socket not initialized");
-      return () => {};
+      return () => { };
     }
 
     const handleMessage = (data) => {

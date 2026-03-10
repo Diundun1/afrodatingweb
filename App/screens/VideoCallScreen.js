@@ -10,10 +10,11 @@ import {
   Alert,
 } from "react-native";
 import { MaterialIcons, Ionicons, Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import initializeSocket from "../lib/socket";
 
 const { width, height } = Dimensions.get("window");
 
@@ -51,9 +52,14 @@ export default function VideoCallScreen() {
   // Use the hook safely - this will now use the fallback if context is not available
   const callContext = useCall();
   const { setInCall, setParticipant } = callContext || {
-    setInCall: () => {},
-    setParticipant: () => {},
+    setInCall: () => { },
+    setParticipant: () => { },
   };
+
+  // Socket ref for signalling call-end to the other party
+  const socketRef = useRef(null);
+  const partnerIdRef = useRef(null);
+  const roomRef = useRef(null);
 
   useEffect(() => {
     const loadCallData = async () => {
@@ -61,10 +67,12 @@ export default function VideoCallScreen() {
         setLoading(true);
         const storedCallUrl = await AsyncStorage.getItem("callUrl");
         const storedPartnerName = await AsyncStorage.getItem("partnerName");
+        const storedPartnerId = await AsyncStorage.getItem("partnerId");
 
         if (storedCallUrl) {
           setCallUrl(storedCallUrl);
           setPartnerName(storedPartnerName || "Partner");
+          partnerIdRef.current = storedPartnerId || null;
 
           // Safely call context methods
           if (setInCall) setInCall(true);
@@ -248,7 +256,16 @@ export default function VideoCallScreen() {
   const endCall = async () => {
     try {
       console.log("📞 Ending call...");
-      await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName"]);
+
+      // Notify the other party via socket so their screen closes too
+      if (socketRef.current?.connected && partnerIdRef.current) {
+        socketRef.current.emit("callEnded", {
+          room: roomRef.current,
+          recipientId: partnerIdRef.current,
+        });
+      }
+
+      await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName", "callRoom"]);
     } catch (e) {
       console.log("Error clearing storage", e);
     }
@@ -273,6 +290,46 @@ export default function VideoCallScreen() {
       setCallDuration((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Socket: connect and listen for the other party ending the call
+  useEffect(() => {
+    let socket = null;
+
+    const setupSocket = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        const partnerId = await AsyncStorage.getItem("partnerId");
+        const storedRoom = await AsyncStorage.getItem("callRoom");
+        partnerIdRef.current = partnerId;
+        roomRef.current = storedRoom;
+
+        if (!token) return;
+
+        socket = initializeSocket(
+          "https://backend-afrodate-8q6k.onrender.com/messaging",
+          token
+        );
+        socketRef.current = socket;
+
+        // Listen for the other party ending the call
+        socket.on("callEnded", () => {
+          console.log("📞 Other party ended the call — closing room");
+          endCall();
+        });
+      } catch (err) {
+        console.error("VideoCallScreen socket setup failed", err);
+      }
+    };
+
+    setupSocket();
+
+    return () => {
+      if (socket) {
+        socket.removeAllListeners("callEnded");
+        socket.disconnect();
+      }
+    };
   }, []);
 
   const renderIframe = () => {

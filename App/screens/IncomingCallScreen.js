@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Audio } from "expo-av";
 import { startRingtone, stopRingtone } from "../../ringtone";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
 
@@ -159,6 +160,11 @@ export default function IncomingCallScreen({ route }) {
     console.log("Accepting call...");
     Vibration.cancel();
     stopRingtone();
+
+    // Persist room so VideoCallScreen can signal callEnded to the correct room
+    if (room) {
+      await AsyncStorage.setItem("callRoom", room);
+    }
 
     navigation.replace("VideoCallScreen", {
       callUrl,
