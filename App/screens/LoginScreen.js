@@ -76,14 +76,15 @@ export default function LoginScreen() {
         // Use the error message from the response data
         throw new Error(
           data?.error ||
-            data?.message ||
-            `HTTP error! status: ${response.status}`,
+          data?.message ||
+          `HTTP error! status: ${response.status}`,
         );
       }
 
       if (data.token) {
         await AsyncStorage.setItem("userToken", data.token);
         await AsyncStorage.setItem("loggedInUserId", data.user._id);
+        await AsyncStorage.setItem("loggedInUserName", data.user.name || data.user.firstName || data.user.username || "");
 
         // 2. NEW: Save to IndexedDB (so the Service Worker can see it)
         const dbRequest = indexedDB.open("keyval-store");

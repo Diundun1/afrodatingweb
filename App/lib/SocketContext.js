@@ -263,19 +263,34 @@ export function SocketProvider({ children }) {
         socket.on("messageNotification", handleMessageNotification);
 
         // 📞 INCOMING CALL INVITATION (direct socket relay from backend)
-        socket.on("callInvitation", async (data) => {
+        socket.on("callInvitation", (data) => {
+          const { callerName, callerId, callUrl, room, callType } = data;
+          console.log("📞 callInvitation received:", { callerName, callerId, room, callType });
+
+          // ⚡ Navigate FIRST — instant popup with no await delay
+          if (navigationRef.current?.isReady?.()) {
+            navigationRef.current.navigate("IncomingCallScreen", {
+              callerName: callerName || "Unknown",
+              callerId,
+              callUrl,
+              room,
+              callType: callType || "video",
+              isCaller: false,
+            });
+          }
+
+          // Background: persist data + show push notification (non-blocking)
+          Promise.all([
+            AsyncStorage.setItem("callUrl", callUrl || ""),
+            AsyncStorage.setItem("partnerId", callerId || ""),
+            AsyncStorage.setItem("partnerName", callerName || "Unknown"),
+            AsyncStorage.setItem("callRoom", room || ""),
+            AsyncStorage.setItem("callType", callType || "video"),
+            AsyncStorage.setItem("isCaller", "false"),
+          ]).catch((err) => console.warn("callInvitation AsyncStorage save failed:", err));
+
+          // Show OS-level push notification (works when app is backgrounded)
           try {
-            const { callerName, callerId, callUrl, room, callType } = data;
-            console.log("📞 callInvitation received:", data);
-
-            // Store call data for VideoCallScreen to pick up
-            await Promise.all([
-              AsyncStorage.setItem("callUrl", callUrl || ""),
-              AsyncStorage.setItem("partnerId", callerId || ""),
-              AsyncStorage.setItem("partnerName", callerName || "Unknown"),
-            ]);
-
-            // Show OS-level push notification (works even when app is backgrounded)
             sendCallNotification({
               callerName: callerName || "Unknown",
               callUrl,
@@ -283,22 +298,11 @@ export function SocketProvider({ children }) {
               room,
               callType: callType || "video",
             });
-
-            // Navigate imperatively so it pops up on any screen
-            if (navigationRef.current?.isReady?.()) {
-              navigationRef.current.navigate("IncomingCallScreen", {
-                callerName: callerName || "Unknown",
-                callerId,
-                callUrl,
-                room,
-                callType: callType || "video",
-                isCaller: false,
-              });
-            }
           } catch (err) {
-            console.error("Failed to handle callInvitation", err);
+            console.warn("sendCallNotification failed:", err);
           }
         });
+
 
         // 🧪 DEV DEBUG
         if (__DEV__) {

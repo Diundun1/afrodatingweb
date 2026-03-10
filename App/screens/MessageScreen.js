@@ -776,7 +776,11 @@ const MessageScreen = ({ route }) => {
 
     try {
       setIsProcessingCall(true);
-      const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
+      const [loggedInUserId, loggedInUserName] = await Promise.all([
+        AsyncStorage.getItem("loggedInUserId"),
+        AsyncStorage.getItem("loggedInUserName"),
+      ]);
+      const callerName = loggedInUserName || "Unknown";
 
       const url = `https://test.unigate.com.ng/w/vc.php?nexroomid=${roomIdxccd}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
 
@@ -806,7 +810,7 @@ const MessageScreen = ({ route }) => {
           room: roomIdxccd,
           recipientId: partnerData._id,
           callerId: loggedInUserId,
-          callerName: partnerData.name,
+          callerName,         // ✅ the logged-in user's OWN name
           callUrl: response.final_url,
           callType: "video",
           timestamp: Date.now(),
@@ -906,7 +910,11 @@ const MessageScreen = ({ route }) => {
 
     try {
       setIsProcessingCall(true);
-      const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
+      const [loggedInUserId, loggedInUserName] = await Promise.all([
+        AsyncStorage.getItem("loggedInUserId"),
+        AsyncStorage.getItem("loggedInUserName"),
+      ]);
+      const callerName = loggedInUserName || "Unknown";
 
       const url = `https://test.unigate.com.ng/w/vvc.php?nexroomid=${roomIdxccd}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
 
@@ -927,22 +935,28 @@ const MessageScreen = ({ route }) => {
           AsyncStorage.setItem("callUrl", response.final_url),
           AsyncStorage.setItem("partnerId", partnerData._id),
           AsyncStorage.setItem("partnerName", partnerData.name),
+          AsyncStorage.setItem("callRoom", roomIdxccd),
+          AsyncStorage.setItem("callType", "voice"),
+          AsyncStorage.setItem("isCaller", "true"),
         ]);
 
         // ✅ EMIT CALL INVITATION TO RECIPIENT
-        if (socketRef?.current) {
-          const callPayload = {
-            room: roomIdxccd,
-            recipientId: partnerData._id,
-            callerId: loggedInUserId,
-            callerName: partnerData.name,
-            callUrl: response.final_url,
-            callType: "voice",
-            timestamp: Date.now(),
-          };
+        const callSocketPayload = {
+          room: roomIdxccd,
+          recipientId: partnerData._id,
+          callerId: loggedInUserId,
+          callerName,         // ✅ the logged-in user's OWN name
+          callUrl: response.final_url,
+          callType: "voice",
+          timestamp: Date.now(),
+        };
 
-          console.log("📞 Emitting voice call invitation:", callPayload);
-          socketRef.current.emit("callInvitation", callPayload);
+        const socketToUse = socketRef?.current || emit;
+        if (socketRef?.current) {
+          console.log("📞 Emitting voice call invitation:", callSocketPayload);
+          socketRef.current.emit("callInvitation", callSocketPayload);
+        } else {
+          emit("callInvitation", callSocketPayload);
         }
 
         // Send call link as message
