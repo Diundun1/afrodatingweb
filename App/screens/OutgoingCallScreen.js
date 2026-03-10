@@ -261,7 +261,7 @@ export default function OutgoingCallScreen({ route }) {
                             style={styles.avatarGradient}
                         >
                             <Image
-                                source={require("../assets/images/appIco.png")}
+                                source={require("../assets/images/logo.png")}
                                 style={styles.avatar}
                             />
                         </LinearGradient>
