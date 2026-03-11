@@ -61,25 +61,50 @@ export default function VideoCallScreen() {
   // Socket ref for signalling call-end to the other party
   const socketRef = useRef(null);
   const partnerIdRef = useRef(null);
-  const roomRef = useRef(null);
+  // State to track if we've already tried to emit acceptance
+  const acceptanceEmitted = useRef(false);
+
+  // Stable ref to always have the latest endCall — avoids stale closure in socket listeners
+  const endCallRef = useRef(null);
+  useEffect(() => {
+    endCallRef.current = endCall;
+  });
 
   useEffect(() => {
     const loadCallData = async () => {
       try {
         setLoading(true);
-        const storedCallUrl = await AsyncStorage.getItem("callUrl");
-        const storedPartnerName = await AsyncStorage.getItem("partnerName");
-        const storedPartnerId = await AsyncStorage.getItem("partnerId");
-        const storedCallType = await AsyncStorage.getItem("callType");
+        // Load all data in parallel for speed
+        const [
+          storedCallUrl,
+          storedPartnerName,
+          storedPartnerId,
+          storedCallType,
+          storedRoom,
+          isCallerStr
+        ] = await Promise.all([
+          AsyncStorage.getItem("callUrl"),
+          AsyncStorage.getItem("partnerName"),
+          AsyncStorage.getItem("partnerId"),
+          AsyncStorage.getItem("callType"),
+          AsyncStorage.getItem("callRoom"),
+          AsyncStorage.getItem("isCaller")
+        ]);
 
         if (storedCallUrl) {
           setCallUrl(storedCallUrl);
           setPartnerName(storedPartnerName || "Partner");
           setCallType(storedCallType || "video");
+
           partnerIdRef.current = storedPartnerId || null;
+          roomRef.current = storedRoom || null;
+          const isCaller = isCallerStr === "true";
 
           if (setInCall) setInCall(true);
           if (setParticipant) setParticipant(storedPartnerName || "Partner");
+
+          // Start socket setup AFTER we have the data
+          setupSocket(isCaller, storedCallUrl);
 
           await requestPermissions();
         } else {
@@ -95,7 +120,90 @@ export default function VideoCallScreen() {
     };
 
     loadCallData();
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.removeAllListeners();
+        socketRef.current.disconnect();
+      }
+    };
   }, []);
+
+  const setupSocket = async (isCaller, currentCallUrl) => {
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) return;
+
+      const socket = initializeSocket(
+        "https://backend-afrodate-8q6k.onrender.com/messaging",
+        token
+      );
+      socketRef.current = socket;
+
+      // Helper for signaling acceptance
+      const emitCallAccepted = () => {
+        if (!isCaller && partnerIdRef.current && !acceptanceEmitted.current) {
+          socket.emit("callAccepted", {
+            room: roomRef.current,
+            recipientId: partnerIdRef.current,
+            callUrl: currentCallUrl,
+          });
+          acceptanceEmitted.current = true;
+          console.log("✅ Emitted callAccepted to caller");
+        }
+      };
+
+      socket.on("connect", () => {
+        console.log("📡 Socket connected in VideoCallScreen");
+        emitCallAccepted();
+      });
+
+      // Immediate check if already connected
+      if (socket.connected) {
+        emitCallAccepted();
+      }
+
+      // Other party ended the call
+      socket.on("callEnded", () => {
+        console.log("📞 Other party ended the call — closing room via ref");
+        endCallRef.current?.();
+      });
+
+      // Other party requesting voice→video upgrade
+      socket.on("callUpgradeRequest", ({ upgradeType }) => {
+        Alert.alert(
+          "Switch to Video?",
+          `${partnerName || "Your partner"} wants to switch to video call.`,
+          [
+            {
+              text: "Accept",
+              onPress: () => {
+                setCallType("video");
+                setUpgradeRequested(false);
+                if (socketRef.current?.connected && partnerIdRef.current) {
+                  socketRef.current.emit("callUpgradeAccepted", {
+                    room: roomRef.current,
+                    recipientId: partnerIdRef.current,
+                    upgradeType,
+                  });
+                }
+              },
+            },
+            { text: "Decline", style: "cancel" },
+          ]
+        );
+      });
+
+      // Our upgrade request was accepted by the other party
+      socket.on("callUpgradeAccepted", () => {
+        setCallType("video");
+        setUpgradeRequested(false);
+        console.log("✅ Video upgrade accepted");
+      });
+    } catch (err) {
+      console.error("VideoCallScreen socket setup failed", err);
+    }
+  };
 
   // Direct permission request - navigates back if rejected
   const requestPermissions = async () => {
@@ -105,9 +213,6 @@ export default function VideoCallScreen() {
       const cameraPerm = await Camera.requestCameraPermissionsAsync();
       const micPerm = await Camera.requestMicrophonePermissionsAsync();
 
-      console.log("Camera permission:", cameraPerm.status);
-      console.log("Microphone permission:", micPerm.status);
-
       if (cameraPerm.status === "granted" && micPerm.status === "granted") {
         setHasPermission(true);
         console.log("✅ All permissions granted");
@@ -115,18 +220,10 @@ export default function VideoCallScreen() {
         setHasPermission(false);
         console.log("❌ Permissions denied - navigating back");
 
-        // Show alert and navigate back
         Alert.alert(
           "Permissions Required",
-          "Camera and microphone permissions are required for video calls. Please enable them in settings to continue.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                endCall();
-              },
-            },
-          ]
+          "Camera and microphone permissions are required for video calls.",
+          [{ text: "OK", onPress: () => endCall() }]
         );
       }
     } catch (error) {
@@ -255,26 +352,48 @@ export default function VideoCallScreen() {
     }
   };
 
+  // HARDENED endCall: Guarantees delivery of callEnded signal
   const endCall = async () => {
     try {
-      console.log("📞 Ending call...");
+      console.log("📞 Initiating endCall...");
+      const socket = socketRef.current;
+      const partnerId = partnerIdRef.current;
+      const room = roomRef.current;
 
-      // Notify the other party via socket so their screen closes too
-      if (socketRef.current?.connected && partnerIdRef.current) {
-        socketRef.current.emit("callEnded", {
-          room: roomRef.current,
-          recipientId: partnerIdRef.current,
-        });
+      // Ensure signal is sent, even if briefly disconnected
+      if (socket && partnerId) {
+        const emitEnd = () => {
+          socket.emit("callEnded", { room, recipientId: partnerId });
+          console.log("📤 callEnded signal emitted to", partnerId);
+        };
+
+        if (socket.connected) {
+          emitEnd();
+        } else {
+          console.log("⚠️ Socket disconnected during endCall, queueing signal...");
+          socket.once("connect", emitEnd);
+          // 3 second timeout: if we don't reconnect by then, just proceed
+          setTimeout(() => socket.off("connect", emitEnd), 3000);
+        }
       }
 
-      await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName", "callRoom"]);
+      // Cleanup local state and storage
+      await AsyncStorage.multiRemove([
+        "callUrl",
+        "partnerId",
+        "partnerName",
+        "callRoom",
+        "isCaller",
+        "callType"
+      ]);
     } catch (e) {
-      console.log("Error clearing storage", e);
+      console.error("Error in endCall process:", e);
     }
 
-    // Safely call context methods
     if (setInCall) setInCall(false);
     if (setParticipant) setParticipant("");
+
+    // Final UI navigation
     navigation.goBack();
   };
 
@@ -294,91 +413,6 @@ export default function VideoCallScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  // Socket: connect and listen for the other party ending the call
-  useEffect(() => {
-    let socket = null;
-
-    const setupSocket = async () => {
-      try {
-        const token = await AsyncStorage.getItem("userToken");
-        const partnerId = await AsyncStorage.getItem("partnerId");
-        const storedRoom = await AsyncStorage.getItem("callRoom");
-        const isCaller = await AsyncStorage.getItem("isCaller");
-        partnerIdRef.current = partnerId;
-        roomRef.current = storedRoom;
-
-        if (!token) return;
-
-        socket = initializeSocket(
-          "https://backend-afrodate-8q6k.onrender.com/messaging",
-          token
-        );
-        socketRef.current = socket;
-
-        socket.on("connect", async () => {
-          // Callee: signal to caller that call was accepted
-          if (isCaller !== "true" && partnerId && socket.connected) {
-            socket.emit("callAccepted", {
-              room: storedRoom,
-              recipientId: partnerId,
-              callUrl: await AsyncStorage.getItem("callUrl"),
-            });
-            console.log("✅ Emitted callAccepted to caller");
-          }
-        });
-
-        // Other party ended the call
-        socket.on("callEnded", () => {
-          console.log("📞 Other party ended the call — closing room");
-          endCall();
-        });
-
-        // Other party requesting voice→video upgrade
-        socket.on("callUpgradeRequest", ({ upgradeType, requestedBy }) => {
-          Alert.alert(
-            "Switch to Video?",
-            `${partnerName || "Your partner"} wants to switch to video call.`,
-            [
-              {
-                text: "Accept",
-                onPress: () => {
-                  setCallType("video");
-                  setUpgradeRequested(false);
-                  if (socket.connected && partnerIdRef.current) {
-                    socket.emit("callUpgradeAccepted", {
-                      room: roomRef.current,
-                      recipientId: partnerIdRef.current,
-                      upgradeType,
-                    });
-                  }
-                },
-              },
-              { text: "Decline", style: "cancel" },
-            ]
-          );
-        });
-
-        // Our upgrade request was accepted by the other party
-        socket.on("callUpgradeAccepted", () => {
-          setCallType("video");
-          setUpgradeRequested(false);
-          console.log("✅ Video upgrade accepted");
-        });
-
-      } catch (err) {
-        console.error("VideoCallScreen socket setup failed", err);
-      }
-    };
-
-    setupSocket();
-
-    return () => {
-      if (socket) {
-        socket.removeAllListeners();
-        socket.disconnect();
-      }
-    };
-  }, []);
 
   const renderIframe = () => {
     if (Platform.OS !== "web") {

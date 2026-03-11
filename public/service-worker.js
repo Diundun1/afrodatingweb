@@ -489,8 +489,8 @@ self.addEventListener("push", async (event) => {
         console.log("⏭️ [API] Skipping API fetch - no token available");
       }
 
-      // 2. Call Detection
-      const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+      // 2. Call Detection - Broadened to support vercel and localhost
+      const callLinkPattern = /https?:\/\/(?:test\.unigate\.com\.ng|afrodatingweb\.vercel\.app|didon\.vercel\.app|localhost|127\.0\.0\.1)(?::\d+)?\/[^\s]+/;
       const linkMatch = finalMessage.match(callLinkPattern);
 
       console.log("🔗 [CALL] Checking message for call link");

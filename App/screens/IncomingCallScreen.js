@@ -119,6 +119,38 @@ export default function IncomingCallScreen({ route }) {
   //   }
   // };
 
+  // Socket ref for signaling decline and listening for cancel
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    let socket = null;
+    const setupSocket = async () => {
+      const token = await AsyncStorage.getItem("userToken");
+      if (token) {
+        socket = initializeSocket("https://backend-afrodate-8q6k.onrender.com/messaging", token);
+        socketRef.current = socket;
+
+        // Listen for caller hanging up while ringing
+        const handleRemoteCancel = () => {
+          console.log("📞 Caller cancelled/ended call — stopping ringtone");
+          stopRingtone();
+          Vibration.cancel();
+          navigation.goBack();
+        };
+
+        socket.on("callEnded", handleRemoteCancel);
+        socket.on("callCancelled", handleRemoteCancel);
+      }
+    };
+    setupSocket();
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    };
+  }, []);
+
+
   const handleAccept = async () => {
     console.log("Accepting call...");
     Vibration.cancel();
@@ -128,6 +160,9 @@ export default function IncomingCallScreen({ route }) {
     await Promise.all([
       room ? AsyncStorage.setItem("callRoom", room) : Promise.resolve(),
       AsyncStorage.setItem("isCaller", "false"),
+      AsyncStorage.setItem("callUrl", callUrl || ""),
+      AsyncStorage.setItem("partnerId", callerId || ""),
+      AsyncStorage.setItem("partnerName", callerName || "Partner"),
     ]);
 
     navigation.replace("VideoCallScreen", {
@@ -140,9 +175,20 @@ export default function IncomingCallScreen({ route }) {
   const handleDecline = async () => {
     console.log("Declining call...");
     Vibration.cancel();
-    navigation.goBack();
     stopRingtone();
+
+    // Notify caller that call was declined
+    if (socketRef.current && callerId) {
+      socketRef.current.emit("callDeclined", {
+        room: room,
+        recipientId: callerId,
+      });
+      console.log("📤 Emitted callDeclined to", callerId);
+    }
+
+    navigation.goBack();
   };
+
 
   return (
     <LinearGradient

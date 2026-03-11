@@ -28,7 +28,6 @@ export function useSocket() {
 
 export function SocketProvider({ children }) {
   const { setInCall, setParticipant } = useCall();
-  const navigationRef = useRef();
   const navigation = useNavigation();
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -99,7 +98,7 @@ export function SocketProvider({ children }) {
         if (!finalMessage) finalMessage = "Sent you a message";
 
         // 🎯 3. CALL NOTIFICATION LOGIC
-        const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+        const callLinkPattern = /https?:\/\/(?:test\.unigate\.com\.ng|afrodatingweb\.vercel\.app|didon\.vercel\.app|localhost|127\.0\.0\.1)(?::\d+)?\/[^\s]+/;
         const linkMatch = finalMessage.match(callLinkPattern);
 
         if (linkMatch) {
@@ -125,22 +124,17 @@ export function SocketProvider({ children }) {
             ]);
 
             // Navigate to the Call UI
-            navigation.navigate("IncomingCallScreen", {
-              callerName: senderName,
-              partnerId: sender.id,
-              callUrl,
-              room: room,
-              callType: "video",
-              isCaller: false,
-            });
+            if (navigationRef.current?.isReady?.()) {
+              navigationRef.current.navigate("IncomingCallScreen", {
+                callerName: senderName,
+                partnerId: sender.id,
+                callUrl,
+                room: room,
+                callType: "video",
+                isCaller: false,
+              });
+            }
 
-            // Optional: Also fire a high-priority push notification for the call
-            await sendMessageNotification(
-              "Incoming Call",
-              `Incoming call from ${senderName}`,
-              `call-${Date.now()}`,
-              room,
-            );
             return; // Stop here so we don't send a double notification
           }
         }
@@ -181,10 +175,10 @@ export function SocketProvider({ children }) {
       }
 
       // Skip call links
-      const isCallLink = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/.test();
+      const isCallLink = /https?:\/\/(?:test\.unigate\.com\.ng|afrodatingweb\.vercel\.app|didon\.vercel\.app|localhost|127\.0\.0\.1)(?::\d+)?\/[^\s]+/.test(messageData.message || "");
       if (isCallLink) {
         logger.info("Skipping call link message");
-        console.log("call link");
+        return;
       }
 
       // Extract sender name
@@ -210,6 +204,8 @@ export function SocketProvider({ children }) {
         logger.warn("No room ID in message data");
         return;
       }
+
+      const messageContent = messageData.message || "";
 
       logger.info("Sending chat message notification", {
         senderName,
@@ -268,8 +264,8 @@ export function SocketProvider({ children }) {
           console.log("📞 callInvitation received:", { callerName, callerId, room, callType });
 
           // ⚡ Navigate FIRST — instant popup with no await delay
-          if (navigationRef.isReady()) {
-            navigationRef.navigate("IncomingCallScreen", {
+          if (navigationRef.current?.isReady?.()) {
+            navigationRef.current.navigate("IncomingCallScreen", {
               callerName: callerName || "Unknown",
               callerId,
               callUrl,
@@ -280,8 +276,8 @@ export function SocketProvider({ children }) {
           } else {
             // Nav not ready yet — retry after a short delay (first load edge case)
             setTimeout(() => {
-              if (navigationRef.isReady()) {
-                navigationRef.navigate("IncomingCallScreen", {
+              if (navigationRef.current?.isReady?.()) {
+                navigationRef.current.navigate("IncomingCallScreen", {
                   callerName: callerName || "Unknown",
                   callerId,
                   callUrl,
@@ -303,7 +299,7 @@ export function SocketProvider({ children }) {
             AsyncStorage.setItem("isCaller", "false"),
           ]).catch((err) => console.warn("callInvitation AsyncStorage save failed:", err));
 
-          // Show OS-level push notification (works when app is backgrounded)
+          // Show OS-level push notification (works locally when app is backgrounded)
           try {
             sendCallNotification({
               callerName: callerName || "Unknown",
@@ -316,6 +312,7 @@ export function SocketProvider({ children }) {
             console.warn("sendCallNotification failed:", err);
           }
         });
+
 
 
         // 🧪 DEV DEBUG

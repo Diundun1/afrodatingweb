@@ -1,50 +1,63 @@
 // ringtone.js
-// Plays the app's custom ringtone using the Web Audio API.
-// The audio element is reused across calls to avoid double-play issues.
+// Plays the app's custom ringtone (android_ringtone.mp3)
+// Supports both Web and Native (iOS/Android via expo-av)
 
-let audio = null;
+import { Audio } from 'expo-av';
+import { Platform } from 'react-native';
+
+let webAudio = null;
+let nativeSound = null;
 let isPlaying = false;
 
-export const startRingtone = () => {
+// Assets for native must be required
+const nativeAsset = require('./App/assets/audio/android_ringtone.mp3');
+
+export const startRingtone = async () => {
+  if (isPlaying) return;
+
   try {
-    if (!audio) {
-      audio = new Audio("/sounds/android_ringtone.mp3");
-      audio.loop = true;
-      audio.volume = 1.0;
+    if (Platform.OS === 'web') {
+      if (!webAudio) {
+        webAudio = new window.Audio('/sounds/android_ringtone.mp3');
+        webAudio.loop = true;
+      }
+      await webAudio.play();
+    } else {
+      // Native (Android/iOS)
+      if (nativeSound) {
+        await nativeSound.unloadAsync();
+      }
+      const { sound } = await Audio.Sound.createAsync(
+        nativeAsset,
+        { shouldPlay: true, isLooping: true }
+      );
+      nativeSound = sound;
     }
-
-    if (isPlaying) return;
-
-    const playPromise = audio.play();
-
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => {
-          isPlaying = true;
-          console.log("🔔 Ringtone playing");
-        })
-        .catch((err) => {
-          // NotAllowedError = browser autoplay block; caller must retry after gesture
-          console.warn("🔇 Ringtone autoplay blocked:", err.name, err.message);
-          isPlaying = false;
-          // Re-throw so IncomingCallScreen knows to attach a gesture listener
-          throw err;
-        });
-    }
+    isPlaying = true;
+    console.log("🔔 Ringtone started (android_ringtone.mp3)");
   } catch (err) {
     console.error("startRingtone error:", err);
+    isPlaying = false;
     throw err;
   }
 };
 
-export const stopRingtone = () => {
+export const stopRingtone = async () => {
   try {
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-      isPlaying = false;
-      console.log("🔕 Ringtone stopped");
+    if (Platform.OS === 'web') {
+      if (webAudio) {
+        webAudio.pause();
+        webAudio.currentTime = 0;
+      }
+    } else {
+      if (nativeSound) {
+        await nativeSound.stopAsync();
+        await nativeSound.unloadAsync();
+        nativeSound = null;
+      }
     }
+    isPlaying = false;
+    console.log("🔕 Ringtone stopped");
   } catch (err) {
     console.error("stopRingtone error:", err);
   }

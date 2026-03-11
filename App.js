@@ -53,17 +53,14 @@ import { createNavigationContainerRef } from "@react-navigation/native";
 // 1. Create a ref to the navigation object
 export const navigationRef = createNavigationContainerRef();
 
-// 1. Device-Specific Ringtone Selector
+// 1. Device-Specific Ringtone Selector (Fallback for older web logic)
 const getRingtonePath = () => {
-  const ua = navigator.userAgent.toLowerCase();
-  if (/iphone|ipad|ipod/.test(ua)) return "/sounds/ios_ringtone.mp3";
-  if (/android/.test(ua)) return "/sounds/android_ringtone.mp3";
-  return "/sounds/android_ringtone.mp3";
+  return "/sounds/android_ringtone.mp3"; // standardizing on Android ringtone as requested
 };
 
 const linking = {
   // ✅ This tells the browser that links from this domain belong to the app
-  prefixes: ["https://afrodatingweb.vercel.app", window.location.origin],
+  prefixes: ["https://afrodatingweb.vercel.app", "https://didon.vercel.app", window.location.origin],
   config: {
     screens: {
       // ✅ This matches the path used in your Service Worker targetUrl
@@ -190,63 +187,64 @@ export default function App() {
   const [isPWA, setIsPWA] = useState(false);
   // const navigationRef = useRef();
 
+  // 🔹 Consolidated Service Worker Listener (Web/PWA only)
   useEffect(() => {
-    navigator.serviceWorker.addEventListener("message", (event) => {
-      if (event.data?.type === "INCOMING_CALL") {
-        startRingtone();
-      }
-    });
-  }, []);
+    if (Platform.OS !== "web" || !("serviceWorker" in navigator)) return;
 
-  useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      const handleMessage = (event) => {
-        if (event.data.type === "NAVIGATE_TO_CALL") {
-          // Force internal navigation
-          navigation.navigate("IncomingCallScreen", event.data.payload);
+    const handleSWMessage = (event) => {
+      const { type, payload } = event.data || {};
+      console.log("📨 [App] Message from Service Worker:", event.data);
+
+      if (type === "INCOMING_CALL") {
+        // Start ringtone immediately if not already ringing
+        startRingtone().catch(err => console.warn("Ringtone play failed:", err));
+
+        if (payload?.callUrl && navigationRef.current?.isReady?.()) {
+          navigationRef.current.navigate("IncomingCallScreen", {
+            callerName: payload.callerName || "Unknown",
+            callerId: payload.callerId || "",
+            callUrl: payload.callUrl,
+            room: payload.room || "",
+            callType: payload.callType || "video",
+            isCaller: false,
+          });
         }
-      };
-      navigator.serviceWorker.addEventListener("message", handleMessage);
-      return () =>
-        navigator.serviceWorker.removeEventListener("message", handleMessage);
-      // navigator 
-    }
-  }, []);
+      }
 
-  // Service Worker registration for PWA
+      if ((type === "NAVIGATE_TO_CALL" || type === "OPEN_CHAT") && payload) {
+        if (!navigationRef.current?.isReady?.()) {
+          console.warn("⚠ Navigation not ready yet, deferring...");
+          return;
+        }
+
+        if (type === "NAVIGATE_TO_CALL") {
+          navigationRef.current.navigate("IncomingCallScreen", payload);
+        } else if (payload.roomId) {
+          navigationRef.current.navigate("MessageScreen", {
+            roomIdxccd: payload.roomId,
+            focusMessageId: payload.messageId,
+          });
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleSWMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", handleSWMessage);
+  }, [loaded]);
+
+  // 🔹 PWA and Notification Logic
   useEffect(() => {
     if (Platform.OS === "web") {
-      // Check if already running as PWA
       setIsPWA(isPWAInstalled());
-
-      // Add manifest link if not exists
       if (!document.querySelector('link[rel="manifest"]')) {
         const manifestLink = document.createElement("link");
         manifestLink.rel = "manifest";
         manifestLink.href = "/manifest.json";
         document.head.appendChild(manifestLink);
-        console.log("✅ Added manifest.json");
       }
-
-      // Register service worker
-      registerServiceWorker().then((registration) => {
-        if (registration) {
-          console.log("PWA setup complete");
-        }
-      });
-
-      // Listen for PWA installation
-      window.addEventListener("appinstalled", (event) => {
-        console.log("PWA was installed");
-        setIsPWA(true);
-      });
-
-      // Cleanup function for web
-      return () => {
-        window.removeEventListener("appinstalled", () => { });
-      };
+      registerServiceWorker();
+      window.addEventListener("appinstalled", () => setIsPWA(true));
     } else {
-      // Set status bar for native apps (not web)
       StatusBar.setBarStyle("light-content");
     }
   }, []);
@@ -254,109 +252,42 @@ export default function App() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
-
-      // Request notification permission after 2 seconds (web only)
       if (Platform.OS === "web") {
-        setTimeout(() => {
-          const checkNotificationPermission = async () => {
-            try {
-              const hasBeenAsked = await AsyncStorage.getItem(
-                "notificationDealDOne",
-              );
-
-              if (!hasBeenAsked && Notification.permission === "default") {
-                setShowNotificationModal(true);
-              }
-            } catch (error) {
-              console.error("Error checking notification status:", error);
-              if (Notification.permission === "default") {
-                setShowNotificationModal(true);
-              }
-            }
-          };
-          checkNotificationPermission();
+        setTimeout(async () => {
+          const asked = await AsyncStorage.getItem("notificationDealDOne");
+          if (!asked && Notification.permission === "default") {
+            setShowNotificationModal(true);
+          }
         }, 2000);
       }
     }
   }, [loaded]);
 
-  // Event listeners for chat and navigation
+  // 🔹 Window Event Listeners (Chat/Navigation fallback)
   useEffect(() => {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      const handleOpenChatRoom = (event) => {
-        const { roomId, messageId } = event.detail;
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("ChatScreen", {
-            roomIdxccd: roomId,
-            focusMessageId: messageId,
-          });
-        }
-      };
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
 
-      const handleOpenChat = (event) => {
-        const data = event.detail;
-        if (navigationRef.current?.isReady?.() && data.roomId) {
-          navigationRef.current.navigate("ChatScreen", {
-            roomIdxccd: data.roomId,
-          });
-        }
-      };
-
-      window.addEventListener("openChatRoom", handleOpenChatRoom);
-      window.addEventListener("openChat", handleOpenChat);
-
-      return () => {
-        window.removeEventListener("openChatRoom", handleOpenChatRoom);
-        window.removeEventListener("openChat", handleOpenChat);
-      };
-    }
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    if (!navigator.serviceWorker) return;
-
-    const handler = (event) => {
-      const { type, payload } = event.data || {};
-
-      console.log("📩 Message from Service Worker:", event.data);
-
-      // 🔹 Open chat
-      if (type === "OPEN_CHAT" && payload?.roomId) {
-        console.log("navigating....");
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("MessageScreen", {
-            roomIdxccd: payload?.roomId,
-            focusMessageId: payload?.messageId,
-          });
-        } else {
-          console.warn("⚠ Navigation not ready yet");
-        }
-      }
-
-      // 🔹 Incoming call — navigate to IncomingCallScreen first (not directly to video room)
-      if (type === "INCOMING_CALL" && payload?.callUrl) {
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("IncomingCallScreen", {
-            callerName: payload?.callerName || "Unknown",
-            callerId: payload?.callerId || "",
-            callUrl: payload?.callUrl,
-            room: payload?.room || "",
-            callType: payload?.callType || "video",
-            isCaller: false,
-          });
-        } else {
-          // Fallback: open the incoming-call deep link URL if nav not ready yet
-          window.location.href = `/incoming-call?callUrl=${encodeURIComponent(payload.callUrl)}&callerId=${payload?.callerId || ""}&callerName=${encodeURIComponent(payload?.callerName || "")}&room=${payload?.room || ""}`;
-        }
+    const h1 = (e) => {
+      const { roomId, messageId } = e.detail;
+      if (navigationRef.current?.isReady?.()) {
+        navigationRef.current.navigate("ChatScreen", { roomIdxccd: roomId, focusMessageId: messageId });
       }
     };
 
-    navigator.serviceWorker.addEventListener("message", handler);
+    const h2 = (e) => {
+      if (navigationRef.current?.isReady?.() && e.detail.roomId) {
+        navigationRef.current.navigate("ChatScreen", { roomIdxccd: e.detail.roomId });
+      }
+    };
 
-    return () =>
-      navigator.serviceWorker.removeEventListener("message", handler);
+    window.addEventListener("openChatRoom", h1);
+    window.addEventListener("openChat", h2);
+    return () => {
+      window.removeEventListener("openChatRoom", h1);
+      window.removeEventListener("openChat", h2);
+    };
   }, []);
+
 
   const handleAllowNotifications = async () => {
     try {
