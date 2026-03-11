@@ -600,16 +600,25 @@ self.addEventListener("push", async (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   console.log("🔔 Notification clicked:", event.notification.data);
+  const data = event.notification.data || {};
+  const action = event.action;
+
   event.notification.close();
 
-  const data = event.notification.data || {};
+  // ⚡ Handle interactive actions (WhatsApp style)
+  if (action === "decline") {
+    console.log("❌ User declined call from notification");
+    // Optionally: Hit an endpoint to notify the caller
+    // For now, just closing is safer than complex fetch logic in worker
+    return;
+  }
 
   // Resolve the Room ID (Fallback to sender ID if room is missing)
   const room = data.room || data.roomId || data.sender?.id || data.sender;
 
   // Decide target URL based on whether it is a call
   let targetUrl = `/chat/${room}`;
-  if (data.isCall || data.type === "incoming_call") {
+  if (data.isCall || data.type === "incoming_call" || action === "answer") {
     // Navigate to the incoming call screen instead matching React Navigation config
     targetUrl = `/incoming-call?callUrl=${encodeURIComponent(data.callUrl)}&callerId=${data.callerId || ""}&callerName=${encodeURIComponent(data.senderName || "")}&room=${room}`;
   }
@@ -635,7 +644,7 @@ self.addEventListener("notificationclick", (event) => {
             await client.focus();
 
             // 3. Tell the app to open the right screen internally
-            if (data.isCall || data.type === "incoming_call") {
+            if (data.isCall || data.type === "incoming_call" || action === "answer") {
               return client.postMessage({
                 type: "INCOMING_CALL",
                 payload: {

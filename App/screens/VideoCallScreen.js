@@ -61,14 +61,16 @@ export default function VideoCallScreen() {
   // Socket ref for signalling call-end to the other party
   const socketRef = useRef(null);
   const partnerIdRef = useRef(null);
+  const roomRef = useRef(null);
   // State to track if we've already tried to emit acceptance
   const acceptanceEmitted = useRef(false);
+  const [isConnecting, setIsConnecting] = useState(true);
 
   // Stable ref to always have the latest endCall — avoids stale closure in socket listeners
   const endCallRef = useRef(null);
   useEffect(() => {
     endCallRef.current = endCall;
-  });
+  }, [endCall]);
 
   useEffect(() => {
     const loadCallData = async () => {
@@ -325,6 +327,7 @@ export default function VideoCallScreen() {
   const handleIframeLoad = () => {
     console.log("✅ Iframe loaded");
     setIframeLoaded(true);
+    setIsConnecting(false); // ⚡ Hide connecting overlay when iframe starts rendering
 
     if (
       Platform.OS === "web" &&
@@ -495,6 +498,15 @@ export default function VideoCallScreen() {
     <SafeAreaView style={styles.container}>
       {/* Main iframe */}
       {renderIframe()}
+
+      {/* ⚡ CONNECTING OVERLAY: Show while WebRTC is initializing */}
+      {isConnecting && (
+        <View style={[styles.callEndedOverlay, { backgroundColor: "rgba(0,0,0,0.85)" }]}>
+          <ActivityIndicator size="large" color="#4ecdc4" />
+          <Text style={[styles.callEndedText, { fontSize: 24 }]}>Connecting...</Text>
+          <Text style={styles.callEndedSubtext}>Establishing secure connection</Text>
+        </View>
+      )}
 
       {/* Controls */}
       <View style={styles.controlsContainer}>

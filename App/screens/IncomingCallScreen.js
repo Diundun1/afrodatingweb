@@ -156,6 +156,16 @@ export default function IncomingCallScreen({ route }) {
     Vibration.cancel();
     stopRingtone();
 
+    // ⚡ IMMEDIATE SIGNALING: Notify caller right away so their UI transitions instantly
+    if (socketRef.current && callerId) {
+      socketRef.current.emit("callAccepted", {
+        room: room,
+        recipientId: callerId,
+        callUrl: callUrl,
+      });
+      console.log("📤 Emitted callAccepted to caller (pre-navigation transition)");
+    }
+
     // Persist room and caller-flag so VideoCallScreen knows its role
     await Promise.all([
       room ? AsyncStorage.setItem("callRoom", room) : Promise.resolve(),
@@ -229,18 +239,13 @@ export default function IncomingCallScreen({ route }) {
           </Animated.View>
 
           <Text style={styles.nameText}>{callerName || "Unknown Caller"}</Text>
-          <Text style={styles.subtitle}>Incoming Call </Text>
+          <Text style={styles.subtitle}>Incoming {callType === 'voice' ? 'Voice' : 'Video'} Call</Text>
 
           {/* Call status with animation */}
           <View style={styles.callStatus}>
             <View style={styles.pulseDot} />
-            <Text style={styles.callStatusText}>Calling...</Text>
+            <Text style={styles.callStatusText}>Ringing...</Text>
           </View>
-
-          {/* Audio status for debugging */}
-          <Text style={styles.debugText}>
-            Audio: {isAudioReady ? "Ready" : "Loading..."}
-          </Text>
         </View>
 
         {/* Action Buttons */}

@@ -108,6 +108,13 @@ export default function ChatScreen() {
           ? (lm?.message ?? "No messages yet")
           : (lm ?? "No messages yet");
 
+      // Resolve human-readable text for missed calls
+      let resolvedLastMessage = lastMessageText;
+      if (lastMessageText === "_MISSED_VOICE_CALL_")
+        resolvedLastMessage = "Missed voice call";
+      else if (lastMessageText === "_MISSED_VIDEO_CALL_")
+        resolvedLastMessage = "Missed video call";
+
       // const lastMessageTime =
       //   typeof lm === "object" && lm.sent_at
       //     ? new Date(lm.sent_at).toLocaleTimeString([], {
@@ -118,9 +125,9 @@ export default function ChatScreen() {
       const lastMessageTime =
         lm && typeof lm === "object" && lm.sent_at
           ? new Date(lm.sent_at).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
+            hour: "2-digit",
+            minute: "2-digit",
+          })
           : "N/A";
 
       // ✔ FIXED PROFILE PIC
@@ -132,7 +139,7 @@ export default function ChatScreen() {
       return {
         id: chat.match?._id || chat.chatUser?._id || `${index}`,
         name: chat.chatUser?.name || "Unknown User",
-        lastMessage: lastMessageText,
+        lastMessage: resolvedLastMessage,
         lastMessageTime,
         unreadMessageCount: chat.chatMetadata?.unreadCount || 0,
         roomId: chat.room,
@@ -323,6 +330,11 @@ export default function ChatScreen() {
                   style={{ marginTop: 10, lineHeight: 20 }}
                 />{" "}
                 Call Session
+              </Text>
+            ) : chat.lastMessage.toLowerCase().includes("missed") ? (
+              <Text style={{ color: "#EF4444", fontWeight: "600" }}>
+                <MaterialIcons name="call-missed" size={16} color="#EF4444" />{" "}
+                {chat.lastMessage}
               </Text>
             ) : (
               chat.lastMessage

@@ -196,8 +196,19 @@ export default function OutgoingCallScreen({ route }) {
         callEndedRef.current = true;
         stopCallingTone();
 
-        // Notify partner
+        // Notify partner and LOG MISSED CALL if not connected
         if (socketRef.current?.connected) {
+            // If we are hanging up before they picked up, log it as a missed call
+            if (callState !== CALL_STATES.CONNECTED) {
+                const missedMsg = callType === "video" ? "_MISSED_VIDEO_CALL_" : "_MISSED_VOICE_CALL_";
+                socketRef.current.emit("sendMessage", {
+                    room,
+                    recipient: partnerId,
+                    message: missedMsg,
+                });
+                console.log(`📝 Logged missed ${callType} call in chat`);
+            }
+
             socketRef.current.emit("callEnded", { room, recipientId: partnerId });
             socketRef.current.emit("callCancelled", { room, recipientId: partnerId });
         }
