@@ -268,8 +268,8 @@ export function SocketProvider({ children }) {
           console.log("📞 callInvitation received:", { callerName, callerId, room, callType });
 
           // ⚡ Navigate FIRST — instant popup with no await delay
-          if (navigationRef.current?.isReady?.()) {
-            navigationRef.current.navigate("IncomingCallScreen", {
+          if (navigationRef.isReady()) {
+            navigationRef.navigate("IncomingCallScreen", {
               callerName: callerName || "Unknown",
               callerId,
               callUrl,
@@ -277,6 +277,20 @@ export function SocketProvider({ children }) {
               callType: callType || "video",
               isCaller: false,
             });
+          } else {
+            // Nav not ready yet — retry after a short delay (first load edge case)
+            setTimeout(() => {
+              if (navigationRef.isReady()) {
+                navigationRef.navigate("IncomingCallScreen", {
+                  callerName: callerName || "Unknown",
+                  callerId,
+                  callUrl,
+                  room,
+                  callType: callType || "video",
+                  isCaller: false,
+                });
+              }
+            }, 500);
           }
 
           // Background: persist data + show push notification (non-blocking)

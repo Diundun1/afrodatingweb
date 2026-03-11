@@ -43,7 +43,6 @@ export default function IncomingCallScreen({ route }) {
   const startCallAnimations = () => {
     // Simulate phone vibration on incoming call
     Vibration.vibrate([500, 1000, 500, 1000], true);
-    setVibrating(true);
 
     // Pulse animation for avatar
     Animated.loop(
