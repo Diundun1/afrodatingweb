@@ -363,25 +363,26 @@ export function SocketProvider({ children }) {
     return cleanup;
   }, []);
 
-  // ✅ Helper function to emit events
-  const emit = useCallback((event, data, callback) => {
-    if (!socketRef.current || !socketRef.current.connected) {
-      logger.error(`Cannot emit ${event} - socket not connected`);
-      return false;
-    }
+  // ✅ Centralized Signaling Helpers
+  const answerCall = useCallback((data) => {
+    const { room, recipientId, callUrl } = data;
+    emit("callAccepted", { room, recipientId, callUrl });
+    logger.success("Call accepted signal sent", { room, recipientId });
+  }, [emit]);
 
-    logger.event(`Emitting ${event}`, data);
+  const declineCall = useCallback((data) => {
+    const { room, recipientId } = data;
+    emit("callDeclined", { room, recipientId });
+    logger.success("Call declined signal sent", { room, recipientId });
+  }, [emit]);
 
-    if (callback) {
-      socketRef.current.emit(event, data, callback);
-    } else {
-      socketRef.current.emit(event, data);
-    }
+  const endCall = useCallback((data) => {
+    const { room, recipientId } = data;
+    emit("callEnded", { room, recipientId });
+    logger.success("Call ended signal sent", { room, recipientId });
+  }, [emit]);
 
-    return true;
-  }, []);
-
-  // ✅ FIXED: Include isConnected in deps so consumers re-render on connection changes
+  // ✅ FIXED: Include helper functions in context
   const contextValue = {
     socket: socketRef.current,
     socketRef,
@@ -389,6 +390,9 @@ export function SocketProvider({ children }) {
     onMessageReceived,
     emit,
     getSocket,
+    answerCall,
+    declineCall,
+    endCall,
   };
 
   return (

@@ -49,6 +49,7 @@ import ForgotPasswordScreen from "./App/screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "./App/screens/ResetPasswordScreen";
 import RegisterForPushNotificationsAsync from "./App/lib/RegisterForPushNotificationsAsync";
 import { createNavigationContainerRef } from "@react-navigation/native";
+import { startRingtone, stopRingtone } from "./ringtone";
 
 // 1. Create a ref to the navigation object
 export const navigationRef = createNavigationContainerRef();
@@ -220,7 +221,8 @@ export default function App() {
         if (type === "NAVIGATE_TO_CALL") {
           navigationRef.current.navigate("IncomingCallScreen", payload);
         } else if (payload.roomId) {
-          navigationRef.current.navigate("MessageScreen", {
+          console.log("🚀 Navigating to ChatScreen for room:", payload.roomId);
+          navigationRef.current.navigate("ChatScreen", {
             roomIdxccd: payload.roomId,
             focusMessageId: payload.messageId,
           });

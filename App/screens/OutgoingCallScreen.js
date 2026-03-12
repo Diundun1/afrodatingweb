@@ -15,7 +15,7 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { startCallingTone, stopCallingTone } from "../../outboundRingtone";
-import initializeSocket from "../lib/socket";
+import { useSocket } from "../lib/SocketContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -45,7 +45,7 @@ export default function OutgoingCallScreen({ route }) {
 
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    const socketRef = useRef(null);
+    const { socketRef } = useSocket();
     const callingToneStarted = useRef(false);
     const timerRef = useRef(null);
     const callEndedRef = useRef(false);
@@ -115,11 +115,18 @@ export default function OutgoingCallScreen({ route }) {
             const token = await AsyncStorage.getItem("userToken");
             if (!token) return;
 
-            socket = initializeSocket(
-                "https://backend-afrodate-8q6k.onrender.com/messaging",
-                token
-            );
-            socketRef.current = socket;
+            // 1. Initial Emit: Send the invitation
+            AsyncStorage.getItem("loggedInUserId").then(userId => {
+                socket.emit("callInvitation", {
+                    room,
+                    recipientId: partnerId,
+                    callerId: userId,
+                    callerName: "Someone",
+                    callUrl,
+                    callType,
+                });
+                console.log("📤 Emitted callInvitation to", partnerId);
+            });
 
             // Recipient's device received the invitation → show "Ringing"
             socket.on("callInvitationDelivered", () => {

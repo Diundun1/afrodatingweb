@@ -726,9 +726,10 @@ const MessageScreen = ({ route }) => {
 
     try {
       setIsProcessingCall(true);
-      const [loggedInUserId, loggedInUserName] = await Promise.all([
+      const [loggedInUserId, loggedInUserName, loggedInUserPic] = await Promise.all([
         AsyncStorage.getItem("loggedInUserId"),
         AsyncStorage.getItem("loggedInUserName"),
+        AsyncStorage.getItem("loggedInUserProfilePic"),
       ]);
       const callerName = loggedInUserName || "Unknown";
 
@@ -767,6 +768,12 @@ const MessageScreen = ({ route }) => {
         };
 
         console.log("📞 Emitting video call invitation:", callPayload);
+
+        if (!isConnected) {
+          Alert.alert("Connection Error", "Reconnecting to server... please try again in a moment.");
+          return;
+        }
+
         emit("callInvitation", callPayload);
 
         // Send call link as message using emit

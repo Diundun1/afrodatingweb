@@ -18,12 +18,21 @@ export const startRingtone = async () => {
   try {
     if (Platform.OS === 'web') {
       if (!webAudio) {
-        webAudio = new window.Audio('/sounds/android_ringtone.mp3');
+        // Detect platform to choose ringtone
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(userAgent);
+        const ringtoneFile = isIOS ? 'ios_ringtone.mp3' : 'android_ringtone.mp3';
+
+        webAudio = new window.Audio(`/sounds/${ringtoneFile}`);
         webAudio.loop = true;
       }
       await webAudio.play();
     } else {
       // Native (Android/iOS)
+      // The user requested that mobile 'automatically takes the user default ringtone'.
+      // For background notifications, the OS handles this.
+      // For in-app incoming call screen, we'll continue using this high-quality fallback 
+      // unless the system sound is specifically requested via a native module.
       if (nativeSound) {
         await nativeSound.unloadAsync();
       }

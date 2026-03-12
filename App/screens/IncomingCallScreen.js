@@ -11,11 +11,13 @@ import {
   Dimensions,
   Platform,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { useSocket } from "../lib/SocketContext";
 import { startRingtone, stopRingtone } from "../../ringtone";
+import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 
 const { width, height } = Dimensions.get("window");
 
@@ -31,7 +33,14 @@ export default function IncomingCallScreen({ route }) {
   // Start animations + ringtone as soon as the screen mounts
   useEffect(() => {
     startCallAnimations();
-    attemptPlayRingtone();
+    startRingtone().catch(err => console.warn("Ringtone error:", err));
+    ringtoneStarted.current = true;
+
+    // ⚡ AUTO-ANSWER from notification
+    if (route.params?.autoAnswer) {
+      console.log("⚡ Auto-answering call as requested by notification");
+      handleAccept();
+    }
 
     return () => {
       Vibration.cancel();
@@ -71,39 +80,6 @@ export default function IncomingCallScreen({ route }) {
     }).start();
   };
 
-  // Browsers block autoplay without a prior user gesture.
-  // This function tries to play immediately; if blocked it sets up a
-  // one-time interaction listener that unlocks and plays on first tap/key.
-  const attemptPlayRingtone = () => {
-    if (ringtoneStarted.current) return;
-
-    const tryPlay = () => {
-      if (ringtoneStarted.current) return;
-      try {
-        startRingtone();
-        ringtoneStarted.current = true;
-        console.log("✅ Ringtone started");
-        // Remove autoplay-unlock listeners once playing
-        if (Platform.OS === "web") {
-          document.removeEventListener("click", tryPlay);
-          document.removeEventListener("touchstart", tryPlay);
-          document.removeEventListener("keydown", tryPlay);
-        }
-      } catch (err) {
-        console.error("Ringtone play failed:", err);
-      }
-    };
-
-    // Attempt immediate play
-    tryPlay();
-
-    // Fallback: unlock on first user interaction (browser autoplay policy)
-    if (!ringtoneStarted.current && Platform.OS === "web") {
-      document.addEventListener("click", tryPlay, { once: true });
-      document.addEventListener("touchstart", tryPlay, { once: true });
-      document.addEventListener("keydown", tryPlay, { once: true });
-    }
-  };
 
   // const stopRingtone = async () => {
   //   try {
@@ -119,36 +95,27 @@ export default function IncomingCallScreen({ route }) {
   //   }
   // };
 
-  // Socket ref for signaling decline and listening for cancel
-  const socketRef = useRef(null);
+  const { socket, answerCall, declineCall } = useSocket();
 
   useEffect(() => {
-    let socket = null;
-    const setupSocket = async () => {
-      const token = await AsyncStorage.getItem("userToken");
-      if (token) {
-        socket = initializeSocket("https://backend-afrodate-8q6k.onrender.com/messaging", token);
-        socketRef.current = socket;
+    if (!socket) return;
 
-        // Listen for caller hanging up while ringing
-        const handleRemoteCancel = () => {
-          console.log("📞 Caller cancelled/ended call — stopping ringtone");
-          stopRingtone();
-          Vibration.cancel();
-          navigation.goBack();
-        };
-
-        socket.on("callEnded", handleRemoteCancel);
-        socket.on("callCancelled", handleRemoteCancel);
-      }
+    // Listen for caller hanging up while ringing
+    const handleRemoteCancel = () => {
+      console.log("📞 Caller cancelled/ended call — stopping ringtone");
+      stopRingtone();
+      Vibration.cancel();
+      navigation.goBack();
     };
-    setupSocket();
+
+    socket.on("callEnded", handleRemoteCancel);
+    socket.on("callCancelled", handleRemoteCancel);
+
     return () => {
-      if (socket) {
-        socket.disconnect();
-      }
+      socket.off("callEnded", handleRemoteCancel);
+      socket.off("callCancelled", handleRemoteCancel);
     };
-  }, []);
+  }, [socket]);
 
 
   const handleAccept = async () => {
@@ -156,15 +123,8 @@ export default function IncomingCallScreen({ route }) {
     Vibration.cancel();
     stopRingtone();
 
-    // ⚡ IMMEDIATE SIGNALING: Notify caller right away so their UI transitions instantly
-    if (socketRef.current && callerId) {
-      socketRef.current.emit("callAccepted", {
-        room: room,
-        recipientId: callerId,
-        callUrl: callUrl,
-      });
-      console.log("📤 Emitted callAccepted to caller (pre-navigation transition)");
-    }
+    // ⚡ CENTRALIZED SIGNALING
+    answerCall({ room, recipientId: callerId, callUrl });
 
     // Persist room and caller-flag so VideoCallScreen knows its role
     await Promise.all([
@@ -187,30 +147,28 @@ export default function IncomingCallScreen({ route }) {
     Vibration.cancel();
     stopRingtone();
 
-    // Notify caller that call was declined
-    if (socketRef.current && callerId) {
-      socketRef.current.emit("callDeclined", {
-        room: room,
-        recipientId: callerId,
-      });
-      console.log("📤 Emitted callDeclined to", callerId);
-    }
+    // ⚡ CENTRALIZED SIGNALING
+    declineCall({ room, recipientId: callerId });
 
     navigation.goBack();
   };
 
 
   return (
-    <LinearGradient
-      colors={["#1a1a2e", "#16213e", "#0f3460"]}
-      style={styles.container}
-    >
-      {/* Background decorative elements */}
-      <View style={styles.backgroundCircles}>
-        <View style={[styles.circle, styles.circle1]} />
-        <View style={[styles.circle, styles.circle2]} />
-        <View style={[styles.circle, styles.circle3]} />
-      </View>
+    <View style={styles.container}>
+      {/* Blurred Background with Potential Image */}
+      <Image
+        source={require("../../assets/images/appIco.png")}
+        style={StyleSheet.absoluteFillObject}
+        blurRadius={Platform.OS === 'ios' ? 0 : 20}
+      />
+      {Platform.OS === 'ios' && (
+        <BlurView intensity={80} style={StyleSheet.absoluteFillObject} tint="dark" />
+      )}
+      <LinearGradient
+        colors={["rgba(26,26,46,0.6)", "rgba(15,52,96,0.9)"]}
+        style={StyleSheet.absoluteFillObject}
+      />
 
       <View style={styles.content}>
         {/* Caller Info Section */}
@@ -223,25 +181,21 @@ export default function IncomingCallScreen({ route }) {
               },
             ]}
           >
-            <LinearGradient
-              colors={["#667eea", "#764ba2"]}
-              style={styles.avatarGradient}
-            >
+            <View style={styles.avatarWrapper}>
               <Image
                 source={require("../../assets/images/appIco.png")}
-                style={styles.avatar}
+                style={styles.avatarMain}
               />
-            </LinearGradient>
+            </View>
 
-            {/* Animated rings */}
+            {/* Pulsing rings */}
             <View style={styles.ring} />
             <View style={[styles.ring, styles.ring2]} />
           </Animated.View>
 
-          <Text style={styles.nameText}>{callerName || "Unknown Caller"}</Text>
+          <Text style={styles.nameText}>{callerName || "Someone New"}</Text>
           <Text style={styles.subtitle}>Incoming {callType === 'voice' ? 'Voice' : 'Video'} Call</Text>
 
-          {/* Call status with animation */}
           <View style={styles.callStatus}>
             <View style={styles.pulseDot} />
             <Text style={styles.callStatusText}>Ringing...</Text>
@@ -257,135 +211,104 @@ export default function IncomingCallScreen({ route }) {
             },
           ]}
         >
-          <TouchableOpacity
-            style={styles.buttonWrapper}
-            onPress={handleDecline}
-          >
-            <LinearGradient
-              colors={["#ff6b6b", "#ee5a52"]}
-              style={[styles.button, styles.decline]}
+          <View style={styles.buttonCol}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.declineButton]}
+              onPress={handleDecline}
             >
-              <Ionicons name="close" size={32} color="#fff" />
-            </LinearGradient>
+              <Ionicons name="close-outline" size={38} color="#fff" />
+            </TouchableOpacity>
             <Text style={styles.buttonLabel}>Decline</Text>
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity style={styles.buttonWrapper} onPress={handleAccept}>
-            <LinearGradient
-              colors={["#4ecdc4", "#44a08d"]}
-              style={[styles.button, styles.accept]}
+          <View style={styles.buttonCol}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.acceptButton]}
+              onPress={handleAccept}
             >
-              <Ionicons name="call" size={32} color="#fff" />
-            </LinearGradient>
+              <Ionicons name="call" size={34} color="#fff" />
+            </TouchableOpacity>
             <Text style={styles.buttonLabel}>Accept</Text>
-          </TouchableOpacity>
+          </View>
         </Animated.View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  backgroundCircles: {
-    position: "absolute",
-    width: width,
-    height: height,
-  },
-  circle: {
-    position: "absolute",
-    borderRadius: 500,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-  },
-  circle1: {
-    width: 300,
-    height: 300,
-    top: -100,
-    right: -100,
-  },
-  circle2: {
-    width: 200,
-    height: 200,
-    bottom: 100,
-    left: -50,
-  },
-  circle3: {
-    width: 150,
-    height: 150,
-    bottom: 200,
-    right: 50,
+    backgroundColor: "#000",
   },
   content: {
     flex: 1,
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 80,
+    paddingVertical: 100,
   },
   header: {
     alignItems: "center",
-    marginTop: 60,
+    marginTop: 40,
   },
   avatarContainer: {
-    width: 140,
-    height: 140,
+    width: 180,
+    height: 180,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 30,
-    position: "relative",
+    marginBottom: 40,
   },
-  avatarGradient: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#667eea",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    tintColor: "#fff",
-  },
-  ring: {
-    position: "absolute",
+  avatarWrapper: {
     width: 140,
     height: 140,
     borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    padding: 3,
     borderWidth: 2,
-    borderColor: "rgba(102, 126, 234, 0.3)",
-    zIndex: -1,
+    borderColor: "rgba(255,255,255,0.3)",
+    overflow: "hidden",
+  },
+  avatarMain: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 67,
+  },
+  ring: {
+    position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.2)",
   },
   ring2: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderColor: "rgba(102, 126, 234, 0.1)",
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   nameText: {
     color: "#fff",
-    fontSize: 32,
-    fontWeight: "700",
-    marginBottom: 8,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    fontSize: 34,
+    fontWeight: "800",
+    marginBottom: 10,
+    textAlign: "center",
+    letterSpacing: 0.5,
   },
   subtitle: {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 18,
-    marginBottom: 20,
+    color: "rgba(255, 255, 255, 0.75)",
+    fontSize: 19,
     fontWeight: "500",
+    letterSpacing: 0.2,
   },
   callStatus: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 15,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   pulseDot: {
     width: 8,
@@ -395,46 +318,42 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   callStatusText: {
-    color: "rgba(255, 255, 255, 0.6)",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  debugText: {
-    color: "#888",
-    fontSize: 12,
-    marginTop: 10,
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
   },
   buttonsContainer: {
     flexDirection: "row",
-    gap: 60,
-    paddingHorizontal: 40,
+    width: "100%",
+    justifyContent: "space-around",
+    paddingHorizontal: 30,
+    marginBottom: 20,
   },
-  buttonWrapper: {
+  buttonCol: {
     alignItems: "center",
-    marginBottom: 100,
+    gap: 12,
   },
-  button: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  actionButton: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 8,
   },
-  decline: {
-    shadowColor: "#ff6b6b",
+  declineButton: {
+    backgroundColor: "#FF3B30",
   },
-  accept: {
-    shadowColor: "#4ecdc4",
+  acceptButton: {
+    backgroundColor: "#34C759",
   },
   buttonLabel: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 14,
+    color: "#fff",
+    fontSize: 16,
     fontWeight: "600",
-    marginTop: 12,
   },
 });
