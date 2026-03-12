@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { API_URL } from "../lib/config";
 import MyStatusBar from "../components/MyStatusBar";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -187,9 +188,9 @@ export default function SignupScreen() {
       location:
         latitude && longitude
           ? {
-              type: "Point",
-              coordinates: [longitude, latitude],
-            }
+            type: "Point",
+            coordinates: [longitude, latitude],
+          }
           : null,
     };
 
@@ -197,7 +198,7 @@ export default function SignupScreen() {
 
     try {
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/register",
+        `${API_URL}/auth/register`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

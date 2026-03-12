@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "../lib/config";
 import NunitoText from "../components/NunitoText";
 import MyStatusBar from "../components/MyStatusBar";
 
@@ -52,7 +53,7 @@ export default function LoginScreen() {
 
     try {
       const response = await fetch(
-        "https://backend-afrodate-8q6k.onrender.com/api/v1/auth/login",
+        `${API_URL}/auth/login`,
         {
           method: "POST",
           headers: {

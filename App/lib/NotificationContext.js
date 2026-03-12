@@ -96,6 +96,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Platform } from "react-native";
+import { API_URL } from "./config";
 
 const NotificationContext = createContext(null);
 
@@ -128,7 +129,7 @@ export const NotificationProvider = ({ children }) => {
     if (!token) return;
 
     const res = await fetch(
-      "https://backend-afrodate-8q6k.onrender.com/api/v1/notifications",
+      `${API_URL}/notifications`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -144,7 +145,7 @@ export const NotificationProvider = ({ children }) => {
     if (!token) return;
 
     const res = await fetch(
-      "https://backend-afrodate-8q6k.onrender.com/api/v1/notifications/unread-count",
+      `${API_URL}/notifications/unread-count`,
       {
         headers: { Authorization: `Bearer ${token}` },
       },
@@ -157,7 +158,7 @@ export const NotificationProvider = ({ children }) => {
   /* -------------------- MARK READ -------------------- */
   const markAsRead = async (id) => {
     await fetch(
-      "https://backend-afrodate-8q6k.onrender.com/api/v1/notifications/mark-read",
+      `${API_URL}/notifications/mark-read`,
       {
         method: "PATCH",
         headers: {

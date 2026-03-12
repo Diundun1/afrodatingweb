@@ -20,6 +20,7 @@ import { MaterialIcons, FontAwesome, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSocket } from "../lib/SocketContext";
+import { API_URL } from "../lib/config";
 
 const { width, height } = Dimensions.get("window");
 
@@ -27,7 +28,7 @@ const { width, height } = Dimensions.get("window");
 const chatService = {
   fetchChats: async (token) => {
     const response = await fetch(
-      `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users`,
+      `${API_URL}/messages/chat-users`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -46,7 +47,7 @@ const chatService = {
 
   deleteChat: async (token, otherUserId) => {
     const response = await fetch(
-      `https://backend-afrodate-8q6k.onrender.com/api/v1/messages/conversations/${otherUserId}`,
+      `${API_URL}/messages/conversations/${otherUserId}`,
       {
         method: "DELETE",
         headers: {

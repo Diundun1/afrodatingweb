@@ -398,7 +398,7 @@ self.addEventListener("notificationclick", (event) => {
                 type: "INCOMING_CALL",
                 payload: {
                   callUrl: data.callUrl,
-                  callerId: data.callerId || data.data?.senderId,
+                  callerId: data.callerId || data.senderId,
                   callerName: data.senderName,
                   room: room,
                   callType: data.callType || "video",

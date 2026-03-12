@@ -1,3 +1,6 @@
+import { Platform } from 'react-native';
+import { API_URL } from "./config";
+
 const isPushNotificationSupported = () => {
   return (
     typeof navigator !== "undefined" &&
@@ -219,7 +222,7 @@ const sendSubscriptionToBackend = async (subscription, userId) => {
     }
 
     const response = await fetch(
-      "https://backend-afrodate-8q6k.onrender.com/api/v1/push/subscribe",
+      `${API_URL}/push/subscribe`,
       {
         method: "POST",
         headers: {

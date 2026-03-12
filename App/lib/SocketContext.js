@@ -12,6 +12,7 @@ import {
   sendMessageNotification,
   sendCallNotification,
 } from "../lib/RegisterForPushNotificationsAsync";
+import { SOCKET_URL, API_URL } from "./config";
 import { AppState } from "react-native";
 import { useCall } from "./CallContext";
 import { useNavigation } from "@react-navigation/native";
@@ -35,11 +36,11 @@ export function SocketProvider({ children }) {
   const listenerCleanupRef = useRef([]);
 
   const logger = {
-    info: (msg, data) => console.log(`ℹ ${msg}`, data || ""),
+    info: (msg, data) => __DEV__ && console.log(`ℹ ${msg}`, data || ""),
     warn: (msg, data) => console.warn(`⚠ ${msg}`, data || ""),
     error: (msg, data) => console.error(`❌ ${msg}`, data || ""),
-    success: (msg, data) => console.log(`✅ ${msg}`, data || ""),
-    event: (name, data) => console.log(`📡 EVENT: ${name}`, data || ""),
+    success: (msg, data) => __DEV__ && console.log(`✅ ${msg}`, data || ""),
+    event: (name, data) => __DEV__ && console.log(`📡 EVENT: ${name}`, data || ""),
   };
 
   // ✅ FIXED: Memoized to prevent recreating on every render
@@ -66,7 +67,7 @@ export function SocketProvider({ children }) {
           if (token) {
             try {
               const response = await fetch(
-                "https://backend-afrodate-8q6k.onrender.com/api/v1/messages/chat-users",
+                `${API_URL}/messages/chat-users`,
                 {
                   headers: {
                     "Content-Type": "application/json",
@@ -238,7 +239,7 @@ export function SocketProvider({ children }) {
         if (!token || !userId) return;
 
         const socket = initializeSocket(
-          "https://backend-afrodate-8q6k.onrender.com/messaging",
+          SOCKET_URL,
           token,
         );
 

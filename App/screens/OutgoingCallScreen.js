@@ -116,16 +116,19 @@ export default function OutgoingCallScreen({ route }) {
             if (!token) return;
 
             // 1. Initial Emit: Send the invitation
-            AsyncStorage.getItem("loggedInUserId").then(userId => {
+            Promise.all([
+                AsyncStorage.getItem("loggedInUserId"),
+                AsyncStorage.getItem("loggedInUserName")
+            ]).then(([userId, userName]) => {
                 socket.emit("callInvitation", {
                     room,
                     recipientId: partnerId,
                     callerId: userId,
-                    callerName: "Someone",
+                    callerName: userName || "User",
                     callUrl,
                     callType,
                 });
-                console.log("📤 Emitted callInvitation to", partnerId);
+                console.log("📤 Emitted callInvitation to", partnerId, "as", userName || "User");
             });
 
             // Recipient's device received the invitation → show "Ringing"
