@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
-  Animated,
-  Alert,
+  Vibration,
+  PanResponder,
 } from "react-native";
 import { MaterialIcons, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -38,23 +38,82 @@ export default function VideoCallScreen() {
   const route = useRoute();
   const iframeRef = useRef(null);
 
-  const { partnerName: initialPartnerName, callUrl: initialCallUrl } = route.params || {};
+  const { 
+    partnerName: initialPartnerName, 
+    callUrl: initialCallUrl, 
+    callType: initialCallType, 
+    partnerPic: initialPartnerPic,
+    room: initialRoom
+  } = route.params || {};
 
+  const [room, setRoom] = useState(initialRoom || "");
+
+  const [callType, setCallType] = useState(initialCallType || "video");
   const [callUrl, setCallUrl] = useState(initialCallUrl || "");
   const [partnerName, setPartnerName] = useState(initialPartnerName || "");
+  const [partnerPic, setPartnerPic] = useState(initialPartnerPic || "");
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
   const [callEnded, setCallEnded] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const [isRemoteMuted, setIsRemoteMuted] = useState(false);
+  const [isSwapped, setIsSwapped] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [cameraType, setCameraType] = useState(Camera.Constants.Type.front);
 
   const controlsVisible = useRef(new Animated.Value(1)).current;
   const lastTouch = useRef(0);
+  const controlsTimer = useRef(null);
+
+  // Draggable Pan state
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: (e, gestureState) => {
+        pan.flattenOffset();
+        const { dx, dy } = gestureState;
+        const currentX = pan.x._value;
+        const currentY = pan.y._value;
+
+        // Snap logic
+        const snapX = currentX > 0 ? (width - 140) : 0; 
+        const snapY = currentY > 0 ? (height - 300) : 0;
+
+        Animated.spring(pan, {
+          toValue: { x: snapX, y: snapY },
+          useNativeDriver: false,
+        }).start();
+      },
+    })
+  ).current;
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasPermission(status === "granted");
+    })();
+  }, []);
 
   const callContext = useCall();
   const { setInCall, setParticipant } = callContext || {};
+
+  const socketContext = (() => {
+    try {
+      const { useSocket } = require("../lib/SocketContext");
+      return useSocket();
+    } catch (e) {
+      return null;
+    }
+  })();
 
   useEffect(() => {
     const loadCallData = async () => {
@@ -116,13 +175,43 @@ export default function VideoCallScreen() {
     }
   };
 
-  const toggleMute = () => {
+  const toggleMute = async () => {
     const newState = !isMuted;
     setIsMuted(newState);
     sendCommandToIframe("mute", newState);
+    
+    // Emit mute status to partner
+    const partnerId = await AsyncStorage.getItem("partnerId");
+    const roomId = room || (route.params?.room);
+    if (socketContext?.emit && partnerId) {
+      socketContext.emit("muteStatus", { to: partnerId, room: roomId, isMuted: newState });
+    }
   };
 
   const toggleVideo = () => {
+    if (callType === "voice") {
+      // Prompt for upgrade
+      Alert.alert(
+        "Request Video",
+        "Would you like to request a video call upgrade?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Request", 
+            onPress: async () => {
+              const partnerId = await AsyncStorage.getItem("partnerId");
+              const roomId = room || (route.params?.room);
+              if (socketContext?.emit && partnerId) {
+                socketContext.emit("videoUpgradeRequest", { to: partnerId, room: roomId });
+                Alert.alert("Request Sent", "Waiting for partner to accept...");
+              }
+            }
+          }
+        ]
+      );
+      return;
+    }
+
     const newState = !isVideoOn;
     setIsVideoOn(newState);
     sendCommandToIframe("video", newState);
@@ -143,6 +232,94 @@ export default function VideoCallScreen() {
     }
   }, []);
 
+  // Socket listeners for signaling states
+  // No longer needed as we call it above
+
+  useEffect(() => {
+    if (!socketContext?.socketRef?.current) return;
+
+    const onCallDeclined = (data) => {
+      console.log("📲 [CALL] Recipient declined call");
+      setIsBusy(true);
+      setTimeout(() => handleCallEnded(), 2000);
+    };
+
+    const onCallEnded = (data) => {
+      console.log("📲 [CALL] Call ended by remote");
+      handleCallEnded();
+    };
+
+    const onCallAccepted = (data) => {
+      console.log("📲 [CALL] Call accepted!");
+    };
+
+    const onRemoteMuteStatus = (data) => {
+      console.log("🔇 [REMOTEMUTE]", data);
+      setIsRemoteMuted(data.isMuted);
+    };
+
+    const onVideoUpgradeRequest = (data) => {
+      console.log("📹 [UPGRADE_REQ]", data);
+      Vibration.vibrate([0, 100, 50, 100]); // Subtle double vibrate
+      Alert.alert(
+        "Video Call Request",
+        `${data.from.name} wants to switch to video call.`,
+        [
+          { 
+            text: "Decline", 
+            style: "cancel",
+            onPress: () => {
+              socketContext.emit("videoUpgradeResponse", { 
+                to: data.from.id, 
+                room: data.room, 
+                accepted: false 
+              });
+            }
+          },
+          { 
+            text: "Accept", 
+            onPress: async () => {
+              setCallType("video");
+              setIsVideoOn(true);
+              socketContext.emit("videoUpgradeResponse", { 
+                to: data.from.id, 
+                room: data.room, 
+                accepted: true
+              });
+            }
+          }
+        ]
+      );
+    };
+
+    const onVideoUpgradeResponse = (data) => {
+      console.log("📹 [UPGRADE_RES]", data);
+      if (data.accepted) {
+        setCallType("video");
+        setIsVideoOn(true);
+        Alert.alert("Success", "Partner accepted video call!");
+      } else {
+        Alert.alert("Declined", "Partner declined the video call upgrade.");
+      }
+    };
+
+    socketContext.socketRef.current.on('callDeclined', onCallDeclined);
+    socketContext.socketRef.current.on('callEnded', onCallEnded);
+    socketContext.socketRef.current.on('callAccepted', onCallAccepted);
+    socketContext.socketRef.current.on('remoteMuteStatus', onRemoteMuteStatus);
+    socketContext.socketRef.current.on('videoUpgradeRequest', onVideoUpgradeRequest);
+    socketContext.socketRef.current.on('videoUpgradeResponse', onVideoUpgradeResponse);
+
+    return () => {
+      socketContext.socketRef.current.off('callDeclined', onCallDeclined);
+      socketContext.socketRef.current.off('callEnded', onCallEnded);
+      socketContext.socketRef.current.off('callAccepted', onCallAccepted);
+      socketContext.socketRef.current.off('remoteMuteStatus', onRemoteMuteStatus);
+      socketContext.socketRef.current.off('videoUpgradeRequest', onVideoUpgradeRequest);
+      socketContext.socketRef.current.off('videoUpgradeResponse', onVideoUpgradeResponse);
+    };
+  }, [socketContext]);
+
   const handleCallEnded = () => {
     if (!callEnded) {
       setCallEnded(true);
@@ -152,7 +329,7 @@ export default function VideoCallScreen() {
 
   const endCall = async () => {
     try {
-      await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName"]);
+      await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName", "roomId"]);
     } catch (e) {}
     if (setInCall) setInCall(false);
     navigation.goBack();
@@ -170,29 +347,125 @@ export default function VideoCallScreen() {
   }, []);
 
   const toggleControls = () => {
+    if (controlsTimer.current) clearTimeout(controlsTimer.current);
+
     const toValue = controlsVisible._value === 0 ? 1 : 0;
     Animated.timing(controlsVisible, {
       toValue,
       duration: 300,
       useNativeDriver: true,
     }).start();
+
+    if (toValue === 1) {
+      controlsTimer.current = setTimeout(() => {
+        Animated.timing(controlsVisible, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }, 5000);
+    }
+  };
+
+  const toggleSwap = () => {
+    setIsSwapped(!isSwapped);
+  };
+
+  const toggleCamera = () => {
+    setCameraType(
+      cameraType === Camera.Constants.Type.front
+        ? Camera.Constants.Type.back
+        : Camera.Constants.Type.front
+    );
+  };
+
+  const renderLocalPreview = (style) => {
+    if (hasPermission === false) return <View style={[style, {backgroundColor: '#333'}]}><Text style={{color: '#fff', textAlign: 'center'}}>No Camera</Text></View>;
+    
+    return (
+      <Camera 
+        style={style} 
+        type={cameraType}
+        ratio="16:9"
+      />
+    );
+  };
+
+  const renderRemotePreview = (style) => {
+    if (Platform.OS === "web" && callUrl) {
+      return (
+        <View style={style}>
+          {!iframeLoaded && (
+            <View style={[StyleSheet.absoluteFill, styles.connectingOverlay]}>
+              <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.connectingAvatar} />
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={styles.connectingText}>Connecting to {partnerName}...</Text>
+            </View>
+          )}
+          <iframe
+            ref={iframeRef}
+            src={callUrl}
+            onLoad={() => setIframeLoaded(true)}
+            style={[styles.iframe, {border: 'none'}]}
+            allow="camera; microphone; fullscreen; display-capture; autoplay"
+            allowFullScreen
+          />
+        </View>
+      );
+    }
+    return (
+      <View style={[style, styles.fallback]}>
+        <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.connectingAvatar} />
+        <ActivityIndicator size="large" color="#fff" style={{marginTop: 20}} />
+        <Text style={styles._loadingText}>Connecting...</Text>
+      </View>
+    );
   };
 
   return (
     <View style={styles.container} onStartShouldSetResponder={() => { toggleControls(); return false; }}>
-      {/* Background/Video Layer */}
-      {Platform.OS === "web" && callUrl ? (
-        <iframe
-          ref={iframeRef}
-          src={callUrl}
-          style={styles.iframe}
-          allow="camera; microphone; fullscreen; display-capture; autoplay"
-          allowFullScreen
-        />
-      ) : (
-        <View style={styles.fallback}>
-          <Text style={styles._loadingText}>Connecting...</Text>
-        </View>
+      {/* Main Full-Screen Video */}
+      <View style={StyleSheet.absoluteFill}>
+        {callType === "voice" ? (
+          <View style={[styles.fullVideo, styles.voiceCallBackground]}>
+            <LinearGradient colors={["#1a1a1a", "#000"]} style={StyleSheet.absoluteFill} />
+            <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.voiceCallAvatar} />
+            <Text style={styles.voiceCallStatus}>{isRemoteMuted ? "Partner Muted" : "Voice Call Ongoing"}</Text>
+          </View>
+        ) : (
+          isSwapped ? renderLocalPreview(styles.fullVideo) : renderRemotePreview(styles.fullVideo)
+        )}
+        
+        {/* Remote Mute Overlay (WhatsApp style) */}
+        {isRemoteMuted && (
+          <View style={styles.remoteMuteOverlay}>
+            <View style={styles.remoteMuteBadge}>
+              <Ionicons name="mic-off" size={24} color="#fff" />
+              <Text style={styles.remoteMuteText}>{partnerName} is muted</Text>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* Mini-Preview Video (Draggable & Tappable to Swap) */}
+      {callType === "video" && !isBusy && (
+        <Animated.View 
+          {...panResponder.panHandlers}
+          style={[
+            styles.miniPreviewContainer,
+            {
+              transform: pan.getTranslateTransform()
+            }
+          ]}
+        >
+          <TouchableOpacity 
+            activeOpacity={0.9}
+            onPress={toggleSwap}
+            style={styles.miniPreviewShadow}
+          >
+            {isSwapped ? renderRemotePreview(styles.miniVideo) : renderLocalPreview(styles.miniVideo)}
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
       {/* Floating UI Overlays */}
@@ -207,8 +480,20 @@ export default function VideoCallScreen() {
               <View style={styles.partnerInfo}>
                 <Text style={styles.partnerNameText}>{partnerName}</Text>
                 <View style={styles.timerRow}>
-                  <View style={styles.liveDot} />
-                  <Text style={styles.timerText}>{formatTime(callDuration)}</Text>
+                  {isBusy ? (
+                    <Text style={[styles.timerText, {color: '#FF3B30'}]}>Busy</Text>
+                  ) : (
+                    <>
+                      <View style={styles.liveDot} />
+                      <Text style={styles.timerText}>{formatTime(callDuration)}</Text>
+                      {isRemoteMuted && (
+                        <View style={styles.muteIndicatorBadge}>
+                          <Ionicons name="mic-off" size={12} color="#fff" />
+                          <Text style={styles.muteIndicatorText}>Muted</Text>
+                        </View>
+                      )}
+                    </>
+                  )}
                 </View>
               </View>
               <TouchableOpacity style={styles.securityIcon}>
@@ -225,12 +510,16 @@ export default function VideoCallScreen() {
               <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color="#fff" />
             </TouchableOpacity>
 
+            <TouchableOpacity onPress={toggleCamera} style={styles.controlCircle}>
+              <Ionicons name="camera-reverse" size={26} color="#fff" />
+            </TouchableOpacity>
+
             <TouchableOpacity onPress={endCall} style={styles.endCallCircle}>
               <MaterialIcons name="call-end" size={32} color="#fff" />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={toggleVideo} style={[styles.controlCircle, !isVideoOn && styles.controlCircleActive]}>
-              <MaterialCommunityIcons name={isVideoOn ? "video" : "video-off"} size={26} color="#fff" />
+            <TouchableOpacity onPress={toggleVideo} style={[styles.controlCircle, (callType === 'voice' || !isVideoOn) && styles.controlCircleActive]}>
+              <MaterialCommunityIcons name={callType === 'voice' ? 'video-plus' : (isVideoOn ? "video" : "video-off")} size={26} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -259,6 +548,36 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     border: "none",
+  },
+  fullVideo: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+  },
+  miniPreviewContainer: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    width: 120,
+    height: 180,
+    zIndex: 100,
+  },
+  miniPreviewShadow: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  miniVideo: {
+    width: '100%',
+    height: '100%',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -309,6 +628,59 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.8)",
     fontSize: 14,
     fontWeight: "500",
+  },
+  muteIndicatorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 10,
+  },
+  muteIndicatorText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  remoteMuteOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  remoteMuteBadge: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  remoteMuteText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  voiceCallBackground: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+  },
+  voiceCallAvatar: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 20,
+  },
+  voiceCallStatus: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 16,
+    fontWeight: '600',
   },
   securityIcon: {
     padding: 8,
@@ -381,6 +753,26 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 22,
     fontWeight: "700",
+    marginTop: 15,
+  },
+  connectingOverlay: {
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  connectingAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  connectingText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
     marginTop: 15,
   },
 });

@@ -868,7 +868,10 @@ const MessageScreen = ({ route }) => {
             callUrl: response.final_url,
             partnerId: partnerData._id,
             partnerName: partnerData.name,
+            partnerPic: partnerData.profile_pic?.[0]?.url,
             isCaller: true,
+            callType: "video",
+            room: roomIdxccd,
           });
 
           setInCall(true);
@@ -988,7 +991,10 @@ const MessageScreen = ({ route }) => {
             callUrl: response.final_url,
             partnerId: partnerData._id,
             partnerName: partnerData.name,
+            partnerPic: partnerData.profile_pic?.[0]?.url,
             isCaller: true,
+            callType: "voice",
+            room: roomIdxccd,
           });
 
           setInCall(true);

@@ -17,11 +17,14 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Audio } from "expo-av";
 import { startRingtone, stopRingtone } from "../../ringtone";
+import { useSocket } from "../lib/SocketContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
 
 export default function IncomingCallScreen({ route }) {
   const navigation = useNavigation();
+  const socketContext = useSocket();
   const { callerName, callUrl, callerId, room, callType, profilePic } = route.params || {};
   
   const [isAudioReady, setIsAudioReady] = useState(false);
@@ -118,18 +121,34 @@ export default function IncomingCallScreen({ route }) {
   const handleAccept = async () => {
     Vibration.cancel();
     stopRingtone();
+    
+    // Store data for persistence
+    await Promise.all([
+      AsyncStorage.setItem("callUrl", callUrl || ""),
+      AsyncStorage.setItem("partnerId", callerId || ""),
+      AsyncStorage.setItem("partnerName", callerName || ""),
+      AsyncStorage.setItem("roomId", room || ""),
+    ]);
+
     navigation.replace("VideoCallScreen", {
       callUrl,
       partnerId: callerId,
       partnerName: callerName,
+      partnerPic: profilePic,
       isCaller: false,
+      room: room,
+      callType: callType || "video",
     });
   };
 
   const handleDecline = async () => {
     Vibration.cancel();
     stopRingtone();
-    // In a real app, we'd emit 'declineCall' here via socket
+    
+    if (socketContext?.emit && callerId) {
+      socketContext.emit("declineCall", { to: callerId, room: room });
+    }
+    
     navigation.goBack();
   };
 
