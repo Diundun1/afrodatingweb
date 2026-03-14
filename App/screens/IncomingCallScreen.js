@@ -76,6 +76,32 @@ export default function IncomingCallScreen({ route }) {
     }
   }, [isAudioReady]);
 
+  useEffect(() => {
+    const socket = socketContext?.socketRef?.current;
+    if (!socket) return;
+
+    const onCallCancelled = () => {
+      Vibration.cancel();
+      stopRingtone();
+      if (soundRef.current) {
+        soundRef.current.stopAsync().catch(() => {});
+        soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
+    };
+
+    socket.on("callEnded", onCallCancelled);
+    socket.on("callTimeout", onCallCancelled);
+
+    return () => {
+      socket.off("callEnded", onCallCancelled);
+      socket.off("callTimeout", onCallCancelled);
+    };
+  }, [socketContext, navigation]);
+
   const startCallAnimations = () => {
     Vibration.vibrate([1000, 1000, 1000], true);
 

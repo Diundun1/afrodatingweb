@@ -39,7 +39,7 @@ import NotificationManager from "./App/components/NotificationManager";
 import InstallPWAButton from "./App/components/InstallPWAButton";
 import MessageScreen from "./App/screens/MessageScreen";
 import { CallProvider } from "./App/lib/CallContext";
-import { SocketProvider } from "./App/lib/SocketContext";
+import { SocketProvider, setNavigationRef } from "./App/lib/SocketContext";
 import IncomingCallScreen from "./App/screens/IncomingCallScreen";
 import VideoCallScreen from "./App/screens/VideoCallScreen";
 import RestrictScreen from "./App/components/RestricScreen";
@@ -82,32 +82,28 @@ const { width } = Dimensions.get("window");
 const registerServiceWorker = async () => {
   if (Platform.OS === "web" && "serviceWorker" in navigator) {
     try {
-      // Clean up any existing service workers
+      // If already registered, just trigger an update — never unregister
+      // (unregistering then immediately re-registering causes AbortError)
       const registrations = await navigator.serviceWorker.getRegistrations();
-      for (let registration of registrations) {
-        await registration.unregister();
+      const existing = registrations.find(
+        (r) =>
+          r.active?.scriptURL?.endsWith("service-worker.js") ||
+          r.installing?.scriptURL?.endsWith("service-worker.js") ||
+          r.waiting?.scriptURL?.endsWith("service-worker.js"),
+      );
+
+      if (existing) {
+        await existing.update();
+        console.log("✅ Service Worker updated:", existing.scope);
+        return existing;
       }
 
-      // Simple registration
       const registration = await navigator.serviceWorker.register(
         "/service-worker.js",
-        {
-          scope: "/",
-          updateViaCache: "none",
-        },
+        { scope: "/", updateViaCache: "none" },
       );
 
       console.log("✅ Service Worker registered successfully:", registration);
-
-      // Check if service worker is actually controlling the page
-      if (navigator.serviceWorker.controller) {
-        console.log("✅ Service Worker is controlling the page");
-      } else {
-        console.log(
-          "⚠️ Service Worker registered but not controlling the page",
-        );
-      }
-
       return registration;
     } catch (error) {
       console.error("❌ Service Worker registration failed:", error);
@@ -178,6 +174,11 @@ const requestWebNotificationPermission = async () => {
 };
 
 export default function App() {
+  useEffect(() => {
+    // Wire up the navigation ref so SocketContext can navigate
+    setNavigationRef(navigationRef);
+  }, []);
+
   useEffect(() => {
     // Register for web push notifications when user is logged in
     const initPush = async () => {

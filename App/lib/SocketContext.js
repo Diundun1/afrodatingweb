@@ -14,7 +14,11 @@ import {
 } from "../lib/RegisterForPushNotificationsAsync";
 import { AppState } from "react-native";
 import { useCall } from "./CallContext";
-import { useNavigation } from "@react-navigation/native";
+
+let _navRef = null;
+export function setNavigationRef(ref) {
+  _navRef = ref;
+}
 const SocketContext = createContext(null);
 
 export function useSocket() {
@@ -27,8 +31,6 @@ export function useSocket() {
 
 export function SocketProvider({ children }) {
   const { setInCall, setParticipant } = useCall();
-  const navigationRef = useRef();
-  const navigation = useNavigation();
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
   const initializedRef = useRef(false);
@@ -124,14 +126,16 @@ export function SocketProvider({ children }) {
             ]);
 
             // Navigate to the Call UI
-            navigation.navigate("IncomingCallScreen", {
-              callerName: senderName,
-              partnerId: sender.id,
-              callUrl,
-              room: room,
-              callType: "video",
-              isCaller: false,
-            });
+            if (_navRef?.isReady?.()) {
+              _navRef.navigate("IncomingCallScreen", {
+                callerName: senderName,
+                partnerId: sender.id,
+                callUrl,
+                room: room,
+                callType: "video",
+                isCaller: false,
+              });
+            }
 
             // Optional: Also fire a high-priority push notification for the call
             await sendMessageNotification(
@@ -155,7 +159,7 @@ export function SocketProvider({ children }) {
         console.error("Failed to process message notification", error);
       }
     },
-    [navigation]
+    []
   );
 
   const handleChatMessage = useCallback(
@@ -246,14 +250,16 @@ export function SocketProvider({ children }) {
           ]);
 
           // Navigate to the Call UI
-          navigation.navigate("IncomingCallScreen", {
-            callerName: senderName,
-            partnerId: senderId,
-            callUrl,
-            room: roomId,
-            callType: "video",
-            isCaller: false,
-          });
+          if (_navRef?.isReady?.()) {
+            _navRef.navigate("IncomingCallScreen", {
+              callerName: senderName,
+              partnerId: senderId,
+              callUrl,
+              room: roomId,
+              callType: "video",
+              isCaller: false,
+            });
+          }
 
           await sendCallNotification({
             callerName: senderName,
@@ -281,7 +287,7 @@ export function SocketProvider({ children }) {
         logger.error("Failed to process chat message", error);
       }
     },
-    [navigation]
+    []
   );
 
   useEffect(() => {
@@ -332,14 +338,20 @@ export function SocketProvider({ children }) {
 
         socket.on("incomingCall", (data) => {
           logger.event("incomingCall", data);
-          navigation.navigate("IncomingCallScreen", {
-            callerName: data.from.name,
-            callerId: data.from.id,
-            callUrl: data.callUrl,
-            room: data.room,
-            callType: data.callType || "video",
-            isCaller: false,
-          });
+          if (!data?.from) {
+            logger.warn("incomingCall missing 'from'", data);
+            return;
+          }
+          if (_navRef?.isReady?.()) {
+            _navRef.navigate("IncomingCallScreen", {
+              callerName: typeof data.from.name === "string" ? data.from.name : String(data.from.name || "Someone"),
+              callerId: data.from.id,
+              callUrl: data.callUrl,
+              room: data.room,
+              callType: data.callType || "video",
+              isCaller: false,
+            });
+          }
         });
 
         socket.on("callAccepted", (data) => {

@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { startRingtone, stopRingtone } from "../../ringtone";
 
 const { width, height } = Dimensions.get("window");
 
@@ -62,8 +63,9 @@ export default function VideoCallScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isRinging, setIsRinging] = useState(false);
   const isCaller = route.params?.isCaller || false;
+  const [isRinging, setIsRinging] = useState(isCaller);
+  const hasEmittedEndRef = useRef(false);
   const [cameraType, setCameraType] = useState(() => {
     try {
       return Camera.Constants?.Type?.front || "front";
@@ -109,6 +111,11 @@ export default function VideoCallScreen() {
       const { status } = await Camera.requestCameraPermissionsAsync();
       setHasPermission(status === "granted");
     })();
+  }, []);
+
+  useEffect(() => {
+    if (isCaller) startRingtone();
+    return () => stopRingtone();
   }, []);
 
   const callContext = useCall();
@@ -241,6 +248,14 @@ export default function VideoCallScreen() {
 
     const onCallDeclined = (data) => {
       console.log("📲 [CALL] Recipient declined call");
+      stopRingtone();
+      setIsBusy(true);
+      setTimeout(() => handleCallEnded(), 2000);
+    };
+
+    const onCallTimeout = (data) => {
+      console.log("⏱ [CALL] Call timed out");
+      stopRingtone();
       setIsBusy(true);
       setTimeout(() => handleCallEnded(), 2000);
     };
@@ -252,6 +267,7 @@ export default function VideoCallScreen() {
 
     const onCallAccepted = (data) => {
       console.log("📲 [CALL] Call accepted!");
+      stopRingtone();
       setIsRinging(false);
       setLoading(false);
     };
@@ -315,6 +331,7 @@ export default function VideoCallScreen() {
     if (!socket) return;
 
     socket.on('callDeclined', onCallDeclined);
+    socket.on('callTimeout', onCallTimeout);
     socket.on('callEnded', onCallEnded);
     socket.on('callAccepted', onCallAccepted);
     socket.on('ringing', onRinging);
@@ -325,6 +342,7 @@ export default function VideoCallScreen() {
     return () => {
       // ✅ CENTRALIZED ATOMIC SAFETY: Using safeOff from context
       socketContext.safeOff('callDeclined', onCallDeclined);
+      socketContext.safeOff('callTimeout', onCallTimeout);
       socketContext.safeOff('callEnded', onCallEnded);
       socketContext.safeOff('callAccepted', onCallAccepted);
       socketContext.safeOff('ringing', onRinging);
@@ -336,6 +354,8 @@ export default function VideoCallScreen() {
 
   const handleCallEnded = () => {
     if (!callEnded) {
+      hasEmittedEndRef.current = true;
+      stopRingtone();
       setCallEnded(true);
       setTimeout(() => endCall(), 1500);
     }
@@ -343,6 +363,17 @@ export default function VideoCallScreen() {
 
   const endCall = async () => {
     try {
+      stopRingtone();
+      if (!hasEmittedEndRef.current) {
+        hasEmittedEndRef.current = true;
+        const partnerId =
+          route.params?.partnerId ||
+          (await AsyncStorage.getItem("partnerId"));
+        const roomId = room || route.params?.room;
+        if (socketContext?.emit && partnerId && roomId) {
+          socketContext.emit("endCall", { to: partnerId, room: roomId });
+        }
+      }
       await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName", "roomId"]);
     } catch (e) {}
     if (setInCall) setInCall(false);
@@ -356,9 +387,10 @@ export default function VideoCallScreen() {
   };
 
   useEffect(() => {
+    if (isRinging) return;
     const timer = setInterval(() => setCallDuration((prev) => prev + 1), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isRinging]);
 
   const toggleControls = () => {
     if (controlsTimer.current) clearTimeout(controlsTimer.current);
@@ -407,7 +439,7 @@ export default function VideoCallScreen() {
     if (Platform.OS === "web" && callUrl) {
       return (
         <View style={style}>
-          {!iframeLoaded && (
+          {(!iframeLoaded || isRinging) && (
             <View style={[StyleSheet.absoluteFill, styles.connectingOverlay]}>
               <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.connectingAvatar} />
               <SafeActivityIndicator size="large" color="#fff" />
