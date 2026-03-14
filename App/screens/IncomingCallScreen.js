@@ -108,6 +108,12 @@ export default function IncomingCallScreen({ route }) {
   const playRingtone = async () => {
     try {
       await stopRingtone();
+      
+      // Notify caller that we are ringing
+      if (socketContext?.emit && callerId) {
+        socketContext.emit("ringing", { to: callerId, room: room });
+      }
+
       const { sound } = await Audio.Sound.createAsync(
         { uri: "https://unigate.com.ng/ringtones/ringtone.mp3" },
         { isLooping: true, volume: 1.0, shouldPlay: true }
@@ -115,6 +121,8 @@ export default function IncomingCallScreen({ route }) {
       soundRef.current = sound;
     } catch (err) {
       console.error("Error playing ringtone:", err);
+      // Fallback to vibration only if audio fails
+      Vibration.vibrate([500, 500], true);
     }
   };
 

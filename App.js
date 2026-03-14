@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { initPush } from "./App/lib/RegisterForPushNotificationsAsync";
+import { startRingtone, stopRingtone } from "./ringtone";
 // Import your screens
 import WelcomeScreen1 from "./App/screens/WelcomeScreen1";
 import LoginScreen from "./App/screens/LoginScreen";
@@ -212,6 +213,7 @@ export default function App() {
       console.log("📩 SW Message:", type, payload);
 
       if (type === "INCOMING_CALL") {
+        startRingtone();
         if (payload?.callUrl && navigationRef.current?.isReady?.()) {
           navigationRef.current.navigate("IncomingCallScreen", {
             callerName: payload.callerName,
@@ -344,7 +346,46 @@ export default function App() {
     }
   }, []);
 
-  // Consolidated SW handler above covers this
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    if (!navigator.serviceWorker) return;
+
+    const handler = (event) => {
+      const { type, payload } = event.data || {};
+
+      console.log("📩 Message from Service Worker:", event.data);
+
+      // 🔹 Open chat
+      if (type === "OPEN_CHAT" && payload?.roomId) {
+        if (navigationRef.current?.isReady?.()) {
+          navigationRef.current.navigate("ChatScreen", {
+            roomIdxccd: payload?.roomId,
+            focusMessageId: payload?.messageId,
+          });
+        }
+      }
+
+      // 🔹 Incoming call
+      if (type === "INCOMING_CALL" && payload?.callUrl) {
+        if (navigationRef.current?.isReady?.()) {
+          navigationRef.current.navigate("IncomingCallScreen", {
+            callerName: payload.callerName,
+            callerId: payload.callerId,
+            callUrl: payload.callUrl,
+            room: payload.room,
+            callType: payload.callType || "video",
+            profilePic: payload.profilePic,
+            isCaller: false,
+          });
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handler);
+
+    return () =>
+      navigator.serviceWorker.removeEventListener("message", handler);
+  }, []);
 
   const handleAllowNotifications = async () => {
     try {

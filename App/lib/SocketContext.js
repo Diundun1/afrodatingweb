@@ -186,6 +186,14 @@ export function SocketProvider({ children }) {
         console.log("call link");
       }
 
+      // Extract message content
+      let messageContent = messageData.message || messageData.text || messageData.content;
+      
+      if (!messageContent) {
+        logger.warn("No message content in message data", messageData);
+        return;
+      }
+
       // Extract sender name
       let senderName = "Someone";
       if (
@@ -210,6 +218,45 @@ export function SocketProvider({ children }) {
         return;
       }
 
+     
+      const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+      const linkMatch = messageContent.match(callLinkPattern);
+
+      if (linkMatch) {
+        const callUrl = linkMatch[0];
+        
+        // Log the call detection
+        logger.info("📞 Call Link Detected in Chat Message! Triggering Call UI...");
+
+        // Store call data for persistence
+        await Promise.all([
+          AsyncStorage.setItem("callUrl", callUrl),
+          AsyncStorage.setItem("partnerId", senderId),
+          AsyncStorage.setItem("partnerName", senderName),
+          AsyncStorage.setItem("roomId", roomId),
+        ]);
+
+        // Navigate to the Call UI
+        navigation.navigate("IncomingCallScreen", {
+          callerName: senderName,
+          partnerId: senderId,
+          callUrl,
+          room: roomId,
+          callType: "video",
+          isCaller: false,
+        });
+
+        
+        await sendCallNotification({
+          callerName: senderName,
+          callUrl: callUrl,
+          callerId: senderId,
+          room: roomId,
+          callType: "video"
+        });
+        return;
+      }
+
       logger.info("Sending chat message notification", {
         senderName,
         messageContent,
@@ -225,7 +272,7 @@ export function SocketProvider({ children }) {
     } catch (error) {
       logger.error("Failed to process chat message", error);
     }
-  }, []);
+  }, [navigation]);
 
   useEffect(() => {
     if (initializedRef.current) return;

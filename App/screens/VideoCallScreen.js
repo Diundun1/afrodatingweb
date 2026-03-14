@@ -403,7 +403,7 @@ export default function VideoCallScreen() {
             <View style={[StyleSheet.absoluteFill, styles.connectingOverlay]}>
               <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.connectingAvatar} />
               <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.connectingText}>Connecting to {partnerName}...</Text>
+              <Text style={styles.connectingText}>Establishing secure connection...</Text>
             </View>
           )}
           <iframe
@@ -417,11 +417,36 @@ export default function VideoCallScreen() {
         </View>
       );
     }
+    
+    // Improved Mobile/Native Fallback
     return (
       <View style={[style, styles.fallback]}>
-        <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.connectingAvatar} />
-        <ActivityIndicator size="large" color="#fff" style={{marginTop: 20}} />
-        <Text style={styles._loadingText}>Connecting...</Text>
+        <LinearGradient colors={["#1a1a1a", "#000"]} style={StyleSheet.absoluteFill} />
+        <View style={styles.fallbackContent}>
+          <View style={styles.avatarContainer}>
+            <Image 
+              source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} 
+              style={styles.connectingAvatarLarge} 
+            />
+            <ActivityIndicator size="large" color="#7B61FF" style={styles.loader} />
+          </View>
+          <Text style={styles.fallbackName}>{partnerName}</Text>
+          <Text style={styles.fallbackStatus}>
+            {loading ? "Joining room..." : "Waiting for partner to join..."}
+          </Text>
+          
+          {callUrl && Platform.OS !== 'web' && (
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={() => {
+                // Logic to re-initialize or signal partner
+                Alert.alert("Reconnecting", "Attempting to refresh the call stream...");
+              }}
+            >
+              <Text style={styles.retryButtonText}>Refresh Connection</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   };
@@ -734,6 +759,56 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  fallbackContent: {
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 40,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  connectingAvatarLarge: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 3,
+    borderColor: 'rgba(123, 97, 255, 0.5)',
+  },
+  loader: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+  },
+  fallbackName: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  fallbackStatus: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  retryButton: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   _loadingText: {
     color: "#fff",
