@@ -397,57 +397,7 @@ const MessageScreen = ({ route }) => {
         if (latestMessage._id === lastProcessedMessageId) return;
         lastProcessedMessageId = latestMessage._id;
 
-        // 🎯 CALL NOTIFICATION CHECK
-        const linkMatch = latestMessage.message.match(
-          /https:\/\/test\.unigate\.com\.ng\/[^\s]+/,
-        );
-
-        if (linkMatch) {
-          const messageTime = new Date(
-            latestMessage.createdAt || latestMessage.sent_at,
-          );
-          const currentTime = new Date();
-          const timeDifference = (currentTime - messageTime) / 1000 / 60;
-
-          if (timeDifference > 2) return;
-
-          const callUrl = linkMatch[0];
-          const roomId = activeRoomId;
-          const loggedInUser = loggedInUserId;
-
-          // Extract participants from roomId
-          const parts = roomId.split("_");
-          const user1Id = parts[1];
-          const user2Id = parts[2];
-
-          let recipientId;
-          if (user1Id === loggedInUser) {
-            recipientId = user2Id;
-          } else if (user2Id === loggedInUser) {
-            recipientId = user1Id;
-          } else {
-            return;
-          }
-
-          if (!connectionError) {
-            if (recipientId && latestMessage.sender_id._id !== loggedInUser) {
-              navigation.navigate("IncomingCallScreen", {
-                callerName: data.data.chatPartner.name || "Unknown Caller",
-                partnerId: latestMessage.sender_id._id,
-                callUrl,
-                room: roomId,
-                callType: "video",
-                isCaller: true,
-              });
-
-              await Promise.all([
-                AsyncStorage.setItem("callUrl", callUrl),
-                AsyncStorage.setItem("partnerId", latestMessage.sender_id._id),
-                AsyncStorage.setItem("partnerName", data.data.chatPartner.name),
-              ]);
-            }
-          }
-        }
+       
       } catch (error) {
         if (isMounted) {
           console.error("Error fetching chat room:", error.message);

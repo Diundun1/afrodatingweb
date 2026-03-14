@@ -99,53 +99,11 @@ export function SocketProvider({ children }) {
         // 🛟 2. GUARANTEE CONTENT
         if (!finalMessage) finalMessage = "Sent you a message";
 
-        // 🎯 3. CALL NOTIFICATION LOGIC
+        // 🎯 3. SKIP CALL LINKS (handled by incomingCall socket event)
         const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
-        const linkMatch = finalMessage.match(callLinkPattern);
-
-        if (linkMatch) {
-          const callUrl = linkMatch[0];
-
-          // Time check: Only show call screen if sent within last 2 mins
-          const messageTime = messageTimestamp
-            ? new Date(messageTimestamp)
-            : new Date();
-          const timeDiffInMins = (new Date() - messageTime) / 1000 / 60;
-
-          if (timeDiffInMins <= 2) {
-            // Log the call detection
-            console.log(
-              "📞 Call Link Detected! Navigating to IncomingCallScreen..."
-            );
-
-            // Store call data for persistence
-            await Promise.all([
-              AsyncStorage.setItem("callUrl", callUrl),
-              AsyncStorage.setItem("partnerId", sender.id),
-              AsyncStorage.setItem("partnerName", senderName),
-            ]);
-
-            // Navigate to the Call UI
-            if (_navRef?.isReady?.()) {
-              _navRef.navigate("IncomingCallScreen", {
-                callerName: senderName,
-                partnerId: sender.id,
-                callUrl,
-                room: room,
-                callType: "video",
-                isCaller: false,
-              });
-            }
-
-            // Optional: Also fire a high-priority push notification for the call
-            await sendMessageNotification(
-              "Incoming Call",
-              `Incoming call from ${senderName}`,
-              `call-${Date.now()}`,
-              room
-            );
-            return; // Stop here so we don't send a double notification
-          }
+        if (callLinkPattern.test(finalMessage)) {
+          logger.info("Skipping call link in messageNotification (handled by incomingCall event)");
+          return;
         }
 
         // ✉️ 4. REGULAR MESSAGE NOTIFICATION
@@ -230,46 +188,6 @@ export function SocketProvider({ children }) {
           return;
         }
 
-        const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
-        const linkMatch = messageContent.match(callLinkPattern);
-
-        if (linkMatch) {
-          const callUrl = linkMatch[0];
-
-          // Log the call detection
-          logger.info(
-            "📞 Call Link Detected in Chat Message! Triggering Call UI..."
-          );
-
-          // Store call data for persistence
-          await Promise.all([
-            AsyncStorage.setItem("callUrl", callUrl),
-            AsyncStorage.setItem("partnerId", senderId),
-            AsyncStorage.setItem("partnerName", senderName),
-            AsyncStorage.setItem("roomId", roomId),
-          ]);
-
-          // Navigate to the Call UI
-          if (_navRef?.isReady?.()) {
-            _navRef.navigate("IncomingCallScreen", {
-              callerName: senderName,
-              partnerId: senderId,
-              callUrl,
-              room: roomId,
-              callType: "video",
-              isCaller: false,
-            });
-          }
-
-          await sendCallNotification({
-            callerName: senderName,
-            callUrl: callUrl,
-            callerId: senderId,
-            room: roomId,
-            callType: "video",
-          });
-          return;
-        }
 
         logger.info("Sending chat message notification", {
           senderName,
