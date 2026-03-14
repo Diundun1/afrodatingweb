@@ -91,7 +91,8 @@ const isTimeWithinTwoMinutes = (messageTimeStr, currentTimeStr) => {
 
 const MessageScreen = ({ route }) => {
   const navigation = useNavigation();
-  const { otherUserId, roomIdxccd } = route.params || {};
+  const { otherUserId, roomIdxccd, room } = route.params || {};
+  const activeRoomId = roomIdxccd || room;
 
   const [typingUser, setTypingUser] = useState(null);
   const typingTimeoutRef = useRef(null);
@@ -147,11 +148,11 @@ const MessageScreen = ({ route }) => {
   // Socket connection and event listeners
   // Socket connection and event listeners
   useEffect(() => {
-    if (!isConnected || !socketRef?.current || !userId || !roomIdxccd) return;
+    if (!isConnected || !socketRef?.current || !userId || !activeRoomId) return;
 
     try {
-      socketRef.current.emit("joinRoom", { room: roomIdxccd, userId });
-      console.log("Joined room:", roomIdxccd);
+      socketRef.current.emit("joinRoom", { room: activeRoomId, userId });
+      console.log("Joined room:", activeRoomId);
     } catch (e) {
       console.warn("joinRoom failed:", e);
     }
@@ -235,9 +236,9 @@ const MessageScreen = ({ route }) => {
       // socketRef.current?.off("callInvitation", onCallInvitation);
       socketRef.current?.off("messageDelivered", onMessageDelivered); // 🆕 Cleanup
       socketRef.current?.off("messageRead", onMessageRead); // 🆕 Cleanup
-      socketRef.current?.emit("leaveRoom", { room: roomIdxccd, userId });
+      socketRef.current?.emit("leaveRoom", { room: activeRoomId, userId });
     };
-  }, [isConnected, userId, roomIdxccd]);
+  }, [isConnected, userId, activeRoomId]);
 
   // Typing handler
   const handleTyping = (text) => {
@@ -251,7 +252,7 @@ const MessageScreen = ({ route }) => {
     const now = Date.now();
     if (now - lastTypingRef.current > 900) {
       socketRef.current.emit("typing", {
-        room: roomIdxccd,
+        room: activeRoomId,
         recipient: partnerData._id,
         userId,
       });
@@ -261,7 +262,7 @@ const MessageScreen = ({ route }) => {
     clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       socketRef.current.emit("stopTyping", {
-        room: roomIdxccd,
+        room: activeRoomId,
         recipient: partnerData._id,
         userId,
       });
@@ -298,7 +299,7 @@ const MessageScreen = ({ route }) => {
 
   // Main chat fetching effect with call detection
   useEffect(() => {
-    if (!roomIdxccd) {
+    if (!activeRoomId) {
       setLoading(false);
       return;
     }
@@ -321,7 +322,7 @@ const MessageScreen = ({ route }) => {
           return;
         }
 
-        const parts = roomIdxccd.split("_");
+        const parts = activeRoomId.split("_");
         if (parts.length !== 3) {
           setConnectionError(true);
           return;
@@ -411,7 +412,7 @@ const MessageScreen = ({ route }) => {
           if (timeDifference > 2) return;
 
           const callUrl = linkMatch[0];
-          const roomId = roomIdxccd;
+          const roomId = activeRoomId;
           const loggedInUser = loggedInUserId;
 
           // Extract participants from roomId
@@ -466,7 +467,7 @@ const MessageScreen = ({ route }) => {
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [roomIdxccd, navigation]);
+  }, [activeRoomId, navigation]);
 
   useEffect(() => {
     console.log("🔍 Socket state changed:", {
@@ -486,7 +487,7 @@ const MessageScreen = ({ route }) => {
       hasSocketRef: !!socketRef?.current,
       hasEmit: typeof emit === "function",
       userId,
-      roomIdxccd,
+      activeRoomId,
       partnerData: !!partnerData,
       inputMessage,
     });
@@ -516,7 +517,7 @@ const MessageScreen = ({ route }) => {
     Keyboard.dismiss();
 
     const payload = {
-      room: roomIdxccd,
+      room: activeRoomId,
       recipient: partnerData._id,
       message: messageText,
       clientTimestamp,
@@ -647,7 +648,7 @@ const MessageScreen = ({ route }) => {
 
       // Stop typing
       emit("stopTyping", {
-        room: roomIdxccd,
+        room: activeRoomId,
         recipient: partnerData._id,
         userId,
       });
@@ -673,7 +674,7 @@ const MessageScreen = ({ route }) => {
   // The function that sends the message to the server
   const attemptSendMessage = ({ optimisticId, message, clientTimestamp }) => {
     const payload = {
-      room: roomIdxccd,
+      room: activeRoomId,
       recipient: partnerData._id,
       message,
       clientTimestamp,
@@ -709,7 +710,7 @@ const MessageScreen = ({ route }) => {
   };
   // const attemptSendMessage = ({ optimisticId, message, clientTimestamp }) => {
   //   const payload = {
-  //     room: roomIdxccd,
+  //     room: activeRoomId,
   //     recipient: partnerData._id,
   //     message,
   //     clientTimestamp,
@@ -778,7 +779,7 @@ const MessageScreen = ({ route }) => {
       setIsProcessingCall(true);
       const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
 
-      const url = `https://test.unigate.com.ng/w/vc.php?nexroomid=${roomIdxccd}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
+      const url = `https://test.unigate.com.ng/w/vc.php?nexroomid=${activeRoomId}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
 
       console.log("Fetching video call URL:", url);
 
@@ -802,7 +803,7 @@ const MessageScreen = ({ route }) => {
         // ✅ EMIT START CALL TO BACKEND
         const startCallPayload = {
           to: partnerData._id,
-          room: roomIdxccd,
+          room: activeRoomId,
           callType: "video",
           callUrl: response.final_url,
         };
@@ -816,7 +817,7 @@ const MessageScreen = ({ route }) => {
         const optimisticId = `call_link_${clientTimestamp}`;
 
         const payload = {
-          room: roomIdxccd,
+          room: activeRoomId,
           recipient: partnerData._id,
           message: callMessage,
           clientTimestamp: clientTimestamp,
@@ -871,7 +872,7 @@ const MessageScreen = ({ route }) => {
             partnerPic: partnerData.profile_pic?.[0]?.url,
             isCaller: true,
             callType: "video",
-            room: roomIdxccd,
+            room: activeRoomId,
           });
 
           setInCall(true);
@@ -904,7 +905,7 @@ const MessageScreen = ({ route }) => {
       setIsProcessingCall(true);
       const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
 
-      const url = `https://test.unigate.com.ng/w/vvc.php?nexroomid=${roomIdxccd}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
+      const url = `https://test.unigate.com.ng/w/vvc.php?nexroomid=${activeRoomId}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
 
       console.log("Fetching voice call URL:", url);
 
@@ -929,7 +930,7 @@ const MessageScreen = ({ route }) => {
         if (socketRef?.current) {
           const startCallPayload = {
             to: partnerData._id,
-            room: roomIdxccd,
+            room: activeRoomId,
             callType: "voice",
             callUrl: response.final_url,
           };
@@ -944,7 +945,7 @@ const MessageScreen = ({ route }) => {
         const optimisticId = `call_link_${clientTimestamp}`;
 
         const payload = {
-          room: roomIdxccd,
+          room: activeRoomId,
           recipient: partnerData._id,
           message: callMessage,
           clientTimestamp: clientTimestamp,
@@ -994,7 +995,7 @@ const MessageScreen = ({ route }) => {
             partnerPic: partnerData.profile_pic?.[0]?.url,
             isCaller: true,
             callType: "voice",
-            room: roomIdxccd,
+            room: activeRoomId,
           });
 
           setInCall(true);

@@ -68,7 +68,8 @@ const linking = {
       // ✅ This matches the path used in your Service Worker targetUrl
       IncomingCallScreen: "incoming-call",
       ExploreScreen: "explore",
-      ChatScreen: "chat/:roomId",
+      ChatScreen: "chats",
+      MessageScreen: "chat/:room",
     },
   },
 };
@@ -204,25 +205,44 @@ export default function App() {
   // const navigationRef = useRef();
 
   useEffect(() => {
-    navigator.serviceWorker.addEventListener("message", (event) => {
-      if (event.data?.type === "INCOMING_CALL") {
-        startRingtone();
-      }
-    });
-  }, []);
+    if (Platform.OS !== "web" || !("serviceWorker" in navigator)) return;
 
-  useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      const handleMessage = (event) => {
-        if (event.data.type === "NAVIGATE_TO_CALL") {
-          // Force internal navigation
-          navigation.navigate("IncomingCallScreen", event.data.payload);
+    const handler = (event) => {
+      const { type, payload } = event.data || {};
+      console.log("📩 SW Message:", type, payload);
+
+      if (type === "INCOMING_CALL") {
+        if (payload?.callUrl && navigationRef.current?.isReady?.()) {
+          navigationRef.current.navigate("IncomingCallScreen", {
+            callerName: payload.callerName,
+            callerId: payload.callerId,
+            callUrl: payload.callUrl,
+            room: payload.room,
+            callType: payload.callType || "video",
+            profilePic: payload.profilePic,
+            isCaller: false,
+          });
         }
-      };
-      navigator.serviceWorker.addEventListener("message", handleMessage);
-      return () =>
-        navigator.serviceWorker.removeEventListener("message", handleMessage);
-    }
+      }
+
+      if (type === "NAVIGATE_TO_CALL") {
+        if (navigationRef.current?.isReady?.()) {
+          navigationRef.current.navigate("IncomingCallScreen", payload);
+        }
+      }
+
+      if (type === "OPEN_CHAT" && (payload?.room || payload?.roomId)) {
+        if (navigationRef.current?.isReady?.()) {
+          navigationRef.current.navigate("MessageScreen", {
+            roomIdxccd: payload.room || payload.roomId,
+            focusMessageId: payload.messageId,
+          });
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handler);
+    return () => navigator.serviceWorker.removeEventListener("message", handler);
   }, []);
 
   // Service Worker registration for PWA
@@ -324,46 +344,7 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    if (!navigator.serviceWorker) return;
-
-    const handler = (event) => {
-      const { type, payload } = event.data || {};
-
-      console.log("📩 Message from Service Worker:", event.data);
-
-      // 🔹 Open chat
-      if (type === "OPEN_CHAT" && payload?.roomId) {
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("ChatScreen", {
-            roomIdxccd: payload?.roomId,
-            focusMessageId: payload?.messageId,
-          });
-        }
-      }
-
-      // 🔹 Incoming call
-      if (type === "INCOMING_CALL" && payload?.callUrl) {
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("IncomingCallScreen", {
-            callerName: payload.callerName,
-            callerId: payload.callerId,
-            callUrl: payload.callUrl,
-            room: payload.room,
-            callType: payload.callType || "video",
-            profilePic: payload.profilePic,
-            isCaller: false,
-          });
-        }
-      }
-    };
-
-    navigator.serviceWorker.addEventListener("message", handler);
-
-    return () =>
-      navigator.serviceWorker.removeEventListener("message", handler);
-  }, []);
+  // Consolidated SW handler above covers this
 
   const handleAllowNotifications = async () => {
     try {

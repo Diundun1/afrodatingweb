@@ -502,14 +502,11 @@ self.addEventListener("push", async (event) => {
           ? messageTimestamp
           : new Date(messageTimestamp).getTime();
 
-      console.log("⏰ [CALL] Timestamp type:", typeof messageTimestamp);
-      console.log("⏰ [CALL] Parsed timestamp:", timestamp);
-      console.log("⏰ [CALL] Current time:", Date.now());
-
       const ageInMinutes = (Date.now() - timestamp) / 1000 / 60;
-      console.log("⏰ [CALL] Message age (minutes):", ageInMinutes.toFixed(2));
-
-      const isCall = linkMatch && ageInMinutes <= 2;
+      
+      // ✅ ROBUST CALL DETECTION: Prioritize metadata type, fallback to regex
+      const isCall = data.data?.type === 'incoming_call' || (linkMatch && ageInMinutes <= 2);
+      
       console.log("📞 [CALL] Is this a call?", isCall ? "✅ YES" : "❌ NO");
 
       if (linkMatch && !isCall) {
@@ -607,7 +604,7 @@ self.addEventListener("notificationclick", (event) => {
 
   // Resolve the Room ID (Fallback to sender ID if room is missing)
   const room = data.room || data.roomId || data.sender?.id || data.sender;
-  const targetUrl = isCall 
+  const targetUrl = isCall
     ? `/incoming-call?room=${room}&callUrl=${encodeURIComponent(data.callUrl)}&callerName=${encodeURIComponent(data.senderName || data.sender?.name || 'Someone')}&profilePic=${encodeURIComponent(data.sender?.profilePic || '')}`
     : `/chat/${room}`;
 
@@ -629,17 +626,18 @@ self.addEventListener("notificationclick", (event) => {
                 type: "INCOMING_CALL",
                 payload: {
                   room: room,
-                  callUrl: data.callUrl,
-                  callerName: data.senderName || data.sender?.name || 'Someone',
-                  profilePic: data.sender?.profilePic || '',
-                  callType: data.callType || 'video'
+                  callUrl: data.callUrl || callUrl,
+                  callerName: data.senderName || data.sender?.name || senderName || 'Someone',
+                  profilePic: data.sender?.profilePic || data.data?.sender?.profilePic || '',
+                  callType: data.callType || data.data?.callType || 'video'
                 }
               });
             } else {
               return client.postMessage({
                 type: "OPEN_CHAT",
                 payload: {
-                  roomId: room,
+                  room: room, // Standardized to room
+                  roomId: room, // Fallback for safety
                   senderId: data.sender?.id || data.sender,
                 },
               });

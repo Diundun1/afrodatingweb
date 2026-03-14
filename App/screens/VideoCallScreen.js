@@ -4,10 +4,14 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Animated,
   Dimensions,
   Platform,
   Vibration,
   PanResponder,
+  Image,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { MaterialIcons, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
