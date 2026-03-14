@@ -14,7 +14,7 @@ import {
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Camera } from "expo-camera";
+import { CameraView, Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { startRingtone, stopRingtone } from "../../ringtone";
@@ -71,6 +71,7 @@ export default function VideoCallScreen() {
   const iframeRef = useRef(null);
   const controlsAnim = useRef(new Animated.Value(1)).current;
   const controlsTimer = useRef(null);
+  const localStreamRef = useRef(null);
 
   const avatarSource = partnerPic
     ? { uri: partnerPic }
@@ -97,19 +98,42 @@ export default function VideoCallScreen() {
     };
   }, []);
 
-  // ─── Camera + mic permissions ───────────────────────────
+  // ─── Camera + mic permissions + local stream capture ────
   useEffect(() => {
     (async () => {
       try {
         const cam = await Camera.requestCameraPermissionsAsync();
         const mic = await Camera.requestMicrophonePermissionsAsync();
-        setHasPermission(
-          cam.status === "granted" && mic.status === "granted"
-        );
+        const granted =
+          cam.status === "granted" && mic.status === "granted";
+        setHasPermission(granted);
+
+        // On web, capture the local mic stream for direct mute control
+        if (
+          granted &&
+          Platform.OS === "web" &&
+          typeof navigator !== "undefined" &&
+          navigator.mediaDevices
+        ) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+            });
+            localStreamRef.current = stream;
+          } catch (_) {}
+        }
       } catch (e) {
         setHasPermission(false);
       }
     })();
+
+    return () => {
+      // Release the captured mic stream on unmount
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => t.stop());
+        localStreamRef.current = null;
+      }
+    };
   }, []);
 
   // ─── Ringback tone for caller ─────────────────────────
@@ -275,21 +299,55 @@ export default function VideoCallScreen() {
     if (navigation.canGoBack()) navigation.goBack();
   };
 
-  // ─── Iframe control helper ────────────────────────────
-  const sendToIframe = (type, payload) => {
-    if (Platform.OS === "web" && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ type, ...payload }),
-        "*"
-      );
-    }
+  // ─── PostMessage helper (multiple formats) ────────────
+  const postToIframe = (messages) => {
+    if (Platform.OS !== "web" || !iframeRef.current?.contentWindow) return;
+    const target = iframeRef.current.contentWindow;
+    messages.forEach((msg) => {
+      try {
+        target.postMessage(msg, "*");
+      } catch (_) {}
+    });
   };
 
-  // ─── Toggle mute ─────────────────────────────────────
+  // ─── Toggle mute (web + native) ───────────────────────
   const toggleMute = async () => {
     const next = !isMuted;
     setIsMuted(next);
-    sendToIframe("CONTROL_COMMAND", { command: "mute", value: next });
+
+    // 1. Direct local‑stream mute (web) — actually silences mic
+    if (Platform.OS === "web" && localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = !next;
+      });
+    }
+
+    // 2. PostMessage to iframe (multiple formats for compatibility)
+    postToIframe([
+      JSON.stringify({
+        type: "CONTROL_COMMAND",
+        command: "mute",
+        value: next,
+      }),
+      { type: "CONTROL_COMMAND", command: "mute", value: next },
+      { type: "command", command: next ? "muteAudio" : "unmuteAudio" },
+      { action: next ? "mute" : "unmute", track: "audio" },
+    ]);
+
+    // 3. Enumerate all media tracks on this page (web fallback)
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      try {
+        document.querySelectorAll("audio, video").forEach((el) => {
+          if (el.srcObject) {
+            el.srcObject.getAudioTracks().forEach((t) => {
+              t.enabled = !next;
+            });
+          }
+        });
+      } catch (_) {}
+    }
+
+    // 4. Notify the other party via socket
     const pid = partnerId || (await AsyncStorage.getItem("partnerId"));
     const rid = room || paramRoom;
     if (socketContext?.emit && pid) {
@@ -321,7 +379,15 @@ export default function VideoCallScreen() {
     }
     const next = !isVideoOn;
     setIsVideoOn(next);
-    sendToIframe("CONTROL_COMMAND", { command: "video", value: next });
+    postToIframe([
+      JSON.stringify({
+        type: "CONTROL_COMMAND",
+        command: "video",
+        value: next,
+      }),
+      { type: "CONTROL_COMMAND", command: "video", value: next },
+      { type: "command", command: next ? "enableVideo" : "disableVideo" },
+    ]);
   };
 
   // ─── Format duration ─────────────────────────────────
@@ -521,9 +587,9 @@ export default function VideoCallScreen() {
           {/* Local camera preview */}
           {hasPermission && isVideoOn && (
             <View style={styles.localPreview}>
-              <Camera
+              <CameraView
                 style={StyleSheet.absoluteFill}
-                type={Camera.Constants?.Type?.front || "front"}
+                facing="front"
               />
             </View>
           )}
