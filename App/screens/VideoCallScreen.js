@@ -196,7 +196,7 @@ export default function VideoCallScreen() {
     const partnerId = await AsyncStorage.getItem("partnerId");
     const roomId = room || (route.params?.room);
     if (socketContext?.emit && partnerId) {
-      socketContext.emit("muteStatus", { to: partnerId, room: roomId, isMuted: newState });
+      socketContext.emit("remoteMuteStatus", { to: partnerId, room: roomId, isMuted: newState });
     }
   };
 
@@ -427,7 +427,7 @@ export default function VideoCallScreen() {
             ref={iframeRef}
             src={callUrl}
             onLoad={() => setIframeLoaded(true)}
-            style={[styles.iframe, {border: 'none'}]}
+            style={StyleSheet.flatten([styles.iframe, { border: "none" }])}
             allow="camera; microphone; fullscreen; display-capture; autoplay"
             allowFullScreen
           />

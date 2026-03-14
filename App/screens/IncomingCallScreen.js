@@ -11,6 +11,7 @@ import {
   Dimensions,
   Platform,
   ImageBackground,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -28,6 +29,7 @@ export default function IncomingCallScreen({ route }) {
   const { callerName, callUrl, callerId, room, callType, profilePic } = route.params || {};
   
   const [isAudioReady, setIsAudioReady] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
   const soundRef = useRef(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -127,6 +129,9 @@ export default function IncomingCallScreen({ route }) {
   };
 
   const handleAccept = async () => {
+    if (isJoining) return;
+    setIsJoining(true);
+    
     Vibration.cancel();
     stopRingtone();
     
@@ -137,6 +142,11 @@ export default function IncomingCallScreen({ route }) {
       AsyncStorage.setItem("partnerName", callerName || ""),
       AsyncStorage.setItem("roomId", room || ""),
     ]);
+
+    // ✅ EMIT ACCEPT CALL TO BACKEND
+    if (socketContext?.emit && callerId) {
+      socketContext.emit("acceptCall", { to: callerId, room: room });
+    }
 
     navigation.replace("VideoCallScreen", {
       callUrl,
@@ -211,9 +221,13 @@ export default function IncomingCallScreen({ route }) {
                 onPress={handleAccept}
                 style={[styles.actionButton, styles.acceptButton]}
               >
-                <Ionicons name="call" size={32} color="#fff" />
+                {isJoining ? (
+                  <ActivityIndicator size="large" color="#fff" />
+                ) : (
+                  <Ionicons name="call" size={32} color="#fff" />
+                )}
               </TouchableOpacity>
-              <Text style={styles.buttonLabel}>Accept</Text>
+              <Text style={styles.buttonLabel}>{isJoining ? "Joining..." : "Accept"}</Text>
             </View>
           </View>
           
