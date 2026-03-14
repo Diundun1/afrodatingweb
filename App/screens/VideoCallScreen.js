@@ -182,7 +182,8 @@ export default function VideoCallScreen() {
     const partnerId = await AsyncStorage.getItem("partnerId");
     const roomId = room || (route.params?.room);
     if (socketContext?.emit && partnerId) {
-      socketContext.emit("remoteMuteStatus", { to: partnerId, room: roomId, isMuted: newState });
+      // Server expects 'muteStatus' event; it relays back to partner as 'remoteMuteStatus'
+      socketContext.emit("muteStatus", { to: partnerId, room: roomId, isMuted: newState });
     }
   };
 
