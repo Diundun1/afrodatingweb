@@ -22,20 +22,8 @@ import { LinearGradient } from "expo-linear-gradient";
 
 const { width, height } = Dimensions.get("window");
 
-// Improved fallback for useCall hook
-let useCall = () => ({
-  setInCall: () => console.log("setInCall fallback"),
-  setParticipant: () => console.log("setParticipant fallback"),
-});
-
-try {
-  const callContext = require("../lib/CallContext");
-  if (callContext && callContext.useCall) {
-    useCall = callContext.useCall;
-  }
-} catch (e) {
-  console.warn("CallContext not found, using fallback");
-}
+import { useCall } from "../lib/CallContext";
+import { useSocket } from "../lib/SocketContext";
 
 export default function VideoCallScreen() {
   const navigation = useNavigation();
@@ -117,15 +105,7 @@ export default function VideoCallScreen() {
 
   const callContext = useCall();
   const { setInCall, setParticipant } = callContext || {};
-
-  const socketContext = (() => {
-    try {
-      const { useSocket } = require("../lib/SocketContext");
-      return useSocket();
-    } catch (e) {
-      return null;
-    }
-  })();
+  const socketContext = useSocket();
 
   useEffect(() => {
     const loadCallData = async () => {
@@ -322,22 +302,29 @@ export default function VideoCallScreen() {
       }
     };
 
-    socketContext.socketRef.current.on('callDeclined', onCallDeclined);
-    socketContext.socketRef.current.on('callEnded', onCallEnded);
-    socketContext.socketRef.current.on('callAccepted', onCallAccepted);
-    socketContext.socketRef.current.on('ringing', onRinging);
-    socketContext.socketRef.current.on('remoteMuteStatus', onRemoteMuteStatus);
-    socketContext.socketRef.current.on('videoUpgradeRequest', onVideoUpgradeRequest);
-    socketContext.socketRef.current.on('videoUpgradeResponse', onVideoUpgradeResponse);
+    const socket = socketContext?.socketRef?.current;
+    if (!socket) return;
+
+    socket.on('callDeclined', onCallDeclined);
+    socket.on('callEnded', onCallEnded);
+    socket.on('callAccepted', onCallAccepted);
+    socket.on('ringing', onRinging);
+    socket.on('remoteMuteStatus', onRemoteMuteStatus);
+    socket.on('videoUpgradeRequest', onVideoUpgradeRequest);
+    socket.on('videoUpgradeResponse', onVideoUpgradeResponse);
 
     return () => {
-      socketContext.socketRef.current.off('callDeclined', onCallDeclined);
-      socketContext.socketRef.current.off('callEnded', onCallEnded);
-      socketContext.socketRef.current.off('callAccepted', onCallAccepted);
-      socketContext.socketRef.current.off('ringing', onRinging);
-      socketContext.socketRef.current.off('remoteMuteStatus', onRemoteMuteStatus);
-      socketContext.socketRef.current.off('videoUpgradeRequest', onVideoUpgradeRequest);
-      socketContext.socketRef.current.off('videoUpgradeResponse', onVideoUpgradeResponse);
+      // ✅ ATOMIC SAFETY CHECK: Always check if socket still exists before calling .off()
+      const currentSocket = socketContext?.socketRef?.current;
+      if (currentSocket) {
+        currentSocket.off('callDeclined', onCallDeclined);
+        currentSocket.off('callEnded', onCallEnded);
+        currentSocket.off('callAccepted', onCallAccepted);
+        currentSocket.off('ringing', onRinging);
+        currentSocket.off('remoteMuteStatus', onRemoteMuteStatus);
+        currentSocket.off('videoUpgradeRequest', onVideoUpgradeRequest);
+        currentSocket.off('videoUpgradeResponse', onVideoUpgradeResponse);
+      }
     };
   }, [socketContext]);
 
