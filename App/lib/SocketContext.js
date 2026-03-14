@@ -72,7 +72,7 @@ export function SocketProvider({ children }) {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                   },
-                },
+                }
               );
 
               if (response.ok) {
@@ -81,7 +81,7 @@ export function SocketProvider({ children }) {
 
                 const chats = result?.data || [];
                 const chat = chats.find((c) =>
-                  [c.room, c.chat_room_id, c.roomId].includes(room),
+                  [c.room, c.chat_room_id, c.roomId].includes(room)
                 );
 
                 const lm = chat?.lastMessage;
@@ -113,7 +113,7 @@ export function SocketProvider({ children }) {
           if (timeDiffInMins <= 2) {
             // Log the call detection
             console.log(
-              "📞 Call Link Detected! Navigating to IncomingCallScreen...",
+              "📞 Call Link Detected! Navigating to IncomingCallScreen..."
             );
 
             // Store call data for persistence
@@ -138,7 +138,7 @@ export function SocketProvider({ children }) {
               "Incoming Call",
               `Incoming call from ${senderName}`,
               `call-${Date.now()}`,
-              room,
+              room
             );
             return; // Stop here so we don't send a double notification
           }
@@ -149,130 +149,140 @@ export function SocketProvider({ children }) {
           senderName,
           finalMessage,
           `msg-${Date.now()}`,
-          room,
+          room
         );
       } catch (error) {
         console.error("Failed to process message notification", error);
       }
     },
-    [navigation],
+    [navigation]
   );
 
-  const handleChatMessage = useCallback(async (messageData) => {
-    console.log("messageData: ", messageData);
-    try {
-      const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
+  const handleChatMessage = useCallback(
+    async (messageData) => {
+      console.log("messageData: ", messageData);
+      try {
+        const loggedInUserId = await AsyncStorage.getItem("loggedInUserId");
 
-      // Extract sender ID
-      let senderId = null;
-      if (typeof messageData.sender_id === "object" && messageData.sender_id) {
-        senderId = messageData.sender_id._id || messageData.sender_id.id;
-      } else if (messageData.sender_id) {
-        senderId = messageData.sender_id;
-      } else if (messageData.sender?.id) {
-        senderId = messageData.sender.id;
-      }
+        // Extract sender ID
+        let senderId = null;
+        if (
+          typeof messageData.sender_id === "object" &&
+          messageData.sender_id
+        ) {
+          senderId = messageData.sender_id._id || messageData.sender_id.id;
+        } else if (messageData.sender_id) {
+          senderId = messageData.sender_id;
+        } else if (messageData.sender?.id) {
+          senderId = messageData.sender.id;
+        }
 
-      // Skip own messages
-      if (senderId === loggedInUserId) {
-        logger.info("Skipping own message");
-        return;
-      }
+        // Skip own messages
+        if (senderId === loggedInUserId) {
+          logger.info("Skipping own message");
+          return;
+        }
 
-      // Skip call links
-      const isCallLink = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/.test();
-      if (isCallLink) {
-        logger.info("Skipping call link message");
-        console.log("call link");
-      }
+        // Skip call links
+        // Extract message content
+        let messageContent =
+          messageData.message || messageData.text || messageData.content;
 
-      // Extract message content
-      let messageContent = messageData.message || messageData.text || messageData.content;
-      
-      if (!messageContent) {
-        logger.warn("No message content in message data", messageData);
-        return;
-      }
+        if (!messageContent) {
+          logger.warn("No message content in message data", messageData);
+          return;
+        }
 
-      // Extract sender name
-      let senderName = "Someone";
-      if (
-        typeof messageData.sender_id === "object" &&
-        messageData.sender_id?.name
-      ) {
-        senderName = messageData.sender_id.name;
-      } else if (messageData.sender?.name) {
-        senderName = messageData.sender.name;
-      } else if (messageData.sender_name) {
-        senderName = messageData.sender_name;
-      }
+        const isCallLink = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/.test(
+          messageContent
+        );
+        if (isCallLink) {
+          logger.info("Skipping call link message");
+          console.log("call link");
+          return;
+        }
 
-      // Extract room and message IDs
-      const roomId =
-        messageData.room_id || messageData.chat_room_id || messageData.room;
-      const messageId =
-        messageData._id || messageData.id || `msg-${Date.now()}`;
+        // Extract sender name
+        let senderName = "Someone";
+        if (
+          typeof messageData.sender_id === "object" &&
+          messageData.sender_id?.name
+        ) {
+          senderName = messageData.sender_id.name;
+        } else if (messageData.sender?.name) {
+          senderName = messageData.sender.name;
+        } else if (messageData.sender_name) {
+          senderName = messageData.sender_name;
+        }
 
-      if (!roomId) {
-        logger.warn("No room ID in message data");
-        return;
-      }
+        // Extract room and message IDs
+        const roomId =
+          messageData.room_id || messageData.chat_room_id || messageData.room;
+        const messageId =
+          messageData._id || messageData.id || `msg-${Date.now()}`;
 
-     
-      const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
-      const linkMatch = messageContent.match(callLinkPattern);
+        if (!roomId) {
+          logger.warn("No room ID in message data");
+          return;
+        }
 
-      if (linkMatch) {
-        const callUrl = linkMatch[0];
-        
-        // Log the call detection
-        logger.info("📞 Call Link Detected in Chat Message! Triggering Call UI...");
+        const callLinkPattern = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/;
+        const linkMatch = messageContent.match(callLinkPattern);
 
-        // Store call data for persistence
-        await Promise.all([
-          AsyncStorage.setItem("callUrl", callUrl),
-          AsyncStorage.setItem("partnerId", senderId),
-          AsyncStorage.setItem("partnerName", senderName),
-          AsyncStorage.setItem("roomId", roomId),
-        ]);
+        if (linkMatch) {
+          const callUrl = linkMatch[0];
 
-        // Navigate to the Call UI
-        navigation.navigate("IncomingCallScreen", {
-          callerName: senderName,
-          partnerId: senderId,
-          callUrl,
-          room: roomId,
-          callType: "video",
-          isCaller: false,
+          // Log the call detection
+          logger.info(
+            "📞 Call Link Detected in Chat Message! Triggering Call UI..."
+          );
+
+          // Store call data for persistence
+          await Promise.all([
+            AsyncStorage.setItem("callUrl", callUrl),
+            AsyncStorage.setItem("partnerId", senderId),
+            AsyncStorage.setItem("partnerName", senderName),
+            AsyncStorage.setItem("roomId", roomId),
+          ]);
+
+          // Navigate to the Call UI
+          navigation.navigate("IncomingCallScreen", {
+            callerName: senderName,
+            partnerId: senderId,
+            callUrl,
+            room: roomId,
+            callType: "video",
+            isCaller: false,
+          });
+
+          await sendCallNotification({
+            callerName: senderName,
+            callUrl: callUrl,
+            callerId: senderId,
+            room: roomId,
+            callType: "video",
+          });
+          return;
+        }
+
+        logger.info("Sending chat message notification", {
+          senderName,
+          messageContent,
+          roomId,
         });
 
-        
-        await sendCallNotification({
-          callerName: senderName,
-          callUrl: callUrl,
-          callerId: senderId,
-          room: roomId,
-          callType: "video"
-        });
-        return;
+        await sendMessageNotification(
+          senderName,
+          messageContent,
+          messageId,
+          roomId
+        );
+      } catch (error) {
+        logger.error("Failed to process chat message", error);
       }
-
-      logger.info("Sending chat message notification", {
-        senderName,
-        messageContent,
-        roomId,
-      });
-
-      await sendMessageNotification(
-        senderName,
-        messageContent,
-        messageId,
-        roomId,
-      );
-    } catch (error) {
-      logger.error("Failed to process chat message", error);
-    }
-  }, [navigation]);
+    },
+    [navigation]
+  );
 
   useEffect(() => {
     if (initializedRef.current) return;
@@ -289,7 +299,7 @@ export function SocketProvider({ children }) {
 
         const socket = initializeSocket(
           "https://backend-afrodate-8q6k.onrender.com/messaging",
-          token,
+          token
         );
 
         socketRef.current = socket;
@@ -406,6 +416,13 @@ export function SocketProvider({ children }) {
     return true;
   }, []);
 
+  // ✅ SAFE REMOVE LISTENER
+  const safeOff = useCallback((event, handler) => {
+    if (socketRef.current) {
+      socketRef.current.off(event, handler);
+    }
+  }, []);
+
   // ✅ FIXED: Include isConnected in deps so consumers re-render on connection changes
   const contextValue = {
     socket: socketRef.current,
@@ -413,6 +430,7 @@ export function SocketProvider({ children }) {
     isConnected,
     onMessageReceived,
     emit,
+    safeOff,
     getSocket,
   };
 

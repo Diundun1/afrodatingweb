@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import * as Icons from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Audio } from "expo-av";
 import { startRingtone, stopRingtone } from "../../ringtone";
@@ -24,9 +24,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const { width, height } = Dimensions.get("window");
 
 // ✅ DEFENSIVE COMPONENT WRAPPERS
-const Ionicons = Icons.Ionicons || (() => null);
-const MaterialCommunityIcons = Icons.MaterialCommunityIcons || (() => null);
-const SafeLinearGradient = LinearGradient || View;
+const SafeIonicons = (props) => (Ionicons ? <Ionicons {...props} /> : null);
+const SafeMaterialCommunityIcons = (props) => (MaterialCommunityIcons ? <MaterialCommunityIcons {...props} /> : null);
+const SafeLinearGradient = (props) => (LinearGradient ? <LinearGradient {...props} /> : <View {...props} />);
+const SafeActivityIndicator = (props) => <ActivityIndicator {...props} />;
 
 export default function IncomingCallScreen({ route }) {
   const navigation = useNavigation();
@@ -205,7 +206,7 @@ export default function IncomingCallScreen({ route }) {
           
           <Text style={styles.callerName}>{callerName || "Someone Special"}</Text>
           <View style={styles.statusBadge}>
-            <MaterialCommunityIcons name="video" size={16} color="#fff" style={{marginRight: 6}} />
+            <SafeMaterialCommunityIcons name="video" size={16} color="#fff" style={{marginRight: 6}} />
             <Text style={styles.incomingText}>INCOMING VIDEO CALL</Text>
           </View>
         </View>
@@ -219,7 +220,7 @@ export default function IncomingCallScreen({ route }) {
                 onPress={handleDecline}
                 style={[styles.actionButton, styles.declineButton]}
               >
-                <Ionicons name="close" size={36} color="#fff" />
+                <SafeIonicons name="close" size={36} color="#fff" />
               </TouchableOpacity>
               <Text style={styles.buttonLabel}>Decline</Text>
             </View>
@@ -231,9 +232,9 @@ export default function IncomingCallScreen({ route }) {
                 style={[styles.actionButton, styles.acceptButton]}
               >
                 {isJoining ? (
-                  <ActivityIndicator size="large" color="#fff" />
+                  <SafeActivityIndicator size="large" color="#fff" />
                 ) : (
-                  <Ionicons name="call" size={32} color="#fff" />
+                  <SafeIonicons name="call" size={32} color="#fff" />
                 )}
               </TouchableOpacity>
               <Text style={styles.buttonLabel}>{isJoining ? "Joining..." : "Accept"}</Text>
@@ -241,7 +242,7 @@ export default function IncomingCallScreen({ route }) {
           </View>
           
           <TouchableOpacity style={styles.messageAction}>
-            <Ionicons name="chatbubble-outline" size={20} color="rgba(255,255,255,0.6)" />
+            <SafeIonicons name="chatbubble-outline" size={20} color="rgba(255,255,255,0.6)" />
             <Text style={styles.messageText}>Reply with message</Text>
           </TouchableOpacity>
         </Animated.View>

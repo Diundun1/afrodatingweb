@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import * as Icons from "@expo/vector-icons";
+import { MaterialIcons, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera } from "expo-camera";
@@ -23,10 +23,12 @@ import { LinearGradient } from "expo-linear-gradient";
 const { width, height } = Dimensions.get("window");
 
 // ✅ DEFENSIVE COMPONENT WRAPPERS
-const Ionicons = Icons.Ionicons || (() => null);
-const MaterialIcons = Icons.MaterialIcons || (() => null);
-const MaterialCommunityIcons = Icons.MaterialCommunityIcons || (() => null);
-const SafeLinearGradient = LinearGradient || View;
+// Using functional wrappers ensures React always sees a valid component type
+const SafeIonicons = (props) => (Ionicons ? <Ionicons {...props} /> : null);
+const SafeMaterialIcons = (props) => (MaterialIcons ? <MaterialIcons {...props} /> : null);
+const SafeMaterialCommunityIcons = (props) => (MaterialCommunityIcons ? <MaterialCommunityIcons {...props} /> : null);
+const SafeLinearGradient = (props) => (LinearGradient ? <LinearGradient {...props} /> : <View {...props} />);
+const SafeActivityIndicator = (props) => <ActivityIndicator {...props} />;
 
 import { useCall } from "../lib/CallContext";
 import { useSocket } from "../lib/SocketContext";
@@ -321,17 +323,14 @@ export default function VideoCallScreen() {
     socket.on('videoUpgradeResponse', onVideoUpgradeResponse);
 
     return () => {
-      // ✅ ATOMIC SAFETY CHECK: Always check if socket still exists before calling .off()
-      const currentSocket = socketContext?.socketRef?.current;
-      if (currentSocket) {
-        currentSocket.off('callDeclined', onCallDeclined);
-        currentSocket.off('callEnded', onCallEnded);
-        currentSocket.off('callAccepted', onCallAccepted);
-        currentSocket.off('ringing', onRinging);
-        currentSocket.off('remoteMuteStatus', onRemoteMuteStatus);
-        currentSocket.off('videoUpgradeRequest', onVideoUpgradeRequest);
-        currentSocket.off('videoUpgradeResponse', onVideoUpgradeResponse);
-      }
+      // ✅ CENTRALIZED ATOMIC SAFETY: Using safeOff from context
+      socketContext.safeOff('callDeclined', onCallDeclined);
+      socketContext.safeOff('callEnded', onCallEnded);
+      socketContext.safeOff('callAccepted', onCallAccepted);
+      socketContext.safeOff('ringing', onRinging);
+      socketContext.safeOff('remoteMuteStatus', onRemoteMuteStatus);
+      socketContext.safeOff('videoUpgradeRequest', onVideoUpgradeRequest);
+      socketContext.safeOff('videoUpgradeResponse', onVideoUpgradeResponse);
     };
   }, [socketContext]);
 
@@ -411,7 +410,7 @@ export default function VideoCallScreen() {
           {!iframeLoaded && (
             <View style={[StyleSheet.absoluteFill, styles.connectingOverlay]}>
               <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.connectingAvatar} />
-              <ActivityIndicator size="large" color="#fff" />
+              <SafeActivityIndicator size="large" color="#fff" />
               <Text style={styles.connectingText}>
                 {isRinging ? "Ringing..." : "Establishing secure connection..."}
               </Text>
@@ -439,7 +438,7 @@ export default function VideoCallScreen() {
               source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} 
               style={styles.connectingAvatarLarge} 
             />
-            <ActivityIndicator size="large" color="#7B61FF" style={styles.loader} />
+            <SafeActivityIndicator size="large" color="#7B61FF" style={styles.loader} />
           </View>
           <Text style={styles.fallbackName}>{partnerName}</Text>
           <Text style={styles.fallbackStatus}>
@@ -482,7 +481,7 @@ export default function VideoCallScreen() {
         {isRemoteMuted && (
           <View style={styles.remoteMuteOverlay}>
             <View style={styles.remoteMuteBadge}>
-              <Ionicons name="mic-off" size={24} color="#fff" />
+              <SafeIonicons name="mic-off" size={24} color="#fff" />
               <Text style={styles.remoteMuteText}>{partnerName} is muted</Text>
             </View>
           </View>
@@ -517,7 +516,7 @@ export default function VideoCallScreen() {
           <SafeLinearGradient colors={["rgba(0,0,0,0.6)", "transparent"]} style={styles.headerGradient}>
             <View style={styles.headerContent}>
               <TouchableOpacity onPress={endCall} style={styles.miniBack}>
-                <Ionicons name="chevron-down" size={28} color="#fff" />
+                <SafeIonicons name="chevron-down" size={28} color="#fff" />
               </TouchableOpacity>
               <View style={styles.partnerInfo}>
                 <Text style={styles.partnerNameText}>{partnerName}</Text>
@@ -530,7 +529,7 @@ export default function VideoCallScreen() {
                       <Text style={styles.timerText}>{formatTime(callDuration)}</Text>
                       {isRemoteMuted && (
                         <View style={styles.muteIndicatorBadge}>
-                          <Ionicons name="mic-off" size={12} color="#fff" />
+                          <SafeIonicons name="mic-off" size={12} color="#fff" />
                           <Text style={styles.muteIndicatorText}>Muted</Text>
                         </View>
                       )}
@@ -539,7 +538,7 @@ export default function VideoCallScreen() {
                 </View>
               </View>
               <TouchableOpacity style={styles.securityIcon}>
-                <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.6)" />
+                <SafeIonicons name="lock-closed" size={16} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
             </View>
           </SafeLinearGradient>
@@ -549,19 +548,19 @@ export default function VideoCallScreen() {
         <View style={styles.footer}>
           <View style={styles.controlsRow}>
             <TouchableOpacity onPress={toggleMute} style={[styles.controlCircle, isMuted && styles.controlCircleActive]}>
-              <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color="#fff" />
+              <SafeIonicons name={isMuted ? "mic-off" : "mic"} size={26} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={toggleCamera} style={styles.controlCircle}>
-              <Ionicons name="camera-reverse" size={26} color="#fff" />
+              <SafeIonicons name="camera-reverse" size={26} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={endCall} style={styles.endCallCircle}>
-              <MaterialIcons name="call-end" size={32} color="#fff" />
+              <SafeMaterialIcons name="call-end" size={32} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={toggleVideo} style={[styles.controlCircle, (callType === 'voice' || !isVideoOn) && styles.controlCircleActive]}>
-              <MaterialCommunityIcons name={callType === 'voice' ? 'video-plus' : (isVideoOn ? "video" : "video-off")} size={26} color="#fff" />
+              <SafeMaterialCommunityIcons name={callType === 'voice' ? 'video-plus' : (isVideoOn ? "video" : "video-off")} size={26} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -571,7 +570,7 @@ export default function VideoCallScreen() {
       {callEnded && (
         <View style={styles.endedOverlay}>
           <View style={styles.endedBox}>
-            <MaterialIcons name="call-end" size={48} color="#EF4444" />
+            <SafeMaterialIcons name="call-end" size={48} color="#EF4444" />
             <Text style={styles.endedText}>Call Ended</Text>
           </View>
         </View>

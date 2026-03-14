@@ -214,8 +214,8 @@ export default function App() {
 
       if (type === "INCOMING_CALL") {
         startRingtone();
-        if (payload?.callUrl && navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("IncomingCallScreen", {
+        if (payload?.callUrl && navigationRef.isReady?.()) {
+          navigationRef.navigate("IncomingCallScreen", {
             callerName: payload.callerName,
             callerId: payload.callerId,
             callUrl: payload.callUrl,
@@ -228,14 +228,14 @@ export default function App() {
       }
 
       if (type === "NAVIGATE_TO_CALL") {
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("IncomingCallScreen", payload);
+        if (navigationRef.isReady?.()) {
+          navigationRef.navigate("IncomingCallScreen", payload);
         }
       }
 
       if (type === "OPEN_CHAT" && (payload?.room || payload?.roomId)) {
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("MessageScreen", {
+        if (navigationRef.isReady?.()) {
+          navigationRef.navigate("MessageScreen", {
             roomIdxccd: payload.room || payload.roomId,
             focusMessageId: payload.messageId,
           });
@@ -319,8 +319,8 @@ export default function App() {
     if (Platform.OS === "web" && typeof window !== "undefined") {
       const handleOpenChatRoom = (event) => {
         const { roomId, messageId } = event.detail;
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("ChatScreen", {
+        if (navigationRef.isReady?.()) {
+          navigationRef.navigate("ChatScreen", {
             roomIdxccd: roomId,
             focusMessageId: messageId,
           });
@@ -329,8 +329,8 @@ export default function App() {
 
       const handleOpenChat = (event) => {
         const data = event.detail;
-        if (navigationRef.current?.isReady?.() && data.roomId) {
-          navigationRef.current.navigate("ChatScreen", {
+        if (navigationRef.isReady?.() && data.roomId) {
+          navigationRef.navigate("ChatScreen", {
             roomIdxccd: data.roomId,
           });
         }
@@ -357,8 +357,8 @@ export default function App() {
 
       // 🔹 Open chat
       if (type === "OPEN_CHAT" && payload?.roomId) {
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("ChatScreen", {
+        if (navigationRef.isReady?.()) {
+          navigationRef.navigate("ChatScreen", {
             roomIdxccd: payload?.roomId,
             focusMessageId: payload?.messageId,
           });
@@ -367,8 +367,8 @@ export default function App() {
 
       // 🔹 Incoming call
       if (type === "INCOMING_CALL" && payload?.callUrl) {
-        if (navigationRef.current?.isReady?.()) {
-          navigationRef.current.navigate("IncomingCallScreen", {
+        if (navigationRef.isReady?.()) {
+          navigationRef.navigate("IncomingCallScreen", {
             callerName: payload.callerName,
             callerId: payload.callerId,
             callUrl: payload.callUrl,
