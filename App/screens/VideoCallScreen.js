@@ -348,40 +348,11 @@ export default function VideoCallScreen() {
     }, 5000);
   };
 
-  // ═══════════════════════════════════════════════════════
-  //  RENDER: Calling / Ringing (caller waiting for answer)
-  // ═══════════════════════════════════════════════════════
-  if (callStatus === STATUS.CALLING || callStatus === STATUS.RINGING) {
-    return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={["#1a0a2e", "#16213e", "#0f0f1a"]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.centerContent}>
-          <Text style={styles.callingLabel}>
-            {callStatus === STATUS.RINGING ? "Ringing..." : "Calling..."}
-          </Text>
-
-          <Image source={avatarSource} style={styles.callingAvatar} />
-
-          <Text style={styles.callingName}>{partnerName}</Text>
-          <Text style={styles.callingType}>
-            {callType === "voice" ? "Voice Call" : "Video Call"}
-          </Text>
-
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={doEndCall}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="call-end" size={32} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.cancelLabel}>Cancel</Text>
-        </View>
-      </View>
-    );
-  }
+  // ─── Status flags for unified render ─────────────────
+  const isCallingOrRinging =
+    callStatus === STATUS.CALLING || callStatus === STATUS.RINGING;
+  const isConnected = callStatus === STATUS.CONNECTED;
+  const isEnded = callStatus === STATUS.ENDED;
 
   // ═══════════════════════════════════════════════════════
   //  RENDER: Ended overlay
@@ -446,57 +417,21 @@ export default function VideoCallScreen() {
     </View>
   );
 
-  // ═══════════════════════════════════════════════════════
-  //  RENDER: Voice call (connected)
-  // ═══════════════════════════════════════════════════════
-  if (callType === "voice") {
-    return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={["#1a0a2e", "#2d1b69", "#0f0f1a"]}
-          style={StyleSheet.absoluteFill}
-        />
-        <SafeAreaView style={styles.voiceLayout}>
-          <View style={styles.voiceCenter}>
-            <Image source={avatarSource} style={styles.voiceAvatar} />
-            <Text style={styles.voiceName}>{partnerName}</Text>
-            <Text style={styles.voiceTimer}>
-              {formatTime(callDuration)}
-            </Text>
-            {isRemoteMuted && (
-              <View style={styles.mutedBadge}>
-                <Ionicons name="mic-off" size={14} color="#fff" />
-                <Text style={styles.mutedBadgeText}>Muted</Text>
-              </View>
-            )}
-          </View>
-          {renderControls()}
-        </SafeAreaView>
-        {callStatus === STATUS.ENDED && renderEndedOverlay()}
-      </View>
-    );
-  }
 
   // ═══════════════════════════════════════════════════════
-  //  RENDER: Video call (connected)
+  //  UNIFIED RENDER — iframe ALWAYS in DOM for WebRTC
   // ═══════════════════════════════════════════════════════
   return (
     <View
       style={styles.container}
       onStartShouldSetResponder={() => {
-        showControls();
+        if (isConnected && callType === "video") showControls();
         return false;
       }}
     >
-      {/* Remote video via iframe (web) or fallback */}
+      {/* ─── BASE LAYER: iframe — always present for WebRTC ─── */}
       {Platform.OS === "web" && callUrl ? (
         <View style={StyleSheet.absoluteFill}>
-          {!iframeLoaded && (
-            <View style={[StyleSheet.absoluteFill, styles.connectingOverlay]}>
-              <Image source={avatarSource} style={styles.connectingAvatar} />
-              <Text style={styles.connectingText}>Connecting...</Text>
-            </View>
-          )}
           <iframe
             ref={iframeRef}
             src={callUrl}
@@ -518,63 +453,135 @@ export default function VideoCallScreen() {
         </View>
       )}
 
-      {/* Local camera preview */}
-      {hasPermission && isVideoOn && callType === "video" && (
-        <View style={styles.localPreview}>
-          <Camera
+      {/* ─── OVERLAY: Calling / Ringing (covers iframe) ─── */}
+      {isCallingOrRinging && (
+        <View style={[StyleSheet.absoluteFill, styles.callingOverlay]}>
+          <LinearGradient
+            colors={["#1a0a2e", "#16213e", "#0f0f1a"]}
             style={StyleSheet.absoluteFill}
-            type={Camera.Constants?.Type?.front || "front"}
           />
-        </View>
-      )}
-
-      {/* Remote muted indicator */}
-      {isRemoteMuted && (
-        <View style={styles.remoteMuteOverlay}>
-          <View style={styles.mutedBadge}>
-            <Ionicons name="mic-off" size={16} color="#fff" />
-            <Text style={styles.mutedBadgeText}>{partnerName} is muted</Text>
+          <View style={styles.centerContent}>
+            <Text style={styles.callingLabel}>
+              {callStatus === STATUS.RINGING ? "Ringing..." : "Calling..."}
+            </Text>
+            <Image source={avatarSource} style={styles.callingAvatar} />
+            <Text style={styles.callingName}>{partnerName}</Text>
+            <Text style={styles.callingType}>
+              {callType === "voice" ? "Voice Call" : "Video Call"}
+            </Text>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={doEndCall}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="call-end" size={32} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.cancelLabel}>Cancel</Text>
           </View>
         </View>
       )}
 
-      {/* Top bar with gradient */}
-      <Animated.View
-        style={[styles.headerOverlay, { opacity: controlsAnim }]}
-      >
-        <SafeAreaView>
+      {/* ─── OVERLAY: Voice call (covers iframe, audio still plays) ─── */}
+      {callType === "voice" && isConnected && (
+        <View style={[StyleSheet.absoluteFill, styles.voiceOverlay]}>
           <LinearGradient
-            colors={["rgba(0,0,0,0.6)", "transparent"]}
-            style={styles.headerGradient}
-          >
-            <View style={styles.headerRow}>
-              <TouchableOpacity onPress={doEndCall} style={styles.backBtn}>
-                <Ionicons name="chevron-down" size={26} color="#fff" />
-              </TouchableOpacity>
-              <View style={styles.headerInfo}>
-                <Text style={styles.headerName}>{partnerName}</Text>
-                <View style={styles.timerRow}>
-                  <View style={styles.liveDot} />
-                  <Text style={styles.timerText}>
-                    {formatTime(callDuration)}
-                  </Text>
+            colors={["#1a0a2e", "#2d1b69", "#0f0f1a"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <SafeAreaView style={styles.voiceLayout}>
+            <View style={styles.voiceCenter}>
+              <Image source={avatarSource} style={styles.voiceAvatar} />
+              <Text style={styles.voiceName}>{partnerName}</Text>
+              <Text style={styles.voiceTimer}>
+                {formatTime(callDuration)}
+              </Text>
+              {isRemoteMuted && (
+                <View style={styles.mutedBadge}>
+                  <Ionicons name="mic-off" size={14} color="#fff" />
+                  <Text style={styles.mutedBadgeText}>Muted</Text>
                 </View>
-              </View>
-              <View style={{ width: 40 }} />
+              )}
             </View>
-          </LinearGradient>
-        </SafeAreaView>
-      </Animated.View>
+            {renderControls()}
+          </SafeAreaView>
+        </View>
+      )}
 
-      {/* Bottom controls */}
-      <Animated.View
-        style={[styles.bottomOverlay, { opacity: controlsAnim }]}
-      >
-        {renderControls()}
-      </Animated.View>
+      {/* ─── VIDEO CALL UI (connected, iframe visible behind) ─── */}
+      {callType === "video" && isConnected && (
+        <>
+          {/* Connecting spinner while iframe loads */}
+          {!iframeLoaded && (
+            <View style={[StyleSheet.absoluteFill, styles.connectingOverlay]}>
+              <Image source={avatarSource} style={styles.connectingAvatar} />
+              <Text style={styles.connectingText}>Connecting...</Text>
+            </View>
+          )}
 
-      {/* Ended overlay */}
-      {callStatus === STATUS.ENDED && renderEndedOverlay()}
+          {/* Local camera preview */}
+          {hasPermission && isVideoOn && (
+            <View style={styles.localPreview}>
+              <Camera
+                style={StyleSheet.absoluteFill}
+                type={Camera.Constants?.Type?.front || "front"}
+              />
+            </View>
+          )}
+
+          {/* Remote muted indicator */}
+          {isRemoteMuted && (
+            <View style={styles.remoteMuteOverlay}>
+              <View style={styles.mutedBadge}>
+                <Ionicons name="mic-off" size={16} color="#fff" />
+                <Text style={styles.mutedBadgeText}>
+                  {partnerName} is muted
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Header bar */}
+          <Animated.View
+            style={[styles.headerOverlay, { opacity: controlsAnim }]}
+          >
+            <SafeAreaView>
+              <LinearGradient
+                colors={["rgba(0,0,0,0.6)", "transparent"]}
+                style={styles.headerGradient}
+              >
+                <View style={styles.headerRow}>
+                  <TouchableOpacity
+                    onPress={doEndCall}
+                    style={styles.backBtn}
+                  >
+                    <Ionicons name="chevron-down" size={26} color="#fff" />
+                  </TouchableOpacity>
+                  <View style={styles.headerInfo}>
+                    <Text style={styles.headerName}>{partnerName}</Text>
+                    <View style={styles.timerRow}>
+                      <View style={styles.liveDot} />
+                      <Text style={styles.timerText}>
+                        {formatTime(callDuration)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ width: 40 }} />
+                </View>
+              </LinearGradient>
+            </SafeAreaView>
+          </Animated.View>
+
+          {/* Bottom controls */}
+          <Animated.View
+            style={[styles.bottomOverlay, { opacity: controlsAnim }]}
+          >
+            {renderControls()}
+          </Animated.View>
+        </>
+      )}
+
+      {/* ─── OVERLAY: Call Ended ─── */}
+      {isEnded && renderEndedOverlay()}
     </View>
   );
 }
@@ -590,6 +597,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  callingOverlay: {
+    zIndex: 30,
+  },
+  voiceOverlay: {
+    zIndex: 30,
   },
   callingLabel: {
     fontSize: 16,
