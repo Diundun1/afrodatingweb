@@ -127,7 +127,11 @@ export default function IncomingCallScreen({ route }) {
       );
       soundRef.current = sound;
     } catch (err) {
-      console.error("Error playing ringtone:", err);
+      if (err?.name === "NotAllowedError") {
+        console.warn("Auto-play blocked; will rely on vibration only until user interacts.");
+      } else {
+        console.error("Error playing ringtone:", err);
+      }
       // Fallback to vibration only if audio fails
       Vibration.vibrate([500, 500], true);
     }

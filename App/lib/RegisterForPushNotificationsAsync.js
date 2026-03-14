@@ -163,10 +163,25 @@ const RegisterForPushNotificationsAsync = async () => {
       "BOqyxnaIO_gNGX9I1XC0hrKDJg8oIfsEAcFlylps0cgb_DBzbwWR9LKwtvU7r3Kmpf3IQVk55BQQNcoMF1JrEPQ";
 
     // 5. Subscribe
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
+    let subscription;
+    try {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    } catch (error) {
+      if (
+        error?.name === "AbortError" ||
+        /storage error/i.test(error?.message || "")
+      ) {
+        console.warn(
+          "Browser blocked push subscription (likely storage or private browsing). Retry in a normal window."
+        );
+        return null;
+      }
+      console.error("Error getting push notification subscription:", error);
+      return null;
+    }
 
     // 6. Convert to JSON before sending to your Service
     const subJSON = subscription.toJSON();

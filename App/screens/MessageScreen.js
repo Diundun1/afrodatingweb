@@ -1015,7 +1015,11 @@ const MessageScreen = ({ route }) => {
   };
 
   const renderItem = ({ item }) => {
-    const isCallRequest = item.message.includes("https://test.unigate.com.ng/");
+    const safeMessage =
+      typeof item.message === "string"
+        ? item.message
+        : JSON.stringify(item.message ?? "");
+    const isCallRequest = safeMessage.includes("https://test.unigate.com.ng/");
     const profilePicUrl = getProfilePicUrl(partnerData);
 
     // Retry function for failed messages
@@ -1113,7 +1117,7 @@ const MessageScreen = ({ route }) => {
                       item.isSender ? styles.senderText : styles.receiverText
                     }
                   >
-                    {item.message}
+                  {safeMessage}
                   </NunitoText>
                 </View>
               </TouchableOpacity>
