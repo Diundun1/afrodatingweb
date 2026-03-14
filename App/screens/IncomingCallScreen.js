@@ -30,6 +30,7 @@ export default function IncomingCallScreen({ route }) {
     room,
     callType = "video",
     profilePic,
+    autoAccept = false,
   } = route.params || {};
 
   const [answered, setAnswered] = useState(false);
@@ -141,6 +142,17 @@ export default function IncomingCallScreen({ route }) {
       socketContext.emit("ringing", { to: callerId, room });
     }
   }, []);
+
+  // ─── Auto-accept when user tapped Accept on system notification ──
+  useEffect(() => {
+    if (
+      (autoAccept === true || autoAccept === "true") &&
+      callUrl &&
+      !answered
+    ) {
+      handleAccept();
+    }
+  }, [autoAccept]);
 
   // ─── Listen for caller cancelling / timeout ───────────────
   useEffect(() => {

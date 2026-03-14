@@ -550,14 +550,24 @@ self.addEventListener("push", async (event) => {
           ? [500, 200, 500, 200, 500, 200, 500, 200, 500]
           : [200, 100, 200],
         requireInteraction: isCall ? true : false,
+        // Accept / Decline buttons for call notifications
+        ...(isCall
+          ? {
+              actions: [
+                { action: "accept_call", title: "✅ Accept" },
+                { action: "decline_call", title: "❌ Decline" },
+              ],
+            }
+          : {}),
         data: {
           ...data.data,
           url: isCall ? `/incoming-call` : data.url || "/",
           callUrl: callUrl,
+          callerId: data.data?.sender?.id || data.data?.callerId || null,
           isCall: isCall,
           originalMessage: finalMessage,
           timestamp: timestamp,
-          senderName: senderName, // Store resolved sender name
+          senderName: senderName,
         },
         tag: isCall
           ? `call-${data.data?.room}`
@@ -596,31 +606,70 @@ self.addEventListener("push", async (event) => {
 // call to chat screen
 
 self.addEventListener("notificationclick", (event) => {
-  console.log("🔔 Notification clicked:", event.notification.data);
+  console.log("🔔 Notification clicked:", event.action, event.notification.data);
   event.notification.close();
 
   const data = event.notification.data || {};
   const isCall = data.type === "incoming_call" || data.isCall;
+  const action = event.action; // "accept_call", "decline_call", or "" (body tap)
 
-  // Resolve values safely to avoid ReferenceErrors
-  const room = data.room || data.roomId || data.sender?.id || data.sender;
-  const resolvedCallUrl = data.callUrl || data.url || null;
-  const resolvedSenderName =
-    data.senderName || data.sender?.name || "Someone";
-  const resolvedProfilePic =
-    data.sender?.profilePic || data.data?.sender?.profilePic || "";
-  const resolvedCallType = data.callType || data.data?.callType || "video";
+  // ── Decline: just close notification, call times out on caller side ──
+  if (action === "decline_call") {
+    console.log("📞 Call declined from notification");
+    // Try to tell the app so it can emit declineCall via socket
+    event.waitUntil(
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((clientList) => {
+          for (const client of clientList) {
+            if (client.url.startsWith(self.location.origin)) {
+              client.postMessage({
+                type: "DECLINE_CALL",
+                payload: {
+                  callerId: data.callerId || data.sender?.id,
+                  room: data.room,
+                },
+              });
+              return;
+            }
+          }
+        }),
+    );
+    return;
+  }
 
-  const targetUrl = isCall
-    ? `/incoming-call?room=${room}&callUrl=${encodeURIComponent(
-        resolvedCallUrl || "",
-      )}&callerName=${encodeURIComponent(resolvedSenderName)}&profilePic=${encodeURIComponent(resolvedProfilePic)}`
-    : `/chat/${room}`;
+  // ── Resolve common values ──
+  const room = data.room || data.roomId;
+  const resolvedCallUrl = data.callUrl || null;
+  const resolvedSenderName = data.senderName || data.sender?.name || "Someone";
+  const resolvedProfilePic = data.sender?.profilePic || "";
+  const resolvedCallType = data.callType || "video";
+  const resolvedCallerId = data.callerId || data.sender?.id || null;
+
+  // Accept tapped on notification OR body tapped for a call
+  const isAccept = action === "accept_call";
+
+  // ── Build deep-link URL (for when no client window exists) ──
+  let targetUrl = "/";
+  if (isCall) {
+    targetUrl =
+      `/incoming-call` +
+      `?room=${encodeURIComponent(room || "")}` +
+      `&callUrl=${encodeURIComponent(resolvedCallUrl || "")}` +
+      `&callerName=${encodeURIComponent(resolvedSenderName)}` +
+      `&callerId=${encodeURIComponent(resolvedCallerId || "")}` +
+      `&callType=${encodeURIComponent(resolvedCallType)}` +
+      `&profilePic=${encodeURIComponent(resolvedProfilePic)}` +
+      (isAccept ? `&autoAccept=true` : "");
+  } else {
+    targetUrl = `/chat/${room}`;
+  }
 
   event.waitUntil(
-    clients
+    self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then(async (clientList) => {
+        // Try to use an existing app window
         for (const client of clientList) {
           if (
             client.url.startsWith(self.location.origin) &&
@@ -635,8 +684,10 @@ self.addEventListener("notificationclick", (event) => {
                   room,
                   callUrl: resolvedCallUrl,
                   callerName: resolvedSenderName,
+                  callerId: resolvedCallerId,
                   profilePic: resolvedProfilePic,
                   callType: resolvedCallType,
+                  autoAccept: isAccept,
                 },
               });
             } else {
@@ -652,8 +703,9 @@ self.addEventListener("notificationclick", (event) => {
           }
         }
 
-        if (clients.openWindow) {
-          return clients.openWindow(targetUrl);
+        // No existing window — open a new one with deep-link URL
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
         }
       }),
   );

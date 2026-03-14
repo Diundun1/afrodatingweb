@@ -214,7 +214,7 @@ export default function App() {
       console.log("📩 SW Message:", type, payload);
 
       if (type === "INCOMING_CALL") {
-        startRingtone();
+        if (!payload?.autoAccept) startRingtone();
         if (payload?.callUrl && navigationRef.isReady?.()) {
           navigationRef.navigate("IncomingCallScreen", {
             callerName: payload.callerName,
@@ -224,8 +224,16 @@ export default function App() {
             callType: payload.callType || "video",
             profilePic: payload.profilePic,
             isCaller: false,
+            autoAccept: payload.autoAccept || false,
           });
         }
+      }
+
+      if (type === "DECLINE_CALL" && payload) {
+        // Dispatch a custom event so SocketContext can emit declineCall
+        window.dispatchEvent(
+          new CustomEvent("sw-decline-call", { detail: payload })
+        );
       }
 
       if (type === "NAVIGATE_TO_CALL") {
@@ -368,6 +376,7 @@ export default function App() {
 
       // 🔹 Incoming call
       if (type === "INCOMING_CALL" && payload?.callUrl) {
+        if (!payload?.autoAccept) startRingtone();
         if (navigationRef.isReady?.()) {
           navigationRef.navigate("IncomingCallScreen", {
             callerName: payload.callerName,
@@ -377,8 +386,16 @@ export default function App() {
             callType: payload.callType || "video",
             profilePic: payload.profilePic,
             isCaller: false,
+            autoAccept: payload.autoAccept || false,
           });
         }
+      }
+
+      // 🔹 Decline call from notification
+      if (type === "DECLINE_CALL" && payload) {
+        window.dispatchEvent(
+          new CustomEvent("sw-decline-call", { detail: payload })
+        );
       }
     };
 

@@ -293,8 +293,23 @@ export function SocketProvider({ children }) {
 
     connectSocket();
 
+    // Listen for decline-call events from service worker (via App.js)
+    const handleSWDecline = (e) => {
+      const { callerId, room } = e.detail || {};
+      if (socketRef.current && callerId) {
+        console.log("📞 Declining call from SW notification:", callerId, room);
+        socketRef.current.emit("declineCall", { to: callerId, room });
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("sw-decline-call", handleSWDecline);
+    }
+
     return () => {
       isMounted = false;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sw-decline-call", handleSWDecline);
+      }
       if (socketRef.current) {
         socketRef.current.removeAllListeners();
         socketRef.current.disconnect();
