@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,87 +10,147 @@ import {
   Easing,
   Dimensions,
   Platform,
-  ImageBackground,
-  ActivityIndicator,
 } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Audio } from "expo-av";
-import { startRingtone, stopRingtone } from "../../ringtone";
 import { useSocket } from "../lib/SocketContext";
+import { startRingtone, stopRingtone } from "../../ringtone";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
 
-// ✅ DEFENSIVE COMPONENT WRAPPERS
-const SafeIonicons = (props) => (Ionicons ? <Ionicons {...props} /> : null);
-const SafeMaterialCommunityIcons = (props) => (MaterialCommunityIcons ? <MaterialCommunityIcons {...props} /> : null);
-const SafeLinearGradient = (props) => (LinearGradient ? <LinearGradient {...props} /> : <View {...props} />);
-const SafeActivityIndicator = (props) => <ActivityIndicator {...props} />;
-
 export default function IncomingCallScreen({ route }) {
   const navigation = useNavigation();
   const socketContext = useSocket();
-  const { callerName, callUrl, callerId, room, callType, profilePic } = route.params || {};
-  
-  const [isAudioReady, setIsAudioReady] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
-  const soundRef = useRef(null);
+  const {
+    callerName = "Unknown",
+    callerId,
+    callUrl,
+    room,
+    callType = "video",
+    profilePic,
+  } = route.params || {};
 
+  const [answered, setAnswered] = useState(false);
+
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(80)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(height)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const ringPulse1 = useRef(new Animated.Value(0.4)).current;
+  const ringPulse2 = useRef(new Animated.Value(0.3)).current;
 
-  // Default avatar if none provided
-  const avatarSource = profilePic ? { uri: profilePic } : require("../../assets/images/appIco.png");
+  const avatarSource = profilePic
+    ? { uri: profilePic }
+    : require("../../assets/images/appIco.png");
 
+  // ─── Entry animations ─────────────────────────────────────
   useEffect(() => {
-    const setupAudio = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
-        setIsAudioReady(true);
-      } catch (error) {
-        console.error("Error setting up audio:", error);
-      }
-    };
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 40,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
-    setupAudio();
-    startCallAnimations();
+  // ─── Avatar pulse ─────────────────────────────────────────
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.08,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
 
+  // ─── Ring pulse animations ────────────────────────────────
+  useEffect(() => {
+    const ring1 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ringPulse1, {
+          toValue: 0.8,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(ringPulse1, {
+          toValue: 0.4,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    const ring2 = Animated.loop(
+      Animated.sequence([
+        Animated.delay(400),
+        Animated.timing(ringPulse2, {
+          toValue: 0.6,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(ringPulse2, {
+          toValue: 0.3,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    ring1.start();
+    ring2.start();
     return () => {
-      Vibration.cancel();
-      stopRingtone();
+      ring1.stop();
+      ring2.stop();
     };
   }, []);
 
+  // ─── Ringtone + vibration ─────────────────────────────────
   useEffect(() => {
-    if (isAudioReady) {
-      playRingtone();
+    startRingtone();
+    if (Platform.OS !== "web") {
+      Vibration.vibrate([1000, 1000], true);
     }
-  }, [isAudioReady]);
+    return () => {
+      stopRingtone();
+      Vibration.cancel();
+    };
+  }, []);
 
+  // ─── Emit ringing signal to caller ────────────────────────
+  useEffect(() => {
+    if (socketContext?.emit && callerId && room) {
+      socketContext.emit("ringing", { to: callerId, room });
+    }
+  }, []);
+
+  // ─── Listen for caller cancelling / timeout ───────────────
   useEffect(() => {
     const socket = socketContext?.socketRef?.current;
     if (!socket) return;
 
     const onCallCancelled = () => {
-      Vibration.cancel();
       stopRingtone();
-      if (soundRef.current) {
-        soundRef.current.stopAsync().catch(() => {});
-        soundRef.current.unloadAsync().catch(() => {});
-        soundRef.current = null;
-      }
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      }
+      Vibration.cancel();
+      if (navigation.canGoBack()) navigation.goBack();
     };
 
     socket.on("callEnded", onCallCancelled);
@@ -102,86 +162,29 @@ export default function IncomingCallScreen({ route }) {
     };
   }, [socketContext, navigation]);
 
-  const startCallAnimations = () => {
-    Vibration.vibrate([1000, 1000, 1000], true);
-
-    // Pulse animation for avatar
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.15,
-          duration: 1500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-
-    // Fade in and slide up
-    Animated.parallel([
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 20,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const playRingtone = async () => {
-    try {
-      await stopRingtone();
-      
-      // Notify caller that we are ringing
-      if (socketContext?.emit && callerId) {
-        socketContext.emit("ringing", { to: callerId, room: room });
-      }
-
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: "https://unigate.com.ng/ringtones/ringtone.mp3" },
-        { isLooping: true, volume: 1.0, shouldPlay: true }
-      );
-      soundRef.current = sound;
-    } catch (err) {
-      if (err?.name === "NotAllowedError") {
-        console.warn("Auto-play blocked; will rely on vibration only until user interacts.");
-      } else {
-        console.error("Error playing ringtone:", err);
-      }
-      // Fallback to vibration only if audio fails
-      Vibration.vibrate([500, 500], true);
-    }
-  };
-
-  const handleAccept = async () => {
-    if (isJoining) return;
-    setIsJoining(true);
-    
-    Vibration.cancel();
+  // ─── Cleanup helper ───────────────────────────────────────
+  const cleanup = () => {
     stopRingtone();
-    
-    // Store data for persistence
-    await Promise.all([
-      AsyncStorage.setItem("callUrl", callUrl || ""),
-      AsyncStorage.setItem("partnerId", callerId || ""),
-      AsyncStorage.setItem("partnerName", callerName || ""),
-      AsyncStorage.setItem("roomId", room || ""),
-    ]);
+    Vibration.cancel();
+  };
 
-    // ✅ EMIT ACCEPT CALL TO BACKEND
+  // ─── Accept call ──────────────────────────────────────────
+  const handleAccept = async () => {
+    if (answered) return;
+    setAnswered(true);
+    cleanup();
+
+    try {
+      await Promise.all([
+        AsyncStorage.setItem("callUrl", callUrl || ""),
+        AsyncStorage.setItem("partnerId", callerId || ""),
+        AsyncStorage.setItem("partnerName", callerName || ""),
+        AsyncStorage.setItem("roomId", room || ""),
+      ]);
+    } catch (e) {}
+
     if (socketContext?.emit && callerId) {
-      socketContext.emit("acceptCall", { to: callerId, room: room });
+      socketContext.emit("acceptCall", { to: callerId, room });
     }
 
     navigation.replace("VideoCallScreen", {
@@ -190,87 +193,106 @@ export default function IncomingCallScreen({ route }) {
       partnerName: callerName,
       partnerPic: profilePic,
       isCaller: false,
-      room: room,
+      room,
       callType: callType || "video",
     });
   };
 
-  const handleDecline = async () => {
-    Vibration.cancel();
-    stopRingtone();
-    
+  // ─── Decline call ─────────────────────────────────────────
+  const handleDecline = () => {
+    if (answered) return;
+    setAnswered(true);
+    cleanup();
+
     if (socketContext?.emit && callerId) {
-      socketContext.emit("declineCall", { to: callerId, room: room });
+      socketContext.emit("declineCall", { to: callerId, room });
     }
-    
-    navigation.goBack();
+
+    if (navigation.canGoBack()) navigation.goBack();
   };
 
+  // ─── Render ───────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      {/* Background Image with Overlay */}
-      <ImageBackground 
-        source={avatarSource} 
+      <LinearGradient
+        colors={["#1a0a2e", "#16213e", "#0f0f1a"]}
         style={StyleSheet.absoluteFill}
-        blurRadius={Platform.OS === 'ios' ? 20 : 10}
-      >
-        <SafeLinearGradient
-          colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0.85)"]}
-          style={StyleSheet.absoluteFill}
-        />
-      </ImageBackground>
+      />
 
-      <Animated.View style={[styles.content, { opacity: opacityAnim }]}>
-        {/* Top Section - Caller Info */}
-        <View style={styles.topSection}>
-          <Animated.View style={[styles.avatarWrapper, { transform: [{ scale: pulseAnim }] }]}>
-            <View style={styles.avatarBorder}>
-              <Image source={avatarSource} style={styles.avatar} />
-            </View>
-            <View style={styles.pulseRing} />
-          </Animated.View>
-          
-          <Text style={styles.callerName}>{callerName || "Someone Special"}</Text>
-          <View style={styles.statusBadge}>
-            <SafeMaterialCommunityIcons name="video" size={16} color="#fff" style={{marginRight: 6}} />
-            <Text style={styles.incomingText}>INCOMING VIDEO CALL</Text>
-          </View>
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        {/* Call type badge */}
+        <View style={styles.typeBadge}>
+          <Ionicons
+            name={callType === "voice" ? "call" : "videocam"}
+            size={14}
+            color="rgba(255,255,255,0.9)"
+          />
+          <Text style={styles.typeBadgeText}>
+            {callType === "voice" ? "Voice Call" : "Video Call"}
+          </Text>
         </View>
 
-        {/* Bottom Section - Actions */}
-        <Animated.View style={[styles.bottomSection, { transform: [{ translateY: slideAnim }] }]}>
-          <View style={styles.actionContainer}>
-            <View style={styles.buttonWrapper}>
-              <TouchableOpacity 
-                activeOpacity={0.7} 
-                onPress={handleDecline}
-                style={[styles.actionButton, styles.declineButton]}
-              >
-                <SafeIonicons name="close" size={36} color="#fff" />
-              </TouchableOpacity>
-              <Text style={styles.buttonLabel}>Decline</Text>
-            </View>
+        {/* Avatar with pulse rings */}
+        <View style={styles.avatarSection}>
+          <Animated.View
+            style={[
+              styles.pulseRing,
+              styles.pulseRingOuter,
+              { opacity: ringPulse2, transform: [{ scale: pulseAnim }] },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.pulseRing,
+              styles.pulseRingInner,
+              { opacity: ringPulse1, transform: [{ scale: pulseAnim }] },
+            ]}
+          />
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <Image source={avatarSource} style={styles.avatar} />
+          </Animated.View>
+        </View>
 
-            <View style={styles.buttonWrapper}>
-              <TouchableOpacity 
-                activeOpacity={0.7} 
-                onPress={handleAccept}
-                style={[styles.actionButton, styles.acceptButton]}
-              >
-                {isJoining ? (
-                  <SafeActivityIndicator size="large" color="#fff" />
-                ) : (
-                  <SafeIonicons name="call" size={32} color="#fff" />
-                )}
-              </TouchableOpacity>
-              <Text style={styles.buttonLabel}>{isJoining ? "Joining..." : "Accept"}</Text>
-            </View>
+        {/* Caller info */}
+        <Text style={styles.callerName}>{callerName}</Text>
+        <Text style={styles.callLabel}>
+          Incoming {callType === "voice" ? "voice" : "video"} call
+        </Text>
+
+        {/* Action buttons */}
+        <Animated.View
+          style={[
+            styles.actionsRow,
+            { transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          <View style={styles.actionCol}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.declineBtn]}
+              onPress={handleDecline}
+              activeOpacity={0.8}
+              disabled={answered}
+            >
+              <MaterialIcons name="call-end" size={30} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.actionLabel}>Decline</Text>
           </View>
-          
-          <TouchableOpacity style={styles.messageAction}>
-            <SafeIonicons name="chatbubble-outline" size={20} color="rgba(255,255,255,0.6)" />
-            <Text style={styles.messageText}>Reply with message</Text>
-          </TouchableOpacity>
+
+          <View style={styles.actionCol}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.acceptBtn]}
+              onPress={handleAccept}
+              activeOpacity={0.8}
+              disabled={answered}
+            >
+              <Ionicons
+                name={callType === "voice" ? "call" : "videocam"}
+                size={28}
+                color="#fff"
+              />
+            </TouchableOpacity>
+            <Text style={styles.actionLabel}>Accept</Text>
+          </View>
         </Animated.View>
       </Animated.View>
     </View>
@@ -280,119 +302,102 @@ export default function IncomingCallScreen({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#0f0f1a",
   },
   content: {
     flex: 1,
-    justifyContent: "space-between",
-    paddingVertical: 80,
     alignItems: "center",
-  },
-  topSection: {
-    alignItems: "center",
-    marginTop: 40,
-  },
-  avatarWrapper: {
-    width: 180,
-    height: 180,
     justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 30,
+    paddingHorizontal: 32,
   },
-  avatarBorder: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    borderWidth: 4,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    padding: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    zIndex: 2,
-  },
-  avatar: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 66,
-  },
-  pulseRing: {
-    position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    zIndex: 1,
-  },
-  callerName: {
-    color: "#fff",
-    fontSize: 36,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 10,
-  },
-  statusBadge: {
+  typeBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255,255,255,0.08)",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    marginTop: 15,
+    marginBottom: 48,
+    gap: 6,
   },
-  incomingText: {
-    color: "#fff",
-    fontSize: 12,
+  typeBadgeText: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 13,
     fontWeight: "600",
-    letterSpacing: 2,
+    letterSpacing: 0.5,
   },
-  bottomSection: {
-    width: "100%",
+  avatarSection: {
+    width: 170,
+    height: 170,
     alignItems: "center",
-  },
-  actionContainer: {
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-    width: "100%",
-    paddingHorizontal: 40,
-    marginBottom: 40,
-  },
-  buttonWrapper: {
-    alignItems: "center",
-  },
-  actionButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
     justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 10,
+    marginBottom: 28,
   },
-  declineButton: {
-    backgroundColor: "#FF3B30",
+  pulseRing: {
+    position: "absolute",
+    borderRadius: 999,
+    borderWidth: 1.5,
   },
-  acceptButton: {
-    backgroundColor: "#34C759",
+  pulseRingOuter: {
+    width: 170,
+    height: 170,
+    borderColor: "rgba(108,92,231,0.3)",
   },
-  buttonLabel: {
+  pulseRingInner: {
+    width: 150,
+    height: 150,
+    borderColor: "rgba(108,92,231,0.5)",
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: "rgba(108,92,231,0.6)",
+  },
+  callerName: {
+    fontSize: 30,
+    fontWeight: "700",
     color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-    marginTop: 12,
+    marginBottom: 8,
+    textAlign: "center",
   },
-  messageAction: {
+  callLabel: {
+    fontSize: 15,
+    color: "rgba(255,255,255,0.5)",
+    marginBottom: 80,
+    letterSpacing: 0.3,
+  },
+  actionsRow: {
     flexDirection: "row",
-    alignItems: "center",
-    padding: 10,
+    justifyContent: "center",
+    gap: 64,
   },
-  messageText: {
-    color: "rgba(255, 255, 255, 0.6)",
-    fontSize: 14,
-    marginLeft: 8,
+  actionCol: {
+    alignItems: "center",
+  },
+  actionBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  declineBtn: {
+    backgroundColor: "#FF4757",
+  },
+  acceptBtn: {
+    backgroundColor: "#2ED573",
+  },
+  actionLabel: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 13,
+    fontWeight: "500",
+    marginTop: 10,
   },
 });

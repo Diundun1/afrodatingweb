@@ -1,612 +1,580 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  StyleSheet,
   View,
   Text,
   TouchableOpacity,
-  Animated,
+  StyleSheet,
   Dimensions,
   Platform,
-  Vibration,
-  PanResponder,
+  Animated,
   Image,
-  ActivityIndicator,
   Alert,
+  Vibration,
 } from "react-native";
-import { MaterialIcons, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { startRingtone, stopRingtone } from "../../ringtone";
+import { useCall } from "../lib/CallContext";
+import { useSocket } from "../lib/SocketContext";
 
 const { width, height } = Dimensions.get("window");
 
-// ✅ DEFENSIVE COMPONENT WRAPPERS
-// Using functional wrappers ensures React always sees a valid component type
-const SafeIonicons = (props) => (Ionicons ? <Ionicons {...props} /> : null);
-const SafeMaterialIcons = (props) => (MaterialIcons ? <MaterialIcons {...props} /> : null);
-const SafeMaterialCommunityIcons = (props) => (MaterialCommunityIcons ? <MaterialCommunityIcons {...props} /> : null);
-const SafeLinearGradient = (props) => (LinearGradient ? <LinearGradient {...props} /> : <View {...props} />);
-const SafeActivityIndicator = (props) => <ActivityIndicator {...props} />;
-
-import { useCall } from "../lib/CallContext";
-import { useSocket } from "../lib/SocketContext";
+// ─── Call status state machine ──────────────────────────────
+const STATUS = {
+  CALLING: "calling",
+  RINGING: "ringing",
+  CONNECTED: "connected",
+  ENDED: "ended",
+};
 
 export default function VideoCallScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const iframeRef = useRef(null);
+  const socketContext = useSocket();
+  const callContext = useCall();
+  const { setInCall, setParticipant } = callContext || {};
 
-  const { 
-    partnerName: initialPartnerName, 
-    callUrl: initialCallUrl, 
-    callType: initialCallType, 
-    partnerPic: initialPartnerPic,
-    room: initialRoom
+  // ─── Route params ───────────────────────────────────────
+  const {
+    callUrl: paramCallUrl,
+    partnerId: paramPartnerId,
+    partnerName: paramPartnerName,
+    partnerPic: paramPartnerPic,
+    isCaller = false,
+    callType: paramCallType = "video",
+    room: paramRoom,
   } = route.params || {};
 
-  const [room, setRoom] = useState(initialRoom || "");
-
-  const [callType, setCallType] = useState(initialCallType || "video");
-  const [callUrl, setCallUrl] = useState(initialCallUrl || "");
-  const [partnerName, setPartnerName] = useState(initialPartnerName || "");
-  const [partnerPic, setPartnerPic] = useState(initialPartnerPic || "");
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOn, setIsVideoOn] = useState(true);
+  // ─── State ──────────────────────────────────────────────
+  const [callUrl, setCallUrl] = useState(paramCallUrl || "");
+  const [partnerId, setPartnerId] = useState(paramPartnerId || "");
+  const [partnerName, setPartnerName] = useState(paramPartnerName || "");
+  const [partnerPic, setPartnerPic] = useState(paramPartnerPic || null);
+  const [room, setRoom] = useState(paramRoom || "");
+  const [callType, setCallType] = useState(paramCallType);
+  const [callStatus, setCallStatus] = useState(
+    isCaller ? STATUS.CALLING : STATUS.CONNECTED
+  );
   const [callDuration, setCallDuration] = useState(0);
-  const [callEnded, setCallEnded] = useState(false);
-  const [isBusy, setIsBusy] = useState(false);
-  const [isRemoteMuted, setIsRemoteMuted] = useState(false);
-  const [isSwapped, setIsSwapped] = useState(false);
-  const [hasPermission, setHasPermission] = useState(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOn, setIsVideoOn] = useState(paramCallType === "video");
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const isCaller = route.params?.isCaller || false;
-  const [isRinging, setIsRinging] = useState(isCaller);
-  const hasEmittedEndRef = useRef(false);
-  const [cameraType, setCameraType] = useState(() => {
-    try {
-      return Camera.Constants?.Type?.front || "front";
-    } catch (e) {
-      return "front";
-    }
-  });
+  const [hasPermission, setHasPermission] = useState(null);
+  const [isRemoteMuted, setIsRemoteMuted] = useState(false);
 
-  const controlsVisible = useRef(new Animated.Value(1)).current;
-  const lastTouch = useRef(0);
+  // ─── Refs ───────────────────────────────────────────────
+  const hasEmittedEndRef = useRef(false);
+  const iframeRef = useRef(null);
+  const controlsAnim = useRef(new Animated.Value(1)).current;
   const controlsTimer = useRef(null);
 
-  // Draggable Pan state
-  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const avatarSource = partnerPic
+    ? { uri: partnerPic }
+    : require("../../assets/images/appIco.png");
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: (e, gestureState) => {
-        pan.flattenOffset();
-        const { dx, dy } = gestureState;
-        const currentX = pan.x._value;
-        const currentY = pan.y._value;
+  // ─── Load fallback data from AsyncStorage ─────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        if (!callUrl) setCallUrl((await AsyncStorage.getItem("callUrl")) || "");
+        if (!partnerId) setPartnerId((await AsyncStorage.getItem("partnerId")) || "");
+        if (!partnerName) setPartnerName((await AsyncStorage.getItem("partnerName")) || "Partner");
+        if (!room) setRoom((await AsyncStorage.getItem("roomId")) || "");
+      } catch (e) {}
+    };
+    load();
 
-        // Snap logic
-        const snapX = currentX > 0 ? (width - 140) : 0; 
-        const snapY = currentY > 0 ? (height - 300) : 0;
+    if (setInCall) setInCall(true);
+    if (setParticipant) setParticipant(paramPartnerName || "Partner");
 
-        Animated.spring(pan, {
-          toValue: { x: snapX, y: snapY },
-          useNativeDriver: false,
-        }).start();
-      },
-    })
-  ).current;
+    return () => {
+      stopRingtone();
+      if (setInCall) setInCall(false);
+    };
+  }, []);
 
+  // ─── Camera + mic permissions ───────────────────────────
   useEffect(() => {
     (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === "granted");
+      try {
+        const cam = await Camera.requestCameraPermissionsAsync();
+        const mic = await Camera.requestMicrophonePermissionsAsync();
+        setHasPermission(
+          cam.status === "granted" && mic.status === "granted"
+        );
+      } catch (e) {
+        setHasPermission(false);
+      }
     })();
   }, []);
 
+  // ─── Ringback tone for caller ─────────────────────────
   useEffect(() => {
     if (isCaller) startRingtone();
     return () => stopRingtone();
   }, []);
 
-  const callContext = useCall();
-  const { setInCall, setParticipant } = callContext || {};
-  const socketContext = useSocket();
-
+  // ─── Call timer (only when connected) ─────────────────
   useEffect(() => {
-    const loadCallData = async () => {
-      try {
-        setLoading(true);
-        let finalUrl = initialCallUrl;
-        let finalName = initialPartnerName;
+    if (callStatus !== STATUS.CONNECTED) return;
+    const timer = setInterval(() => setCallDuration((d) => d + 1), 1000);
+    return () => clearInterval(timer);
+  }, [callStatus]);
 
-        if (!finalUrl) {
-          finalUrl = await AsyncStorage.getItem("callUrl");
-          finalName = await AsyncStorage.getItem("partnerName") || "Partner";
-        }
-
-        if (finalUrl) {
-          setCallUrl(finalUrl);
-          setPartnerName(finalName);
-          if (setInCall) setInCall(true);
-          if (setParticipant) setParticipant(finalName);
-          await requestPermissions();
-        } else {
-          navigation.goBack();
-        }
-      } catch (err) {
-        console.error("Error loading call data:", err);
-        navigation.goBack();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadCallData();
-  }, []);
-
-  const requestPermissions = async () => {
-    try {
-      const cameraPerm = await Camera.requestCameraPermissionsAsync();
-      const micPerm = await Camera.requestMicrophonePermissionsAsync();
-
-      if (cameraPerm.status === "granted" && micPerm.status === "granted") {
-        setHasPermission(true);
-      } else {
-        setHasPermission(false);
-        Alert.alert(
-          "Permissions Required",
-          "Camera and microphone permissions are required for video calls.",
-          [{ text: "OK", onPress: () => endCall() }]
-        );
-      }
-    } catch (error) {
-      setHasPermission(false);
-      endCall();
-    }
-  };
-
-  const sendCommandToIframe = (command, value) => {
-    if (Platform.OS === "web" && iframeRef.current?.contentWindow) {
-      const message = JSON.stringify({ type: "CONTROL_COMMAND", command, value });
-      iframeRef.current.contentWindow.postMessage(message, "*");
-    }
-  };
-
-  const toggleMute = async () => {
-    const newState = !isMuted;
-    setIsMuted(newState);
-    sendCommandToIframe("mute", newState);
-    
-    // Emit mute status to partner
-    const partnerId = await AsyncStorage.getItem("partnerId");
-    const roomId = room || (route.params?.room);
-    if (socketContext?.emit && partnerId) {
-      // Server expects 'muteStatus' event; it relays back to partner as 'remoteMuteStatus'
-      socketContext.emit("muteStatus", { to: partnerId, room: roomId, isMuted: newState });
-    }
-  };
-
-  const toggleVideo = () => {
-    if (callType === "voice") {
-      // Prompt for upgrade
-      Alert.alert(
-        "Request Video",
-        "Would you like to request a video call upgrade?",
-        [
-          { text: "Cancel", style: "cancel" },
-          { 
-            text: "Request", 
-            onPress: async () => {
-              const partnerId = await AsyncStorage.getItem("partnerId");
-              const roomId = room || (route.params?.room);
-              if (socketContext?.emit && partnerId) {
-                socketContext.emit("videoUpgradeRequest", { to: partnerId, room: roomId });
-                Alert.alert("Request Sent", "Waiting for partner to accept...");
-              }
-            }
-          }
-        ]
-      );
-      return;
-    }
-
-    const newState = !isVideoOn;
-    setIsVideoOn(newState);
-    sendCommandToIframe("video", newState);
-  };
-
+  // ─── Socket event listeners ───────────────────────────
   useEffect(() => {
-    const handleMessage = (event) => {
-      try {
-        const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-        if (data.type === "CALL_ENDED" || data.event === "call_end") handleCallEnded();
-        if (data.type === "IFRAME_LOADED") setIframeLoaded(true);
-      } catch (err) {}
-    };
+    const socket = socketContext?.socketRef?.current;
+    if (!socket) return;
 
-    if (Platform.OS === "web") {
-      window.addEventListener("message", handleMessage);
-      return () => window.removeEventListener("message", handleMessage);
-    }
-  }, []);
-
-  // Socket listeners for signaling states
-  // No longer needed as we call it above
-
-  useEffect(() => {
-    if (!socketContext?.socketRef?.current) return;
-
-    const onCallDeclined = (data) => {
-      console.log("📲 [CALL] Recipient declined call");
+    const onCallAccepted = () => {
+      console.log("📲 Call accepted");
       stopRingtone();
-      setIsBusy(true);
-      setTimeout(() => handleCallEnded(), 2000);
+      setCallStatus(STATUS.CONNECTED);
     };
 
-    const onCallTimeout = (data) => {
-      console.log("⏱ [CALL] Call timed out");
+    const onCallDeclined = () => {
+      console.log("📲 Call declined");
       stopRingtone();
-      setIsBusy(true);
-      setTimeout(() => handleCallEnded(), 2000);
+      setCallStatus(STATUS.ENDED);
+      setTimeout(() => doEndCall(), 2000);
     };
 
-    const onCallEnded = (data) => {
-      console.log("📲 [CALL] Call ended by remote");
-      handleCallEnded();
-    };
-
-    const onCallAccepted = (data) => {
-      console.log("📲 [CALL] Call accepted!");
+    const onCallEnded = () => {
+      console.log("📲 Call ended by remote");
+      hasEmittedEndRef.current = true;
       stopRingtone();
-      setIsRinging(false);
-      setLoading(false);
+      setCallStatus(STATUS.ENDED);
+      setTimeout(() => doEndCall(), 1500);
     };
 
-    const onRinging = (data) => {
-      console.log("🔔 [CALL] Partner phone is ringing");
-      if (isCaller) setIsRinging(true);
+    const onCallTimeout = () => {
+      console.log("⏱ Call timed out");
+      stopRingtone();
+      setCallStatus(STATUS.ENDED);
+      setTimeout(() => doEndCall(), 2000);
+    };
+
+    const onRinging = () => {
+      if (isCaller) setCallStatus(STATUS.RINGING);
     };
 
     const onRemoteMuteStatus = (data) => {
-      console.log("🔇 [REMOTEMUTE]", data);
-      setIsRemoteMuted(data.isMuted);
+      setIsRemoteMuted(!!data?.isMuted);
     };
 
     const onVideoUpgradeRequest = (data) => {
-      console.log("📹 [UPGRADE_REQ]", data);
-      Vibration.vibrate([0, 100, 50, 100]); // Subtle double vibrate
+      Vibration.vibrate([0, 100, 50, 100]);
       Alert.alert(
         "Video Call Request",
-        `${data.from.name} wants to switch to video call.`,
+        `${data?.from?.name || "Partner"} wants to switch to video.`,
         [
-          { 
-            text: "Decline", 
+          {
+            text: "Decline",
             style: "cancel",
             onPress: () => {
-              socketContext.emit("videoUpgradeResponse", { 
-                to: data.from.id, 
-                room: data.room, 
-                accepted: false 
+              socketContext.emit("videoUpgradeResponse", {
+                to: data?.from?.id,
+                room: data?.room,
+                accepted: false,
               });
-            }
+            },
           },
-          { 
-            text: "Accept", 
-            onPress: async () => {
+          {
+            text: "Accept",
+            onPress: () => {
               setCallType("video");
               setIsVideoOn(true);
-              socketContext.emit("videoUpgradeResponse", { 
-                to: data.from.id, 
-                room: data.room, 
-                accepted: true
+              socketContext.emit("videoUpgradeResponse", {
+                to: data?.from?.id,
+                room: data?.room,
+                accepted: true,
               });
-            }
-          }
+            },
+          },
         ]
       );
     };
 
     const onVideoUpgradeResponse = (data) => {
-      console.log("📹 [UPGRADE_RES]", data);
-      if (data.accepted) {
+      if (data?.accepted) {
         setCallType("video");
         setIsVideoOn(true);
-        Alert.alert("Success", "Partner accepted video call!");
+        Alert.alert("Upgraded", "Switched to video call.");
       } else {
-        Alert.alert("Declined", "Partner declined the video call upgrade.");
+        Alert.alert("Declined", "Partner declined the video request.");
       }
     };
 
-    const socket = socketContext?.socketRef?.current;
-    if (!socket) return;
-
-    socket.on('callDeclined', onCallDeclined);
-    socket.on('callTimeout', onCallTimeout);
-    socket.on('callEnded', onCallEnded);
-    socket.on('callAccepted', onCallAccepted);
-    socket.on('ringing', onRinging);
-    socket.on('remoteMuteStatus', onRemoteMuteStatus);
-    socket.on('videoUpgradeRequest', onVideoUpgradeRequest);
-    socket.on('videoUpgradeResponse', onVideoUpgradeResponse);
+    socket.on("callAccepted", onCallAccepted);
+    socket.on("callDeclined", onCallDeclined);
+    socket.on("callEnded", onCallEnded);
+    socket.on("callTimeout", onCallTimeout);
+    socket.on("ringing", onRinging);
+    socket.on("remoteMuteStatus", onRemoteMuteStatus);
+    socket.on("videoUpgradeRequest", onVideoUpgradeRequest);
+    socket.on("videoUpgradeResponse", onVideoUpgradeResponse);
 
     return () => {
-      // ✅ CENTRALIZED ATOMIC SAFETY: Using safeOff from context
-      socketContext.safeOff('callDeclined', onCallDeclined);
-      socketContext.safeOff('callTimeout', onCallTimeout);
-      socketContext.safeOff('callEnded', onCallEnded);
-      socketContext.safeOff('callAccepted', onCallAccepted);
-      socketContext.safeOff('ringing', onRinging);
-      socketContext.safeOff('remoteMuteStatus', onRemoteMuteStatus);
-      socketContext.safeOff('videoUpgradeRequest', onVideoUpgradeRequest);
-      socketContext.safeOff('videoUpgradeResponse', onVideoUpgradeResponse);
+      const off = socketContext?.safeOff
+        ? (e, h) => socketContext.safeOff(e, h)
+        : (e, h) => socket.off(e, h);
+      off("callAccepted", onCallAccepted);
+      off("callDeclined", onCallDeclined);
+      off("callEnded", onCallEnded);
+      off("callTimeout", onCallTimeout);
+      off("ringing", onRinging);
+      off("remoteMuteStatus", onRemoteMuteStatus);
+      off("videoUpgradeRequest", onVideoUpgradeRequest);
+      off("videoUpgradeResponse", onVideoUpgradeResponse);
     };
   }, [socketContext]);
 
-  const handleCallEnded = () => {
-    if (!callEnded) {
-      hasEmittedEndRef.current = true;
-      stopRingtone();
-      setCallEnded(true);
-      setTimeout(() => endCall(), 1500);
-    }
-  };
+  // ─── Iframe message listener (web) ────────────────────
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const handler = (e) => {
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+        if (data?.type === "CALL_ENDED" || data?.event === "call_end") {
+          hasEmittedEndRef.current = true;
+          stopRingtone();
+          setCallStatus(STATUS.ENDED);
+          setTimeout(() => doEndCall(), 1500);
+        }
+        if (data?.type === "IFRAME_LOADED") setIframeLoaded(true);
+      } catch (_) {}
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
 
-  const endCall = async () => {
+  // ─── End call: emit → cleanup → navigate back ────────
+  const doEndCall = async () => {
     try {
       stopRingtone();
       if (!hasEmittedEndRef.current) {
         hasEmittedEndRef.current = true;
-        const partnerId =
-          route.params?.partnerId ||
-          (await AsyncStorage.getItem("partnerId"));
-        const roomId = room || route.params?.room;
-        if (socketContext?.emit && partnerId && roomId) {
-          socketContext.emit("endCall", { to: partnerId, room: roomId });
+        const pid = partnerId || (await AsyncStorage.getItem("partnerId"));
+        const rid = room || paramRoom;
+        if (socketContext?.emit && pid && rid) {
+          socketContext.emit("endCall", { to: pid, room: rid });
         }
       }
-      await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName", "roomId"]);
+      await AsyncStorage.multiRemove([
+        "callUrl",
+        "partnerId",
+        "partnerName",
+        "roomId",
+      ]);
     } catch (e) {}
     if (setInCall) setInCall(false);
-    navigation.goBack();
+    if (navigation.canGoBack()) navigation.goBack();
   };
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  useEffect(() => {
-    if (isRinging) return;
-    const timer = setInterval(() => setCallDuration((prev) => prev + 1), 1000);
-    return () => clearInterval(timer);
-  }, [isRinging]);
-
-  const toggleControls = () => {
-    if (controlsTimer.current) clearTimeout(controlsTimer.current);
-
-    const toValue = controlsVisible._value === 0 ? 1 : 0;
-    Animated.timing(controlsVisible, {
-      toValue,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
-    if (toValue === 1) {
-      controlsTimer.current = setTimeout(() => {
-        Animated.timing(controlsVisible, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-      }, 5000);
+  // ─── Iframe control helper ────────────────────────────
+  const sendToIframe = (type, payload) => {
+    if (Platform.OS === "web" && iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ type, ...payload }),
+        "*"
+      );
     }
   };
 
-  const toggleSwap = () => {
-    setIsSwapped(!isSwapped);
+  // ─── Toggle mute ─────────────────────────────────────
+  const toggleMute = async () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    sendToIframe("CONTROL_COMMAND", { command: "mute", value: next });
+    const pid = partnerId || (await AsyncStorage.getItem("partnerId"));
+    const rid = room || paramRoom;
+    if (socketContext?.emit && pid) {
+      socketContext.emit("muteStatus", { to: pid, room: rid, isMuted: next });
+    }
   };
 
-  const toggleCamera = () => {
-    const front = Camera.Constants?.Type?.front || "front";
-    const back = Camera.Constants?.Type?.back || "back";
-    setCameraType(cameraType === front ? back : front);
+  // ─── Toggle video / request upgrade ──────────────────
+  const toggleVideo = () => {
+    if (callType === "voice") {
+      Alert.alert("Video Upgrade", "Request to switch to video?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Request",
+          onPress: async () => {
+            const pid =
+              partnerId || (await AsyncStorage.getItem("partnerId"));
+            const rid = room || paramRoom;
+            if (socketContext?.emit && pid) {
+              socketContext.emit("videoUpgradeRequest", {
+                to: pid,
+                room: rid,
+              });
+            }
+          },
+        },
+      ]);
+      return;
+    }
+    const next = !isVideoOn;
+    setIsVideoOn(next);
+    sendToIframe("CONTROL_COMMAND", { command: "video", value: next });
   };
 
-  const renderLocalPreview = (style) => {
-    if (hasPermission === false) return <View style={[style, {backgroundColor: '#333'}]}><Text style={{color: '#fff', textAlign: 'center'}}>No Camera</Text></View>;
-    
+  // ─── Format duration ─────────────────────────────────
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  // ─── Auto-hide controls on tap ────────────────────────
+  const showControls = () => {
+    if (controlsTimer.current) clearTimeout(controlsTimer.current);
+    Animated.timing(controlsAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+    controlsTimer.current = setTimeout(() => {
+      Animated.timing(controlsAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }, 5000);
+  };
+
+  // ═══════════════════════════════════════════════════════
+  //  RENDER: Calling / Ringing (caller waiting for answer)
+  // ═══════════════════════════════════════════════════════
+  if (callStatus === STATUS.CALLING || callStatus === STATUS.RINGING) {
     return (
-      <Camera 
-        style={style} 
-        type={cameraType}
-        ratio="16:9"
-      />
-    );
-  };
+      <View style={styles.container}>
+        <LinearGradient
+          colors={["#1a0a2e", "#16213e", "#0f0f1a"]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.centerContent}>
+          <Text style={styles.callingLabel}>
+            {callStatus === STATUS.RINGING ? "Ringing..." : "Calling..."}
+          </Text>
 
-  const renderRemotePreview = (style) => {
-    if (Platform.OS === "web" && callUrl) {
-      return (
-        <View style={style}>
-          {(!iframeLoaded || isRinging) && (
+          <Image source={avatarSource} style={styles.callingAvatar} />
+
+          <Text style={styles.callingName}>{partnerName}</Text>
+          <Text style={styles.callingType}>
+            {callType === "voice" ? "Voice Call" : "Video Call"}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={doEndCall}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="call-end" size={32} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.cancelLabel}>Cancel</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  RENDER: Ended overlay
+  // ═══════════════════════════════════════════════════════
+  const renderEndedOverlay = () => (
+    <View style={styles.endedOverlay}>
+      <View style={styles.endedCard}>
+        <MaterialIcons name="call-end" size={44} color="#FF4757" />
+        <Text style={styles.endedText}>Call Ended</Text>
+        {callDuration > 0 && (
+          <Text style={styles.endedDuration}>{formatTime(callDuration)}</Text>
+        )}
+      </View>
+    </View>
+  );
+
+  // ═══════════════════════════════════════════════════════
+  //  RENDER: Controls bar
+  // ═══════════════════════════════════════════════════════
+  const renderControls = () => (
+    <View style={styles.controlsBar}>
+      <View style={styles.controlsRow}>
+        <TouchableOpacity
+          style={[styles.controlBtn, isMuted && styles.controlBtnActive]}
+          onPress={toggleMute}
+        >
+          <Ionicons
+            name={isMuted ? "mic-off" : "mic"}
+            size={24}
+            color="#fff"
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.controlBtn,
+            (callType === "voice" || !isVideoOn) && styles.controlBtnActive,
+          ]}
+          onPress={toggleVideo}
+        >
+          <Ionicons
+            name={
+              callType === "voice"
+                ? "videocam"
+                : isVideoOn
+                ? "videocam"
+                : "videocam-off"
+            }
+            size={24}
+            color="#fff"
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.endBtn}
+          onPress={doEndCall}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="call-end" size={28} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // ═══════════════════════════════════════════════════════
+  //  RENDER: Voice call (connected)
+  // ═══════════════════════════════════════════════════════
+  if (callType === "voice") {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={["#1a0a2e", "#2d1b69", "#0f0f1a"]}
+          style={StyleSheet.absoluteFill}
+        />
+        <SafeAreaView style={styles.voiceLayout}>
+          <View style={styles.voiceCenter}>
+            <Image source={avatarSource} style={styles.voiceAvatar} />
+            <Text style={styles.voiceName}>{partnerName}</Text>
+            <Text style={styles.voiceTimer}>
+              {formatTime(callDuration)}
+            </Text>
+            {isRemoteMuted && (
+              <View style={styles.mutedBadge}>
+                <Ionicons name="mic-off" size={14} color="#fff" />
+                <Text style={styles.mutedBadgeText}>Muted</Text>
+              </View>
+            )}
+          </View>
+          {renderControls()}
+        </SafeAreaView>
+        {callStatus === STATUS.ENDED && renderEndedOverlay()}
+      </View>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  RENDER: Video call (connected)
+  // ═══════════════════════════════════════════════════════
+  return (
+    <View
+      style={styles.container}
+      onStartShouldSetResponder={() => {
+        showControls();
+        return false;
+      }}
+    >
+      {/* Remote video via iframe (web) or fallback */}
+      {Platform.OS === "web" && callUrl ? (
+        <View style={StyleSheet.absoluteFill}>
+          {!iframeLoaded && (
             <View style={[StyleSheet.absoluteFill, styles.connectingOverlay]}>
-              <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.connectingAvatar} />
-              <SafeActivityIndicator size="large" color="#fff" />
-              <Text style={styles.connectingText}>
-                {isRinging ? "Ringing..." : "Establishing secure connection..."}
-              </Text>
+              <Image source={avatarSource} style={styles.connectingAvatar} />
+              <Text style={styles.connectingText}>Connecting...</Text>
             </View>
           )}
           <iframe
             ref={iframeRef}
             src={callUrl}
-            onLoad={() => setIframeLoaded(true)}
-            style={StyleSheet.flatten([styles.iframe, { border: "none" }])}
+            style={{ width: "100%", height: "100%", border: "none" }}
             allow="camera; microphone; fullscreen; display-capture; autoplay"
             allowFullScreen
+            onLoad={() => setIframeLoaded(true)}
           />
         </View>
-      );
-    }
-    
-    // Improved Mobile/Native Fallback
-    return (
-      <View style={[style, styles.fallback]}>
-        <SafeLinearGradient colors={["#1a1a1a", "#000"]} style={StyleSheet.absoluteFill} />
-        <View style={styles.fallbackContent}>
-          <View style={styles.avatarContainer}>
-            <Image 
-              source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} 
-              style={styles.connectingAvatarLarge} 
-            />
-            <SafeActivityIndicator size="large" color="#7B61FF" style={styles.loader} />
-          </View>
+      ) : (
+        <View style={[StyleSheet.absoluteFill, styles.noWebFallback]}>
+          <LinearGradient
+            colors={["#1a0a2e", "#0f0f1a"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <Image source={avatarSource} style={styles.fallbackAvatar} />
           <Text style={styles.fallbackName}>{partnerName}</Text>
-          <Text style={styles.fallbackStatus}>
-            {loading ? (isRinging ? "Ringing..." : "Establishing connection...") : "In Conversation"}
-          </Text>
-          
-          {callUrl && Platform.OS !== 'web' && (
-            <TouchableOpacity 
-              style={styles.retryButton}
-              onPress={() => {
-                // Logic to re-initialize or signal partner
-                Alert.alert("Reconnecting", "Attempting to refresh the call stream...");
-              }}
-            >
-              <Text style={styles.retryButtonText}>Refresh Connection</Text>
-            </TouchableOpacity>
-          )}
+          <Text style={styles.fallbackStatus}>In Conversation</Text>
         </View>
-      </View>
-    );
-  };
-
-  return (
-    <View style={styles.container} onStartShouldSetResponder={() => { toggleControls(); return false; }}>
-      {/* Main Full-Screen Video */}
-      <View style={StyleSheet.absoluteFill}>
-        {callType === "voice" ? (
-          <View style={[styles.fullVideo, styles.voiceCallBackground]}>
-            <SafeLinearGradient colors={["#1a1a1a", "#000"]} style={StyleSheet.absoluteFill} />
-            <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.voiceCallAvatar} />
-            <Text style={styles.voiceCallStatus}>
-              {loading ? (isRinging ? "Ringing..." : "Connecting...") : (isRemoteMuted ? "Partner Muted" : "Voice Call Ongoing")}
-            </Text>
-          </View>
-        ) : (
-          isSwapped ? renderLocalPreview(styles.fullVideo) : renderRemotePreview(styles.fullVideo)
-        )}
-        
-        {/* Remote Mute Overlay (WhatsApp style) */}
-        {isRemoteMuted && (
-          <View style={styles.remoteMuteOverlay}>
-            <View style={styles.remoteMuteBadge}>
-              <SafeIonicons name="mic-off" size={24} color="#fff" />
-              <Text style={styles.remoteMuteText}>{partnerName} is muted</Text>
-            </View>
-          </View>
-        )}
-      </View>
-
-      {/* Mini-Preview Video (Draggable & Tappable to Swap) */}
-      {callType === "video" && !isBusy && (
-        <Animated.View 
-          {...panResponder.panHandlers}
-          style={[
-            styles.miniPreviewContainer,
-            {
-              transform: pan.getTranslateTransform()
-            }
-          ]}
-        >
-          <TouchableOpacity 
-            activeOpacity={0.9}
-            onPress={toggleSwap}
-            style={styles.miniPreviewShadow}
-          >
-            {isSwapped ? renderRemotePreview(styles.miniVideo) : renderLocalPreview(styles.miniVideo)}
-          </TouchableOpacity>
-        </Animated.View>
       )}
 
-      {/* Floating UI Overlays */}
-      <Animated.View style={[styles.overlay, { opacity: controlsVisible }]}>
-        {/* Header - Call Info */}
-        <SafeAreaView style={styles.header}>
-          <SafeLinearGradient colors={["rgba(0,0,0,0.6)", "transparent"]} style={styles.headerGradient}>
-            <View style={styles.headerContent}>
-              <TouchableOpacity onPress={endCall} style={styles.miniBack}>
-                <SafeIonicons name="chevron-down" size={28} color="#fff" />
+      {/* Local camera preview */}
+      {hasPermission && isVideoOn && callType === "video" && (
+        <View style={styles.localPreview}>
+          <Camera
+            style={StyleSheet.absoluteFill}
+            type={Camera.Constants?.Type?.front || "front"}
+          />
+        </View>
+      )}
+
+      {/* Remote muted indicator */}
+      {isRemoteMuted && (
+        <View style={styles.remoteMuteOverlay}>
+          <View style={styles.mutedBadge}>
+            <Ionicons name="mic-off" size={16} color="#fff" />
+            <Text style={styles.mutedBadgeText}>{partnerName} is muted</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Top bar with gradient */}
+      <Animated.View
+        style={[styles.headerOverlay, { opacity: controlsAnim }]}
+      >
+        <SafeAreaView>
+          <LinearGradient
+            colors={["rgba(0,0,0,0.6)", "transparent"]}
+            style={styles.headerGradient}
+          >
+            <View style={styles.headerRow}>
+              <TouchableOpacity onPress={doEndCall} style={styles.backBtn}>
+                <Ionicons name="chevron-down" size={26} color="#fff" />
               </TouchableOpacity>
-              <View style={styles.partnerInfo}>
-                <Text style={styles.partnerNameText}>{partnerName}</Text>
+              <View style={styles.headerInfo}>
+                <Text style={styles.headerName}>{partnerName}</Text>
                 <View style={styles.timerRow}>
-                  {isBusy ? (
-                    <Text style={[styles.timerText, {color: '#FF3B30'}]}>Busy</Text>
-                  ) : (
-                    <>
-                      <View style={styles.liveDot} />
-                      <Text style={styles.timerText}>{formatTime(callDuration)}</Text>
-                      {isRemoteMuted && (
-                        <View style={styles.muteIndicatorBadge}>
-                          <SafeIonicons name="mic-off" size={12} color="#fff" />
-                          <Text style={styles.muteIndicatorText}>Muted</Text>
-                        </View>
-                      )}
-                    </>
-                  )}
+                  <View style={styles.liveDot} />
+                  <Text style={styles.timerText}>
+                    {formatTime(callDuration)}
+                  </Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.securityIcon}>
-                <SafeIonicons name="lock-closed" size={16} color="rgba(255,255,255,0.6)" />
-              </TouchableOpacity>
+              <View style={{ width: 40 }} />
             </View>
-          </SafeLinearGradient>
+          </LinearGradient>
         </SafeAreaView>
-
-        {/* Footer - Floating Controls */}
-        <View style={styles.footer}>
-          <View style={styles.controlsRow}>
-            <TouchableOpacity onPress={toggleMute} style={[styles.controlCircle, isMuted && styles.controlCircleActive]}>
-              <SafeIonicons name={isMuted ? "mic-off" : "mic"} size={26} color="#fff" />
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={toggleCamera} style={styles.controlCircle}>
-              <SafeIonicons name="camera-reverse" size={26} color="#fff" />
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={endCall} style={styles.endCallCircle}>
-              <SafeMaterialIcons name="call-end" size={32} color="#fff" />
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={toggleVideo} style={[styles.controlCircle, (callType === 'voice' || !isVideoOn) && styles.controlCircleActive]}>
-              <SafeMaterialCommunityIcons name={callType === 'voice' ? 'video-plus' : (isVideoOn ? "video" : "video-off")} size={26} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
       </Animated.View>
 
-      {/* Call Ended Modal */}
-      {callEnded && (
-        <View style={styles.endedOverlay}>
-          <View style={styles.endedBox}>
-            <SafeMaterialIcons name="call-end" size={48} color="#EF4444" />
-            <Text style={styles.endedText}>Call Ended</Text>
-          </View>
-        </View>
-      )}
+      {/* Bottom controls */}
+      <Animated.View
+        style={[styles.bottomOverlay, { opacity: controlsAnim }]}
+      >
+        {renderControls()}
+      </Animated.View>
+
+      {/* Ended overlay */}
+      {callStatus === STATUS.ENDED && renderEndedOverlay()}
     </View>
   );
 }
@@ -614,75 +582,178 @@ export default function VideoCallScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#0f0f1a",
   },
-  iframe: {
+
+  // ─── Calling State ────────────────────────────────────
+  centerContent: {
     flex: 1,
-    width: "100%",
-    height: "100%",
-    border: "none",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  fullVideo: {
-    flex: 1,
-    width: "100%",
-    height: "100%",
+  callingLabel: {
+    fontSize: 16,
+    color: "rgba(255,255,255,0.5)",
+    letterSpacing: 1,
+    marginBottom: 36,
   },
-  miniPreviewContainer: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    width: 120,
-    height: 180,
-    zIndex: 100,
+  callingAvatar: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 3,
+    borderColor: "rgba(108,92,231,0.5)",
+    marginBottom: 24,
   },
-  miniPreviewShadow: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)',
-    shadowColor: "#000",
+  callingName: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 6,
+  },
+  callingType: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.4)",
+    marginBottom: 64,
+  },
+  cancelBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#FF4757",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 6,
+    shadowColor: "#FF4757",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
   },
-  miniVideo: {
-    width: '100%',
-    height: '100%',
+  cancelLabel: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 12,
+    marginTop: 8,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
+
+  // ─── Voice Call ───────────────────────────────────────
+  voiceLayout: {
+    flex: 1,
     justifyContent: "space-between",
   },
-  header: {
-    width: "100%",
+  voiceCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  voiceAvatar: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 3,
+    borderColor: "rgba(108,92,231,0.4)",
+    marginBottom: 24,
+  },
+  voiceName: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 8,
+  },
+  voiceTimer: {
+    fontSize: 18,
+    color: "rgba(255,255,255,0.6)",
+    fontWeight: "500",
+    marginBottom: 12,
+  },
+
+  // ─── Video Call ───────────────────────────────────────
+  localPreview: {
+    position: "absolute",
+    top: 100,
+    right: 16,
+    width: 110,
+    height: 150,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.15)",
+    elevation: 10,
+    zIndex: 10,
+  },
+  connectingOverlay: {
+    backgroundColor: "#1a0a2e",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
+  },
+  connectingAvatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  connectingText: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  noWebFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fallbackAvatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  fallbackName: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  fallbackStatus: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 14,
+  },
+
+  // ─── Header Overlay ───────────────────────────────────
+  headerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
   },
   headerGradient: {
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
-  headerContent: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
-  miniBack: {
+  backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: "rgba(0,0,0,0.3)",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
-  partnerInfo: {
+  headerInfo: {
     flex: 1,
-    marginLeft: 15,
+    marginLeft: 12,
   },
-  partnerNameText: {
+  headerName: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
   },
   timerRow: {
@@ -694,208 +765,112 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#FF3B30",
+    backgroundColor: "#2ED573",
     marginRight: 6,
   },
   timerText: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
     fontWeight: "500",
   },
-  muteIndicatorBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 59, 48, 0.8)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 10,
+
+  // ─── Bottom Overlay ───────────────────────────────────
+  bottomOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
   },
-  muteIndicatorText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  remoteMuteOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    pointerEvents: 'none',
-  },
-  remoteMuteBadge: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  remoteMuteText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  voiceCallBackground: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-  },
-  voiceCallAvatar: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 4,
-    borderColor: 'rgba(255,255,255,0.1)',
-    marginBottom: 20,
-  },
-  voiceCallStatus: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  securityIcon: {
-    padding: 8,
-  },
-  footer: {
-    width: "100%",
-    paddingBottom: 50,
+
+  // ─── Controls ─────────────────────────────────────────
+  controlsBar: {
+    paddingBottom: 48,
+    paddingHorizontal: 24,
     alignItems: "center",
   },
   controlsRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(30, 30, 30, 0.75)",
-    paddingHorizontal: 25,
-    paddingVertical: 15,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  controlCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 12,
-  },
-  controlCircleActive: {
-    backgroundColor: "rgba(255,255,255,0.4)",
-  },
-  endCallCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: "#FF3B30",
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 12,
-    shadowColor: "#FF3B30",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  fallback: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  fallbackContent: {
-    alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: 40,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  connectingAvatarLarge: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    borderWidth: 3,
-    borderColor: 'rgba(123, 97, 255, 0.5)',
-  },
-  loader: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-  },
-  fallbackName: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  fallbackStatus: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 16,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginBottom: 40,
-  },
-  retryButton: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: "rgba(30,30,30,0.75)",
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
+    paddingVertical: 14,
+    borderRadius: 40,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: "rgba(255,255,255,0.08)",
+    gap: 20,
   },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+  controlBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  _loadingText: {
+  controlBtnActive: {
+    backgroundColor: "rgba(255,255,255,0.35)",
+  },
+  endBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#FF4757",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#FF4757",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+
+  // ─── Muted Badge ──────────────────────────────────────
+  mutedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,71,87,0.7)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  mutedBadgeText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 12,
+    fontWeight: "600",
   },
+  remoteMuteOverlay: {
+    position: "absolute",
+    top: "45%",
+    alignSelf: "center",
+    zIndex: 15,
+  },
+
+  // ─── Ended Overlay ────────────────────────────────────
   endedOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.8)",
+    backgroundColor: "rgba(0,0,0,0.85)",
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
+    zIndex: 100,
   },
-  endedBox: {
-    backgroundColor: "#1a1a1a",
-    padding: 30,
-    borderRadius: 25,
+  endedCard: {
+    backgroundColor: "#1a1a2e",
+    padding: 32,
+    borderRadius: 24,
     alignItems: "center",
-    width: "70%",
+    width: "65%",
   },
   endedText: {
     color: "#fff",
     fontSize: 22,
     fontWeight: "700",
-    marginTop: 15,
+    marginTop: 14,
   },
-  connectingOverlay: {
-    backgroundColor: '#1a1a1a',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  connectingAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  connectingText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 15,
+  endedDuration: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 14,
+    marginTop: 6,
   },
 });
