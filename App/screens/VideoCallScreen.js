@@ -66,7 +66,15 @@ export default function VideoCallScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [cameraType, setCameraType] = useState(Camera.Constants.Type.front);
+  const [isRinging, setIsRinging] = useState(false);
+  const isCaller = route.params?.isCaller || false;
+  const [cameraType, setCameraType] = useState(() => {
+    try {
+      return Camera.Constants?.Type?.front || "front";
+    } catch (e) {
+      return "front";
+    }
+  });
 
   const controlsVisible = useRef(new Animated.Value(1)).current;
   const lastTouch = useRef(0);
@@ -255,6 +263,13 @@ export default function VideoCallScreen() {
 
     const onCallAccepted = (data) => {
       console.log("📲 [CALL] Call accepted!");
+      setIsRinging(false);
+      setLoading(false);
+    };
+
+    const onRinging = (data) => {
+      console.log("🔔 [CALL] Partner phone is ringing");
+      if (isCaller) setIsRinging(true);
     };
 
     const onRemoteMuteStatus = (data) => {
@@ -310,6 +325,7 @@ export default function VideoCallScreen() {
     socketContext.socketRef.current.on('callDeclined', onCallDeclined);
     socketContext.socketRef.current.on('callEnded', onCallEnded);
     socketContext.socketRef.current.on('callAccepted', onCallAccepted);
+    socketContext.socketRef.current.on('ringing', onRinging);
     socketContext.socketRef.current.on('remoteMuteStatus', onRemoteMuteStatus);
     socketContext.socketRef.current.on('videoUpgradeRequest', onVideoUpgradeRequest);
     socketContext.socketRef.current.on('videoUpgradeResponse', onVideoUpgradeResponse);
@@ -318,6 +334,7 @@ export default function VideoCallScreen() {
       socketContext.socketRef.current.off('callDeclined', onCallDeclined);
       socketContext.socketRef.current.off('callEnded', onCallEnded);
       socketContext.socketRef.current.off('callAccepted', onCallAccepted);
+      socketContext.socketRef.current.off('ringing', onRinging);
       socketContext.socketRef.current.off('remoteMuteStatus', onRemoteMuteStatus);
       socketContext.socketRef.current.off('videoUpgradeRequest', onVideoUpgradeRequest);
       socketContext.socketRef.current.off('videoUpgradeResponse', onVideoUpgradeResponse);
@@ -376,11 +393,9 @@ export default function VideoCallScreen() {
   };
 
   const toggleCamera = () => {
-    setCameraType(
-      cameraType === Camera.Constants.Type.front
-        ? Camera.Constants.Type.back
-        : Camera.Constants.Type.front
-    );
+    const front = Camera.Constants?.Type?.front || "front";
+    const back = Camera.Constants?.Type?.back || "back";
+    setCameraType(cameraType === front ? back : front);
   };
 
   const renderLocalPreview = (style) => {
@@ -403,7 +418,9 @@ export default function VideoCallScreen() {
             <View style={[StyleSheet.absoluteFill, styles.connectingOverlay]}>
               <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.connectingAvatar} />
               <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.connectingText}>Establishing secure connection...</Text>
+              <Text style={styles.connectingText}>
+                {isRinging ? "Ringing..." : "Establishing secure connection..."}
+              </Text>
             </View>
           )}
           <iframe
@@ -432,7 +449,7 @@ export default function VideoCallScreen() {
           </View>
           <Text style={styles.fallbackName}>{partnerName}</Text>
           <Text style={styles.fallbackStatus}>
-            {loading ? "Joining room..." : "Waiting for partner to join..."}
+            {loading ? (isRinging ? "Ringing..." : "Establishing connection...") : "In Conversation"}
           </Text>
           
           {callUrl && Platform.OS !== 'web' && (
@@ -459,7 +476,9 @@ export default function VideoCallScreen() {
           <View style={[styles.fullVideo, styles.voiceCallBackground]}>
             <LinearGradient colors={["#1a1a1a", "#000"]} style={StyleSheet.absoluteFill} />
             <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.voiceCallAvatar} />
-            <Text style={styles.voiceCallStatus}>{isRemoteMuted ? "Partner Muted" : "Voice Call Ongoing"}</Text>
+            <Text style={styles.voiceCallStatus}>
+              {loading ? (isRinging ? "Ringing..." : "Connecting...") : (isRemoteMuted ? "Partner Muted" : "Voice Call Ongoing")}
+            </Text>
           </View>
         ) : (
           isSwapped ? renderLocalPreview(styles.fullVideo) : renderRemotePreview(styles.fullVideo)

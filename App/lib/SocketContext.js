@@ -315,7 +315,11 @@ export function SocketProvider({ children }) {
           });
         }
 
-        // 📞 CALL SIGNALING
+        socket.on("ringing", (data) => {
+          logger.event("ringing", data);
+          // Handled by subscribers (like VideoCallScreen)
+        });
+
         socket.on("incomingCall", (data) => {
           logger.event("incomingCall", data);
           navigation.navigate("IncomingCallScreen", {
