@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Icons from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Audio } from "expo-av";
 import { startRingtone, stopRingtone } from "../../ringtone";
@@ -22,6 +22,11 @@ import { useSocket } from "../lib/SocketContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
+
+// ✅ DEFENSIVE COMPONENT WRAPPERS
+const Ionicons = Icons.Ionicons || (() => null);
+const MaterialCommunityIcons = Icons.MaterialCommunityIcons || (() => null);
+const SafeLinearGradient = LinearGradient || View;
 
 export default function IncomingCallScreen({ route }) {
   const navigation = useNavigation();
@@ -178,7 +183,7 @@ export default function IncomingCallScreen({ route }) {
         style={StyleSheet.absoluteFill}
         blurRadius={Platform.OS === 'ios' ? 20 : 10}
       >
-        <LinearGradient
+        <SafeLinearGradient
           colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0.85)"]}
           style={StyleSheet.absoluteFill}
         />

@@ -600,19 +600,27 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
   const data = event.notification.data || {};
-  const isCall = data.type === 'incoming_call' || data.isCall;
+  const isCall = data.type === "incoming_call" || data.isCall;
 
-  // Resolve the Room ID (Fallback to sender ID if room is missing)
+  // Resolve values safely to avoid ReferenceErrors
   const room = data.room || data.roomId || data.sender?.id || data.sender;
+  const resolvedCallUrl = data.callUrl || data.url || null;
+  const resolvedSenderName =
+    data.senderName || data.sender?.name || "Someone";
+  const resolvedProfilePic =
+    data.sender?.profilePic || data.data?.sender?.profilePic || "";
+  const resolvedCallType = data.callType || data.data?.callType || "video";
+
   const targetUrl = isCall
-    ? `/incoming-call?room=${room}&callUrl=${encodeURIComponent(data.callUrl)}&callerName=${encodeURIComponent(data.senderName || data.sender?.name || 'Someone')}&profilePic=${encodeURIComponent(data.sender?.profilePic || '')}`
+    ? `/incoming-call?room=${room}&callUrl=${encodeURIComponent(
+        resolvedCallUrl || "",
+      )}&callerName=${encodeURIComponent(resolvedSenderName)}&profilePic=${encodeURIComponent(resolvedProfilePic)}`
     : `/chat/${room}`;
 
   event.waitUntil(
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then(async (clientList) => {
-        // 1. Try to find an existing window and focus it
         for (const client of clientList) {
           if (
             client.url.startsWith(self.location.origin) &&
@@ -620,24 +628,23 @@ self.addEventListener("notificationclick", (event) => {
           ) {
             await client.focus();
 
-            // 2. Tell the app to open the chat or call internally
             if (isCall) {
               return client.postMessage({
                 type: "INCOMING_CALL",
                 payload: {
-                  room: room,
-                  callUrl: data.callUrl || callUrl,
-                  callerName: data.senderName || data.sender?.name || senderName || 'Someone',
-                  profilePic: data.sender?.profilePic || data.data?.sender?.profilePic || '',
-                  callType: data.callType || data.data?.callType || 'video'
-                }
+                  room,
+                  callUrl: resolvedCallUrl,
+                  callerName: resolvedSenderName,
+                  profilePic: resolvedProfilePic,
+                  callType: resolvedCallType,
+                },
               });
             } else {
               return client.postMessage({
                 type: "OPEN_CHAT",
                 payload: {
-                  room: room, // Standardized to room
-                  roomId: room, // Fallback for safety
+                  room,
+                  roomId: room,
                   senderId: data.sender?.id || data.sender,
                 },
               });
@@ -645,7 +652,6 @@ self.addEventListener("notificationclick", (event) => {
           }
         }
 
-        // 3. If app is closed, open the target URL directly
         if (clients.openWindow) {
           return clients.openWindow(targetUrl);
         }

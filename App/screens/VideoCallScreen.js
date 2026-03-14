@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { MaterialIcons, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Icons from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera } from "expo-camera";
@@ -21,6 +21,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width, height } = Dimensions.get("window");
+
+// ✅ DEFENSIVE COMPONENT WRAPPERS
+const Ionicons = Icons.Ionicons || (() => null);
+const MaterialIcons = Icons.MaterialIcons || (() => null);
+const MaterialCommunityIcons = Icons.MaterialCommunityIcons || (() => null);
+const SafeLinearGradient = LinearGradient || View;
 
 import { useCall } from "../lib/CallContext";
 import { useSocket } from "../lib/SocketContext";
@@ -425,7 +431,7 @@ export default function VideoCallScreen() {
     // Improved Mobile/Native Fallback
     return (
       <View style={[style, styles.fallback]}>
-        <LinearGradient colors={["#1a1a1a", "#000"]} style={StyleSheet.absoluteFill} />
+        <SafeLinearGradient colors={["#1a1a1a", "#000"]} style={StyleSheet.absoluteFill} />
         <View style={styles.fallbackContent}>
           <View style={styles.avatarContainer}>
             <Image 
@@ -461,7 +467,7 @@ export default function VideoCallScreen() {
       <View style={StyleSheet.absoluteFill}>
         {callType === "voice" ? (
           <View style={[styles.fullVideo, styles.voiceCallBackground]}>
-            <LinearGradient colors={["#1a1a1a", "#000"]} style={StyleSheet.absoluteFill} />
+            <SafeLinearGradient colors={["#1a1a1a", "#000"]} style={StyleSheet.absoluteFill} />
             <Image source={partnerPic ? {uri: partnerPic} : require("../../assets/images/appIco.png")} style={styles.voiceCallAvatar} />
             <Text style={styles.voiceCallStatus}>
               {loading ? (isRinging ? "Ringing..." : "Connecting...") : (isRemoteMuted ? "Partner Muted" : "Voice Call Ongoing")}
@@ -507,7 +513,7 @@ export default function VideoCallScreen() {
       <Animated.View style={[styles.overlay, { opacity: controlsVisible }]}>
         {/* Header - Call Info */}
         <SafeAreaView style={styles.header}>
-          <LinearGradient colors={["rgba(0,0,0,0.6)", "transparent"]} style={styles.headerGradient}>
+          <SafeLinearGradient colors={["rgba(0,0,0,0.6)", "transparent"]} style={styles.headerGradient}>
             <View style={styles.headerContent}>
               <TouchableOpacity onPress={endCall} style={styles.miniBack}>
                 <Ionicons name="chevron-down" size={28} color="#fff" />
@@ -535,7 +541,7 @@ export default function VideoCallScreen() {
                 <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </SafeLinearGradient>
         </SafeAreaView>
 
         {/* Footer - Floating Controls */}

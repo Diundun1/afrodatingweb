@@ -15,7 +15,6 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
-import { initPush } from "./App/lib/RegisterForPushNotificationsAsync";
 import { startRingtone, stopRingtone } from "./ringtone";
 // Import your screens
 import WelcomeScreen1 from "./App/screens/WelcomeScreen1";
@@ -179,20 +178,21 @@ const requestWebNotificationPermission = async () => {
 };
 
 export default function App() {
-  // useEffect(() => {
-  //   // Register for push notifications when app loads
-  //   const initPush = async () => {
-  //     const userId = localStorage.getItem("loggedInUserId");
-  //     const token = localStorage.getItem("userToken");
+  useEffect(() => {
+    // Register for web push notifications when user is logged in
+    const initPush = async () => {
+      if (Platform.OS !== "web") return;
+      const userId = localStorage.getItem("loggedInUserId");
+      const token = localStorage.getItem("userToken");
 
-  //     if (userId && token) {
-  //       await RegisterForPushNotificationsAsync();
-  //       console.log("✅ Push notifications initialized");
-  //     }
-  //   };
+      if (userId && token) {
+        await RegisterForPushNotificationsAsync();
+        console.log("✅ Push notifications initialized");
+      }
+    };
 
-  //   initPush();
-  // }, []);
+    initPush();
+  }, []);
 
   const [loaded] = useFonts({
     Roboto_Light: require("./assets/fonts/Roboto-Light.ttf"),

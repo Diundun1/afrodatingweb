@@ -103,25 +103,33 @@ const RegisterForPushNotificationsAsync = async () => {
   }
 };
 
+const API_BASE = "https://backend-afrodate-8q6k.onrender.com";
+
 const sendSubscriptionToBackend = async (subscription, userId) => {
   try {
-    const response = await fetch(
-      "https://test.unigate.com.ng/tokenspr/save_tokens.php",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: userId,
-          subscription: subscription,
-          device: "web",
-          platform: navigator.platform,
-          userAgent: navigator.userAgent,
-        }),
-      }
-    );
+    const token = localStorage.getItem("userToken");
+    if (!token) {
+      console.warn("No auth token found; cannot register push subscription");
+      return;
+    }
 
-    const result = await response.text();
-    console.log("Backend response:", result);
+    const response = await fetch(`${API_BASE}/api/v1/push/subscribe`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "user-id": userId,
+      },
+      body: JSON.stringify({ subscription }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Subscription failed: ${response.status} ${text}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Push subscription saved:", result);
   } catch (err) {
     console.error("Error sending subscription to backend:", err);
   }
