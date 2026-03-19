@@ -180,7 +180,12 @@ export function SocketProvider({ children }) {
       }
 
       // Skip call links
-      const isCallLink = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/.test();
+      const messageContent =
+        typeof messageData.message === "string"
+          ? messageData.message
+          : messageData.message?.message || messageData.text || "";
+
+      const isCallLink = /https:\/\/test\.unigate\.com\.ng\/[^\s]+/.test(messageContent);
       if (isCallLink) {
         logger.info("Skipping call link message");
         console.log("call link");
@@ -251,6 +256,14 @@ export function SocketProvider({ children }) {
           if (!isMounted) return;
           setIsConnected(true);
           socket.emit("joinUserRoom", { userId });
+
+          // Keep service worker's auth token fresh
+          if (typeof navigator !== "undefined" && navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: "SET_AUTH_TOKEN",
+              token,
+            });
+          }
         });
 
         socket.on("disconnect", () => {
@@ -288,7 +301,7 @@ export function SocketProvider({ children }) {
   const onMessageReceived = useCallback((handler) => {
     if (!socketRef.current) {
       logger.warn("Cannot register message listener - socket not initialized");
-      return () => {};
+      return () => { };
     }
 
     const handleMessage = (data) => {

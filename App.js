@@ -210,6 +210,20 @@ export default function App() {
         startRingtone();
       }
     });
+
+    // Send auth token to service worker so it can make authenticated API calls
+    if (Platform.OS === "web" && "serviceWorker" in navigator) {
+      const sendTokenToSW = async () => {
+        const token = localStorage.getItem("userToken");
+        if (token && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: "SET_AUTH_TOKEN",
+            token,
+          });
+        }
+      };
+      navigator.serviceWorker.ready.then(sendTokenToSW);
+    }
   }, []);
 
   useEffect(() => {
@@ -279,6 +293,14 @@ export default function App() {
 
               if (!hasBeenAsked && Notification.permission === "default") {
                 setShowNotificationModal(true);
+              } else if (Notification.permission === "granted") {
+                // Already granted — re-subscribe silently if user is logged in
+                const token = localStorage.getItem("userToken");
+                if (token) {
+                  initPush().catch((e) =>
+                    console.warn("Silent push re-init failed:", e),
+                  );
+                }
               }
             } catch (error) {
               console.error("Error checking notification status:", error);

@@ -107,7 +107,7 @@ export const NotificationProvider = ({ children }) => {
   const [permission, setPermission] = useState("default");
 
   const token =
-    Platform.OS === "web" ? localStorage.getItem("accessToken") : null;
+    Platform.OS === "web" ? localStorage.getItem("userToken") : null;
 
   /* -------------------- PERMISSION (WEB ONLY) -------------------- */
   useEffect(() => {

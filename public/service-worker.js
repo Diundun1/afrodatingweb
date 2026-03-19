@@ -278,21 +278,32 @@ const CACHE_NAME = "Diundun-cache-v2";
 const urlsToCache = ["/", "/index.html"];
 
 async function getAuthTokenFromDB() {
+  // 1. Try localStorage first (app stores token here)
+  try {
+    const lsToken = self.__localStorage_token;
+    if (lsToken) return lsToken;
+  } catch (_) { }
+
+  // 2. Try IndexedDB (AsyncStorage web adapter stores here)
   return new Promise((resolve) => {
-    const request = indexedDB.open("keyval-store");
-    request.onsuccess = () => {
-      try {
-        const db = request.result;
-        const tx = db.transaction("keyval", "readonly");
-        const store = tx.objectStore("keyval");
-        const getReq = store.get("userToken");
-        getReq.onsuccess = () => resolve(getReq.result);
-        getReq.onerror = () => resolve(null);
-      } catch (e) {
-        resolve(null);
-      }
-    };
-    request.onerror = () => resolve(null);
+    try {
+      const request = indexedDB.open("keyval-store");
+      request.onsuccess = () => {
+        try {
+          const db = request.result;
+          const tx = db.transaction("keyval", "readonly");
+          const store = tx.objectStore("keyval");
+          const getReq = store.get("userToken");
+          getReq.onsuccess = () => resolve(getReq.result || null);
+          getReq.onerror = () => resolve(null);
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      request.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
   });
 }
 
@@ -582,9 +593,7 @@ self.addEventListener("message", (event) => {
 
   // Handle auth token updates
   if (event.data && event.data.type === "SET_AUTH_TOKEN") {
-    // Store token for authenticated requests
-    // You can use IndexedDB here if needed
-    self.authToken = event.data.token;
+    self.__localStorage_token = event.data.token;
     console.log("Auth token updated in service worker");
   }
 
