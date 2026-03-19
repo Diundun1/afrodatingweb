@@ -15,11 +15,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Audio } from "expo-av";
 import { startRingtone, stopRingtone } from "../../ringtone";
+import { useSocket } from "../lib/SocketContext";
 
 const { width, height } = Dimensions.get("window");
 
 export default function IncomingCallScreen({ route }) {
   const navigation = useNavigation();
+  const { socketRef } = useSocket();
 
   const { callerName, callUrl, callerId, room, callType } = route.params || {};
   const [vibrating, setVibrating] = useState(false);
@@ -30,6 +32,22 @@ export default function IncomingCallScreen({ route }) {
   const slideAnim = new Animated.Value(100);
 
   // Initialize audio system
+  // If the caller hangs up before we answer, dismiss this screen
+  useEffect(() => {
+    const socket = socketRef?.current;
+    if (!socket) return;
+
+    const handleCallerEnded = () => {
+      console.log("📞 Caller ended the call before answer");
+      Vibration.cancel();
+      stopRingtone();
+      navigation.goBack();
+    };
+
+    socket.on("call_ended", handleCallerEnded);
+    return () => socket.off("call_ended", handleCallerEnded);
+  }, [socketRef, navigation]);
+
   useEffect(() => {
     const setupAudio = async () => {
       try {

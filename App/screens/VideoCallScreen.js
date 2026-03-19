@@ -281,12 +281,15 @@ export default function VideoCallScreen({ route }) {
   const endCall = async (notifyPartner = true) => {
     try {
       console.log("📞 Ending call...");
-      // Stop calling tone in case it's still playing
       stopCallingTone();
 
+      // Read partnerId from state OR AsyncStorage as fallback
+      const pid = partnerId || (await AsyncStorage.getItem("partnerId"));
+
       // Notify the other user so their screen ends too
-      if (notifyPartner && partnerId && socketRef?.current?.connected) {
-        socketRef.current.emit("call_ended", { recipientId: partnerId });
+      if (notifyPartner && pid && socketRef?.current?.connected) {
+        socketRef.current.emit("call_ended", { recipientId: pid });
+        console.log("📞 Emitted call_ended to", pid);
       }
 
       await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName"]);
@@ -294,7 +297,6 @@ export default function VideoCallScreen({ route }) {
       console.log("Error clearing storage", e);
     }
 
-    // Safely call context methods
     if (setInCall) setInCall(false);
     if (setParticipant) setParticipant("");
     navigation.goBack();
