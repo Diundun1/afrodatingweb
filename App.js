@@ -48,6 +48,7 @@ import ForgotPasswordScreen from "./App/screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "./App/screens/ResetPasswordScreen";
 import RegisterForPushNotificationsAsync from "./App/lib/RegisterForPushNotificationsAsync";
 import { createNavigationContainerRef } from "@react-navigation/native";
+import { startRingtone } from "./ringtone";
 
 // 1. Create a ref to the navigation object
 export const navigationRef = createNavigationContainerRef();
