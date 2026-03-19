@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSocket } from "../lib/SocketContext";
+import { startCallingTone, stopCallingTone } from "../../ringtone";
 
 const { width, height } = Dimensions.get("window");
 
@@ -33,7 +34,7 @@ try {
   console.warn("CallContext not found, using fallback");
 }
 
-export default function VideoCallScreen() {
+export default function VideoCallScreen({ route }) {
   const navigation = useNavigation();
   const iframeRef = useRef(null);
   const { socketRef } = useSocket();
@@ -48,6 +49,7 @@ export default function VideoCallScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isCaller, setIsCaller] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -73,6 +75,13 @@ export default function VideoCallScreen() {
           // Safely call context methods
           if (setInCall) setInCall(true);
           if (setParticipant) setParticipant(storedPartnerName || "Partner");
+
+          // Start outgoing calling tone if this user initiated the call
+          const callerFlag = route?.params?.isCaller ?? false;
+          setIsCaller(callerFlag);
+          if (callerFlag && Platform.OS === "web") {
+            startCallingTone();
+          }
 
           // Request permissions immediately
           await requestPermissions();
@@ -187,6 +196,7 @@ export default function VideoCallScreen() {
     const handleRemoteCallEnded = () => {
       if (!callEnded) {
         console.log("📞 Remote user ended the call");
+        stopCallingTone();
         setCallEnded(true);
         setTimeout(() => endCall(false), 2000);
       }
@@ -239,6 +249,8 @@ export default function VideoCallScreen() {
   const handleIframeLoad = () => {
     console.log("✅ Iframe loaded");
     setIframeLoaded(true);
+    // Stop calling tone — the call has connected
+    stopCallingTone();
 
     if (
       Platform.OS === "web" &&
@@ -269,6 +281,8 @@ export default function VideoCallScreen() {
   const endCall = async (notifyPartner = true) => {
     try {
       console.log("📞 Ending call...");
+      // Stop calling tone in case it's still playing
+      stopCallingTone();
 
       // Notify the other user so their screen ends too
       if (notifyPartner && partnerId && socketRef?.current?.connected) {
