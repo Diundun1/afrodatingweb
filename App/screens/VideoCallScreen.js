@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSocket } from "../lib/SocketContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -35,9 +36,11 @@ try {
 export default function VideoCallScreen() {
   const navigation = useNavigation();
   const iframeRef = useRef(null);
+  const { socketRef } = useSocket();
 
   const [callUrl, setCallUrl] = useState("");
   const [partnerName, setPartnerName] = useState("");
+  const [partnerId, setPartnerId] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
@@ -51,8 +54,8 @@ export default function VideoCallScreen() {
   // Use the hook safely - this will now use the fallback if context is not available
   const callContext = useCall();
   const { setInCall, setParticipant } = callContext || {
-    setInCall: () => {},
-    setParticipant: () => {},
+    setInCall: () => { },
+    setParticipant: () => { },
   };
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export default function VideoCallScreen() {
         if (storedCallUrl) {
           setCallUrl(storedCallUrl);
           setPartnerName(storedPartnerName || "Partner");
+          setPartnerId(await AsyncStorage.getItem("partnerId"));
 
           // Safely call context methods
           if (setInCall) setInCall(true);
@@ -175,6 +179,23 @@ export default function VideoCallScreen() {
     );
   };
 
+  // Listen for call_ended from the other user
+  useEffect(() => {
+    const socket = socketRef?.current;
+    if (!socket) return;
+
+    const handleRemoteCallEnded = () => {
+      if (!callEnded) {
+        console.log("📞 Remote user ended the call");
+        setCallEnded(true);
+        setTimeout(() => endCall(false), 2000);
+      }
+    };
+
+    socket.on("call_ended", handleRemoteCallEnded);
+    return () => socket.off("call_ended", handleRemoteCallEnded);
+  }, [socketRef, callEnded]);
+
   // Enhanced message listener for iframe
   useEffect(() => {
     const handleMessage = (event) => {
@@ -241,13 +262,19 @@ export default function VideoCallScreen() {
     if (!callEnded) {
       console.log("📞 Call ended by iframe");
       setCallEnded(true);
-      setTimeout(() => endCall(), 2000);
+      setTimeout(() => endCall(true), 2000);
     }
   };
 
-  const endCall = async () => {
+  const endCall = async (notifyPartner = true) => {
     try {
       console.log("📞 Ending call...");
+
+      // Notify the other user so their screen ends too
+      if (notifyPartner && partnerId && socketRef?.current?.connected) {
+        socketRef.current.emit("call_ended", { recipientId: partnerId });
+      }
+
       await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName"]);
     } catch (e) {
       console.log("Error clearing storage", e);
