@@ -55,6 +55,7 @@ export const navigationRef = createNavigationContainerRef();
 
 // 1. Device-Specific Ringtone Selector
 const getRingtonePath = () => {
+  if (typeof navigator === "undefined") return "/sounds/android_ringtone.mp3";
   const ua = navigator.userAgent.toLowerCase();
   if (/iphone|ipad|ipod/.test(ua)) return "/sounds/ios_ringtone.mp3";
   if (/android/.test(ua)) return "/sounds/android_ringtone.mp3";
@@ -62,8 +63,12 @@ const getRingtonePath = () => {
 };
 
 const linking = {
-  // ✅ This tells the browser that links from this domain belong to the app
-  prefixes: ["https://afrodatingweb.vercel.app", window.location.origin],
+  prefixes: [
+    "https://afrodatingweb.vercel.app",
+    ...(typeof window !== "undefined" && window.location?.origin
+      ? [window.location.origin]
+      : []),
+  ],
   config: {
     screens: {
       // ✅ This matches the path used in your Service Worker targetUrl
@@ -121,11 +126,12 @@ const registerServiceWorker = async () => {
 
 // Check if PWA is installed
 const isPWAInstalled = () => {
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
     return (
       window.matchMedia("(display-mode: standalone)").matches ||
       window.navigator.standalone === true ||
-      document.referrer.includes("android-app://")
+      (typeof document !== "undefined" &&
+        document.referrer.includes("android-app://"))
     );
   }
   return false;
@@ -205,39 +211,42 @@ export default function App() {
   // const navigationRef = useRef();
 
   useEffect(() => {
-    navigator.serviceWorker.addEventListener("message", (event) => {
+    if (Platform.OS !== "web" || !navigator.serviceWorker) return;
+
+    const handleIncomingCall = (event) => {
       if (event.data?.type === "INCOMING_CALL") {
         startRingtone();
       }
-    });
+    };
+    navigator.serviceWorker.addEventListener("message", handleIncomingCall);
 
     // Send auth token to service worker so it can make authenticated API calls
-    if (Platform.OS === "web" && "serviceWorker" in navigator) {
-      const sendTokenToSW = async () => {
-        const token = localStorage.getItem("userToken");
-        if (token && navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({
-            type: "SET_AUTH_TOKEN",
-            token,
-          });
-        }
-      };
-      navigator.serviceWorker.ready.then(sendTokenToSW);
-    }
+    const sendTokenToSW = async () => {
+      const token = await AsyncStorage.getItem("userToken");
+      if (token && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: "SET_AUTH_TOKEN",
+          token,
+        });
+      }
+    };
+    navigator.serviceWorker.ready.then(sendTokenToSW);
+
+    return () =>
+      navigator.serviceWorker.removeEventListener("message", handleIncomingCall);
   }, []);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      const handleMessage = (event) => {
-        if (event.data.type === "NAVIGATE_TO_CALL") {
-          // Force internal navigation
-          navigation.navigate("IncomingCallScreen", event.data.payload);
-        }
-      };
-      navigator.serviceWorker.addEventListener("message", handleMessage);
-      return () =>
-        navigator.serviceWorker.removeEventListener("message", handleMessage);
-    }
+    if (Platform.OS !== "web" || !("serviceWorker" in navigator)) return;
+
+    const handleMessage = (event) => {
+      if (event.data?.type === "NAVIGATE_TO_CALL") {
+        navigationRef.current?.navigate("IncomingCallScreen", event.data.payload);
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handleMessage);
+    return () =>
+      navigator.serviceWorker.removeEventListener("message", handleMessage);
   }, []);
 
   // Service Worker registration for PWA
@@ -247,7 +256,10 @@ export default function App() {
       setIsPWA(isPWAInstalled());
 
       // Add manifest link if not exists
-      if (!document.querySelector('link[rel="manifest"]')) {
+      if (
+        typeof document !== "undefined" &&
+        !document.querySelector('link[rel="manifest"]')
+      ) {
         const manifestLink = document.createElement("link");
         manifestLink.rel = "manifest";
         manifestLink.href = "/manifest.json";
@@ -295,7 +307,7 @@ export default function App() {
                 setShowNotificationModal(true);
               } else if (Notification.permission === "granted") {
                 // Already granted — re-subscribe silently if user is logged in
-                const token = localStorage.getItem("userToken");
+                const token = await AsyncStorage.getItem("userToken");
                 if (token) {
                   initPush().catch((e) =>
                     console.warn("Silent push re-init failed:", e),

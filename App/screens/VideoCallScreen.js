@@ -12,11 +12,9 @@ import {
 import { MaterialIcons, Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSocket } from "../lib/SocketContext";
 import { startCallingTone, stopCallingTone } from "../../ringtone";
-
 const { width, height } = Dimensions.get("window");
 
 // Improved fallback for useCall hook
@@ -100,36 +98,25 @@ export default function VideoCallScreen({ route }) {
     loadCallData();
   }, []);
 
-  // Direct permission request - navigates back if rejected
+  // Request camera/mic permissions — native only (web handles this via browser)
   const requestPermissions = async () => {
+    if (Platform.OS === "web") {
+      setHasPermission(true);
+      return;
+    }
     try {
-      console.log("🎥 Requesting camera and microphone permissions...");
-
+      const { Camera } = await import("expo-camera");
       const cameraPerm = await Camera.requestCameraPermissionsAsync();
       const micPerm = await Camera.requestMicrophonePermissionsAsync();
 
-      console.log("Camera permission:", cameraPerm.status);
-      console.log("Microphone permission:", micPerm.status);
-
       if (cameraPerm.status === "granted" && micPerm.status === "granted") {
         setHasPermission(true);
-        console.log("✅ All permissions granted");
       } else {
         setHasPermission(false);
-        console.log("❌ Permissions denied - navigating back");
-
-        // Show alert and navigate back
         Alert.alert(
           "Permissions Required",
-          "Camera and microphone permissions are required for video calls. Please enable them in settings to continue.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                endCall();
-              },
-            },
-          ]
+          "Camera and microphone permissions are required for video calls.",
+          [{ text: "OK", onPress: () => endCall() }],
         );
       }
     } catch (error) {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,11 +9,11 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Platform,
 } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Audio } from "expo-av";
 import { startRingtone, stopRingtone } from "../../ringtone";
 import { useSocket } from "../lib/SocketContext";
 
@@ -24,72 +24,34 @@ export default function IncomingCallScreen({ route }) {
   const { socketRef } = useSocket();
 
   const { callerName, callUrl, callerId, room, callType } = route.params || {};
-  const [vibrating, setVibrating] = useState(false);
-  const [isAudioReady, setIsAudioReady] = useState(false);
-  const soundRef = useRef(null);
 
-  const pulseAnim = new Animated.Value(1);
-  const slideAnim = new Animated.Value(100);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(100)).current;
 
-  // Initialize audio system
   // If the caller hangs up before we answer, dismiss this screen
   useEffect(() => {
     const socket = socketRef?.current;
     if (!socket) return;
-
     const handleCallerEnded = () => {
       console.log("📞 Caller ended the call before answer");
-      Vibration.cancel();
+      if (Platform.OS !== "web") Vibration.cancel();
       stopRingtone();
       navigation.goBack();
     };
-
     socket.on("call_ended", handleCallerEnded);
     return () => socket.off("call_ended", handleCallerEnded);
   }, [socketRef, navigation]);
 
+  // Start ringtone + animations on mount
   useEffect(() => {
-    const setupAudio = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
-        setIsAudioReady(true);
-        console.log("Audio system ready");
-      } catch (error) {
-        console.error("Error setting up audio:", error);
-      }
-    };
+    startRingtone();
 
-    setupAudio();
+    // Vibrate on native only
+    if (Platform.OS !== "web") {
+      Vibration.vibrate([500, 1000, 500, 1000], true);
+    }
 
-    return () => {
-      stopRingtone();
-    };
-  }, []);
-
-  useEffect(() => {
-    // Start call animations and ringtone
-    startCallAnimations();
-    playRingtone();
-
-    return () => {
-      Vibration.cancel();
-      stopRingtone();
-      setVibrating(false);
-    };
-  }, [isAudioReady]);
-
-  const startCallAnimations = () => {
-    // Simulate phone vibration on incoming call
-    Vibration.vibrate([500, 1000, 500, 1000], true);
-    setVibrating(true);
-
-    // Pulse animation for avatar
+    // Pulse animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -107,77 +69,23 @@ export default function IncomingCallScreen({ route }) {
       ]),
     ).start();
 
-    // Slide up animation for buttons
+    // Slide up animation
     Animated.timing(slideAnim, {
       toValue: 0,
       duration: 500,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  };
 
-  const playRingtone = async () => {
-    try {
-      // Stop any existing ringtone first
-      await stopRingtone();
+    return () => {
+      if (Platform.OS !== "web") Vibration.cancel();
+      stopRingtone();
+    };
+  }, []);
 
-      if (!isAudioReady) {
-        console.log("Audio not ready yet, retrying in 100ms");
-        setTimeout(playRingtone, 100);
-        return;
-      }
-
-      console.log("Playing ringtone for incoming call...");
-
-      const { sound } = await Audio.Sound.createAsync(
-        require("https://unigate.com.ng/ringtones/ringtone.mp3"),
-        {
-          isLooping: true,
-          volume: 1.0,
-          shouldPlay: true,
-        },
-        onPlaybackStatusUpdate,
-      );
-
-      soundRef.current = sound;
-      await sound.playAsync();
-      console.log("Ringtone started successfully");
-    } catch (err) {
-      console.error("Error playing ringtone:", err);
-      // Retry after a short delay
-      setTimeout(playRingtone, 500);
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status) => {
-    if (!status.isLoaded) {
-      if (status.error) {
-        console.error(`Playback error: ${status.error}`);
-      }
-    } else {
-      console.log("Ringtone playback status:", status);
-    }
-  };
-
-  // const stopRingtone = async () => {
-  //   try {
-  //     if (soundRef.current) {
-  //       console.log("Stopping ringtone...");
-  //       await soundRef.current.stopAsync();
-  //       await soundRef.current.unloadAsync();
-  //       soundRef.current = null;
-  //       console.log("Ringtone stopped");
-  //     }
-  //   } catch (err) {
-  //     console.error("Error stopping ringtone:", err);
-  //   }
-  // };
-
-  const handleAccept = async () => {
-    console.log("Accepting call...");
-    Vibration.cancel();
+  const handleAccept = () => {
+    if (Platform.OS !== "web") Vibration.cancel();
     stopRingtone();
-
     navigation.replace("VideoCallScreen", {
       callUrl,
       partnerId: callerId,
@@ -185,11 +93,10 @@ export default function IncomingCallScreen({ route }) {
     });
   };
 
-  const handleDecline = async () => {
-    console.log("Declining call...");
-    Vibration.cancel();
-    navigation.goBack();
+  const handleDecline = () => {
+    if (Platform.OS !== "web") Vibration.cancel();
     stopRingtone();
+    navigation.goBack();
   };
 
   return (
@@ -238,11 +145,6 @@ export default function IncomingCallScreen({ route }) {
             <View style={styles.pulseDot} />
             <Text style={styles.callStatusText}>Calling...</Text>
           </View>
-
-          {/* Audio status for debugging */}
-          <Text style={styles.debugText}>
-            Audio: {isAudioReady ? "Ready" : "Loading..."}
-          </Text>
         </View>
 
         {/* Action Buttons */}
@@ -395,11 +297,6 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.6)",
     fontSize: 14,
     fontWeight: "500",
-  },
-  debugText: {
-    color: "#888",
-    fontSize: 12,
-    marginTop: 10,
   },
   buttonsContainer: {
     flexDirection: "row",

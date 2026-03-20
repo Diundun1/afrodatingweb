@@ -1,8 +1,11 @@
+import storage from "./storage";
+
 const VAPID_PUBLIC_KEY =
   "BOqyxnaIO_gNGX9I1XC0hrKDJg8oIfsEAcFlylps0cgb_DBzbwWR9LKwtvU7r3Kmpf3IQVk55BQQNcoMF1JrEPQ";
 
 const isPushNotificationSupported = () => {
   return (
+    typeof window !== "undefined" &&
     typeof navigator !== "undefined" &&
     "serviceWorker" in navigator &&
     "PushManager" in window
@@ -12,7 +15,7 @@ const isPushNotificationSupported = () => {
 const urlBase64ToUint8Array = (base64String) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
+  const rawData = (typeof window !== "undefined" ? window.atob : global.atob)(base64);
   const outputArray = new Uint8Array(rawData.length);
 
   for (let i = 0; i < rawData.length; ++i) {
@@ -138,8 +141,12 @@ const showNotificationViaServiceWorker = async (title, options = {}) => {
 
 const RegisterForPushNotificationsAsync = async () => {
   try {
-    // 1. Basic Support Check
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    // 1. Basic Support Check — web only
+    if (
+      typeof window === "undefined" ||
+      !("serviceWorker" in navigator) ||
+      !("PushManager" in window)
+    ) {
       console.log("Push notifications not supported");
       return null;
     }
@@ -174,9 +181,7 @@ const RegisterForPushNotificationsAsync = async () => {
 
     const subJSON = subscription.toJSON();
 
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem("webPushSubscription", JSON.stringify(subJSON));
-    }
+    await storage.setItem("webPushSubscription", JSON.stringify(subJSON));
 
     // 6. Send to backend
     await sendSubscriptionToBackend(subJSON);
@@ -241,7 +246,7 @@ const registerServiceWorker = async () => {
 
 const sendSubscriptionToBackend = async (subscription) => {
   try {
-    const token = localStorage.getItem("userToken");
+    const token = await storage.getItem("userToken");
     if (!token) {
       console.warn("No auth token — cannot send subscription to backend");
       return;
@@ -368,7 +373,7 @@ async function unsubscribeFromPushNotifications() {
 
   if (!subscription) return;
 
-  const token = localStorage.getItem("userToken");
+  const token = await storage.getItem("userToken");
 
   // 1. Unsubscribe from browser
   await subscription.unsubscribe();

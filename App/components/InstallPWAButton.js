@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from "react";
+import { Platform } from "react-native";
 import Constants from "expo-constants";
 
+// Web-only component — renders nothing on native
 const InstallPWAButton = () => {
+  if (Platform.OS !== "web") return null;
+  return <InstallPWAButtonWeb />;
+};
+
+const InstallPWAButtonWeb = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstall, setShowInstall] = useState(false);
   const [installReason, setInstallReason] = useState("");

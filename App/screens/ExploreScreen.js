@@ -51,9 +51,9 @@ const calculateAge = (dateOfBirth) => {
 
 export default function ExploreScreen({ navigation }) {
   useEffect(() => {
-    const userId = localStorage.getItem("loggedInUserId");
-
-    initPush(userId);
+    AsyncStorage.getItem("loggedInUserId").then((userId) => {
+      initPush(userId);
+    });
   }, []);
   const [users, setUsers] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -65,6 +65,8 @@ export default function ExploreScreen({ navigation }) {
   const [locationName, setLocationName] = useState("Fetching location...");
 
   useEffect(() => {
+    if (typeof document === "undefined" || typeof Audio === "undefined") return;
+
     const unlockAudio = () => {
       const tempAudio = new Audio("/sounds/android_ringtone.mp3");
       tempAudio.volume = 0;
@@ -74,10 +76,11 @@ export default function ExploreScreen({ navigation }) {
           tempAudio.pause();
           tempAudio.currentTime = 0;
         })
-        .catch(() => {});
+        .catch(() => { });
     };
 
     document.addEventListener("click", unlockAudio, { once: true });
+    return () => document.removeEventListener("click", unlockAudio);
   }, []);
 
   useEffect(() => {
@@ -365,23 +368,24 @@ export default function ExploreScreen({ navigation }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const userId = localStorage.getItem("loggedInUserId");
-    console.log("Push init userId:", userId);
+    AsyncStorage.getItem("loggedInUserId").then((userId) => {
+      console.log("Push init userId:", userId);
 
-    if (!userId) return;
-    if (!("serviceWorker" in navigator)) return;
-    if (Notification.permission === "denied") return;
+      if (!userId) return;
+      if (!("serviceWorker" in navigator)) return;
+      if (Notification.permission === "denied") return;
 
-    const initPush = async () => {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
+      const initPush = async () => {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
 
-      if (!subscription) {
-        await RegisterForPushNotificationsAsync();
-      }
-    };
+        if (!subscription) {
+          await RegisterForPushNotificationsAsync();
+        }
+      };
 
-    initPush();
+      initPush();
+    });
   }, []);
 
   const handleSwipe = (userId, direction) => {
@@ -457,7 +461,7 @@ export default function ExploreScreen({ navigation }) {
               marginLeft: 4,
               color: "#333",
             }}
-            // ellipsizeMode="tail"
+          // ellipsizeMode="tail"
           >
             {locationName}
           </Text>
