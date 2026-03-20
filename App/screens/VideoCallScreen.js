@@ -13,6 +13,7 @@ import { MaterialIcons, Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { WebView } from "react-native-webview";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSocket } from "../lib/SocketContext";
 import { startCallingTone, stopCallingTone } from "../../ringtone";
@@ -127,20 +128,19 @@ export default function VideoCallScreen({ route }) {
     }
   };
 
-  // Send commands to iframe for mute/video toggle
   const sendCommandToIframe = (command, value) => {
-    if (
-      Platform.OS === "web" &&
-      iframeRef.current &&
-      iframeRef.current.contentWindow
-    ) {
-      const message = JSON.stringify({
-        type: "CONTROL_COMMAND",
-        command: command,
-        value: value,
-      });
+    const message = JSON.stringify({
+      type: "CONTROL_COMMAND",
+      command: command,
+      value: value,
+    });
+
+    if (Platform.OS === "web" && iframeRef.current && iframeRef.current.contentWindow) {
       iframeRef.current.contentWindow.postMessage(message, "*");
-      console.log(`📤 Sent ${command} command: ${value}`);
+      console.log(`📤 Sent web command ${command}: ${value}`);
+    } else if (Platform.OS !== "web" && iframeRef.current) {
+      iframeRef.current.injectJavaScript(`window.postMessage(${JSON.stringify(message)}, '*');`);
+      console.log(`📤 Sent native command ${command}: ${value}`);
     }
   };
 
@@ -235,25 +235,25 @@ export default function VideoCallScreen({ route }) {
 
   // Send initial status to iframe when it loads
   const handleIframeLoad = () => {
-    console.log("✅ Iframe loaded");
+    console.log("✅ Call container loaded");
     setIframeLoaded(true);
     // Stop calling tone — the call has connected
     stopCallingTone();
 
-    if (
-      Platform.OS === "web" &&
-      iframeRef.current &&
-      iframeRef.current.contentWindow
-    ) {
-      // Send initial state
+    const message = JSON.stringify({
+      type: "INITIAL_STATE",
+      muted: isMuted,
+      videoOn: isVideoOn,
+      hasPermission: hasPermission,
+    });
+
+    if (Platform.OS === "web" && iframeRef.current && iframeRef.current.contentWindow) {
       setTimeout(() => {
-        const message = JSON.stringify({
-          type: "INITIAL_STATE",
-          muted: isMuted,
-          videoOn: isVideoOn,
-          hasPermission: hasPermission,
-        });
         iframeRef.current.contentWindow.postMessage(message, "*");
+      }, 500);
+    } else if (Platform.OS !== "web" && iframeRef.current) {
+      setTimeout(() => {
+        iframeRef.current.injectJavaScript(`window.postMessage(${JSON.stringify(message)}, '*');`);
       }, 500);
     }
   };
@@ -307,21 +307,6 @@ export default function VideoCallScreen({ route }) {
   }, []);
 
   const renderIframe = () => {
-    if (Platform.OS !== "web") {
-      return (
-        <View style={styles.mobileFallback}>
-          <Ionicons name="videocam-outline" size={60} color="#666" />
-          <Text style={styles.fallbackTitle}>Video Call</Text>
-          <Text style={styles.fallbackText}>
-            Video calls are optimized for web browsers
-          </Text>
-          <Text style={styles.fallbackSubtext}>
-            Please use a web browser for the best video call experience
-          </Text>
-        </View>
-      );
-    }
-
     if (!callUrl) {
       return (
         <View style={styles.mobileFallback}>
@@ -331,6 +316,63 @@ export default function VideoCallScreen({ route }) {
             Unable to load video call. Please try again.
           </Text>
         </View>
+      );
+    }
+
+    if (Platform.OS !== "web") {
+      const injectedJavaScript = `
+        window.addEventListener('message', function(event) {
+          window.ReactNativeWebView.postMessage(typeof event.data === 'string' ? event.data : JSON.stringify(event.data));
+        });
+        const originalPostMessage = window.parent.postMessage;
+        window.parent.postMessage = function(data, targetOrigin, transfer) {
+          window.ReactNativeWebView.postMessage(typeof data === 'string' ? data : JSON.stringify(data));
+          if (originalPostMessage) {
+              originalPostMessage.apply(window.parent, [data, targetOrigin, transfer]);
+          }
+        };
+        true;
+      `;
+
+      return (
+        <WebView
+          ref={iframeRef}
+          source={{ uri: callUrl }}
+          style={styles.iframe}
+          allowsInlineMediaPlayback={true}
+          mediaPlaybackRequiresUserAction={false}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          injectedJavaScript={injectedJavaScript}
+          onMessage={(event) => {
+            const dataStr = event.nativeEvent.data;
+            console.log("📨 Message from WebView:", dataStr);
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.type === "CALL_ENDED" || data.event === "call_end") {
+                handleCallEnded();
+              } else if (data.type === "COMMAND_RESPONSE") {
+                console.log(`✅ WebView responded to ${data.command}: ${data.success}`);
+              } else if (data.type === "IFRAME_LOADED") {
+                handleIframeLoad();
+              }
+            } catch (err) {
+              if (dataStr === "call_ended" || dataStr === "CALL_ENDED") {
+                handleCallEnded();
+              } else if (dataStr === "iframe_loaded") {
+                handleIframeLoad();
+              }
+            }
+          }}
+          onLoad={handleIframeLoad}
+          onError={(e) => {
+            console.log("❌ WebView loading error:", e.nativeEvent);
+            Alert.alert(
+              "Connection Error",
+              "Unable to load video call. Please check your connection."
+            );
+          }}
+        />
       );
     }
 
