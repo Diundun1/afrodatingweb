@@ -12,6 +12,7 @@ import {
 import { MaterialIcons, Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSocket } from "../lib/SocketContext";
 import { startCallingTone, stopCallingTone } from "../../ringtone";
@@ -390,7 +391,10 @@ export default function VideoCallScreen({ route }) {
       {/* Controls */}
       <View style={styles.controlsContainer}>
         {/* Top Bar */}
-        <View style={styles.topBar}>
+        <LinearGradient
+          colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0)"]}
+          style={styles.topBar}
+        >
           <TouchableOpacity style={styles.backButton} onPress={endCall}>
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
@@ -406,56 +410,17 @@ export default function VideoCallScreen({ route }) {
               {callEnded ? "Call Ended" : formatTime(callDuration)}
             </Text>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Bottom Controls */}
-        <View style={styles.bottomControls}>
-          {/* Mute Button  */}
-          {/* <TouchableOpacity
-            style={[
-              styles.controlButton,
-              isMuted
-                ? styles.controlButtonActive
-                : styles.controlButtonInactive,
-            ]}
-            onPress={toggleMute}
-          >
-            <Ionicons
-              name={isMuted ? "mic-off" : "mic"}
-              size={24}
-              color="#fff"
-            />
-            <Text style={styles.controlButtonText}>
-              {isMuted ? "Unmute" : "Mute"}
-            </Text>
-          </TouchableOpacity> */}
-
-          {/* Video Toggle Button */}
-          {/* <TouchableOpacity
-            style={[
-              styles.controlButton,
-              !isVideoOn
-                ? styles.controlButtonActive
-                : styles.controlButtonInactive,
-            ]}
-            onPress={toggleVideo}
-          >
-            <Ionicons
-              name={isVideoOn ? "videocam" : "videocam-off"}
-              size={24}
-              color="#fff"
-            />
-            <Text style={styles.controlButtonText}>
-              {isVideoOn ? "Video Off" : "Video On"}
-            </Text>
-          </TouchableOpacity> */}
-
-          {/* End Call Button */}
+        <LinearGradient
+          colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.8)"]}
+          style={styles.bottomControls}
+        >
           <TouchableOpacity style={styles.endCallButton} onPress={endCall}>
-            <MaterialIcons name="call-end" size={28} color="#fff" />
-            <Text style={styles.endCallButtonText}>End</Text>
+            <MaterialIcons name="call-end" size={32} color="#fff" />
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       </View>
 
       {/* Call ended overlay */}
@@ -463,9 +428,9 @@ export default function VideoCallScreen({ route }) {
         <View style={styles.callEndedOverlay}>
           <Ionicons name="call" size={60} color="#fff" />
           <Text style={styles.callEndedText}>Call Ended</Text>
-          <Text style={styles.callEndedSubtext}>
+          {/* <Text style={styles.callEndedSubtext}>
             Returning to main screen...
-          </Text>
+          </Text> */}
         </View>
       )}
     </SafeAreaView>
@@ -497,14 +462,14 @@ const styles = StyleSheet.create({
   controlsContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "space-between",
-    padding: 20,
+    pointerEvents: "box-none",
   },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 25,
+    paddingVertical: 40,
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
   },
   backButton: {
     marginRight: 15,
@@ -528,7 +493,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingBottom: 30,
+    paddingBottom: 50,
+    paddingTop: 40,
     gap: 25,
   },
   controlButton: {
@@ -554,17 +520,15 @@ const styles = StyleSheet.create({
   endCallButton: {
     alignItems: "center",
     justifyContent: "center",
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: "#EF4444",
-    padding: 10,
-  },
-  endCallButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    marginTop: 5,
-    textAlign: "center",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#ef4444",
+    shadowColor: "#ef4444",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
   },
   mobileFallback: {
     flex: 1,

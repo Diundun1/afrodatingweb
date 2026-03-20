@@ -125,6 +125,7 @@ const MessageScreen = ({ route }) => {
   const optimisticMessagesRef = useRef(new Set());
   const flatListRef = useRef(null);
   const lastTypingRef = useRef(0);
+  const isSendingRef = useRef(false);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -478,40 +479,18 @@ const MessageScreen = ({ route }) => {
   }, [isConnected, socketReady, socket]);
 
   const sendMessage = () => {
-    console.log("🔍 sendMessage() called");
-
-    console.log("🔍 Debug info:", {
-      isConnected,
-      hasSocket: !!socket,
-      hasSocketRef: !!socketRef?.current,
-      hasEmit: typeof emit === "function",
-      userId,
-      roomIdxccd,
-      partnerData: !!partnerData,
-      inputMessage,
-    });
-
     if (!inputMessage.trim() || !partnerData || !userId) {
-      Alert.alert(
-        "Error",
-        "Cannot send message. Please check your connection.",
-      );
       return;
     }
+    
+    if (isSendingRef.current) return;
+    isSendingRef.current = true;
 
     const createdAt = Date.now();
     const clientTimestamp = Date.now();
     const messageText = inputMessage.trim();
     const optimisticId = `optimistic_${clientTimestamp}`;
 
-    console.log("🆕 Creating new message object:", {
-      optimisticId,
-      messageText,
-      createdAt,
-      clientTimestamp,
-    });
-
-    // Clear input immediately
     setInputMessage("");
     Keyboard.dismiss();
 
@@ -532,145 +511,71 @@ const MessageScreen = ({ route }) => {
       clientTimestamp,
       status: "sending",
       messageTime: formatMessageTime(),
+      localOnly: true 
     };
 
-    console.log("📲 New optimistic message:", newMessage);
-
-    // Add to optimistic messages and display immediately
     optimisticMessagesRef.current.add(clientTimestamp);
+    setMessages((prev) => [...prev, newMessage]);
 
-    setMessages((prev) => {
-      const updated = [...prev, newMessage];
-      console.log("📝 Messages after adding optimistic:", updated);
-      return updated;
-    });
-
-    console.log(
-      "❗ Immediately after setMessages (React not updated yet):",
-      messages,
-    );
-
-    // If not connected, mark as failed immediately
     if (!isConnected) {
-      console.log("❌ No connection. Marking as failed in 500ms...");
-
       setTimeout(() => {
-        setMessages((prev) => {
-          const updated = prev.map((msg) =>
-            msg.id === optimisticId
-              ? { ...msg, status: "failed", fromServer: false }
-              : msg,
-          );
-          console.log("❌ Updated messages (FAILED, offline):", updated);
-          return updated;
-        });
-
+        setMessages((prev) => prev.map((msg) =>
+            msg.id === optimisticId ? { ...msg, status: "pending" } : msg
+        ));
         optimisticMessagesRef.current.delete(clientTimestamp);
       }, 500);
-
+      isSendingRef.current = false;
       return;
     }
 
     try {
-      const success = emit("sendMessage", payload);
-      console.log("📡 Emit sendMessage result:", success);
+      const query = emit("sendMessage", payload, (response) => {
+          isSendingRef.current = false;
+          optimisticMessagesRef.current.delete(clientTimestamp);
 
-      if (!success) {
-        console.log("❌ emit() returned false. Marking failed...");
-        setTimeout(() => {
-          setMessages((prev) => {
-            const updated = prev.map((msg) =>
-              msg.id === optimisticId
-                ? { ...msg, status: "failed", fromServer: false }
-                : msg,
-            );
-            console.log("❌ Updated messages (FAILED, emit error):", updated);
-            return updated;
-          });
-        }, 500);
-        return;
+          if (response && response.success) {
+              setMessages((prev) => prev.map((msg) =>
+                 (msg.id === optimisticId || msg.clientTimestamp === clientTimestamp)
+                  ? {
+                      ...msg,
+                      id: response.messageId || msg.id,
+                      serverId: response.messageId,
+                      fromServer: true,
+                      status: "sent",
+                      localOnly: false
+                    }
+                  : msg
+              ));
+              setConnectionError(false);
+          } else {
+              setMessages((prev) => prev.map((msg) =>
+                 msg.id === optimisticId ? { ...msg, status: "failed", fromServer: false } : msg
+              ));
+          }
+      });
+
+      if (!query) {
+         setMessages((prev) => prev.map((msg) =>
+             msg.id === optimisticId ? { ...msg, status: "failed", fromServer: false } : msg
+         ));
+         isSendingRef.current = false;
       }
 
-      // Set timeout for message confirmation
-      const confirmationTimeout = setTimeout(() => {
-        console.log("⏳ Confirmation timeout hit! Marking failed...");
-
-        setMessages((prev) => {
-          const updated = prev.map((msg) =>
-            msg.id === optimisticId || msg.clientTimestamp === clientTimestamp
-              ? {
-                  ...msg,
-                  status: "failed",
-                  fromServer: false,
-                }
-              : msg,
-          );
-          console.log(
-            "❌ Updated messages (FAILED, no confirmation):",
-            updated,
-          );
-          return updated;
-        });
-      }, 10000);
-
-      // Handle confirmation
-      const handleMessageSent = (data) => {
-        console.log("📩 Server confirmed message:", data);
-
-        clearTimeout(confirmationTimeout);
-        optimisticMessagesRef.current.delete(clientTimestamp);
-
-        setMessages((prev) => {
-          const updated = prev.map((msg) =>
-            msg.id === optimisticId || msg.clientTimestamp === clientTimestamp
-              ? {
-                  ...msg,
-                  serverId: data.id,
-                  fromServer: true,
-                  status: "sent",
-                }
-              : msg,
-          );
-          console.log("✅ Updated messages (CONFIRMED):", updated);
-          return updated;
-        });
-
-        setConnectionError(false);
-      };
-
-      // Listen for confirmation
-      if (socket) {
-        socket.off("messageSent", handleMessageSent);
-        socket.on("messageSent", handleMessageSent);
-        console.log("👂 Listening for server messageSent event…");
-      }
-
-      // Stop typing
       emit("stopTyping", {
         room: roomIdxccd,
         recipient: partnerData._id,
         userId,
       });
-
       clearTimeout(typingTimeoutRef.current);
     } catch (error) {
-      console.error("💥 Error sending message:", error);
-
-      setTimeout(() => {
-        setMessages((prev) => {
-          const updated = prev.map((msg) =>
-            msg.id === optimisticId
-              ? { ...msg, status: "failed", fromServer: false }
-              : msg,
-          );
-          console.log("❌ Updated messages (FAILED, catch block):", updated);
-          return updated;
-        });
-      }, 500);
+       console.error("Error sending message:", error);
+       setMessages((prev) => prev.map((msg) =>
+           msg.id === optimisticId ? { ...msg, status: "failed", fromServer: false } : msg
+       ));
+       isSendingRef.current = false;
     }
   };
 
-  // The function that sends the message to the server
   const attemptSendMessage = ({ optimisticId, message, clientTimestamp }) => {
     const payload = {
       room: roomIdxccd,
@@ -679,33 +584,22 @@ const MessageScreen = ({ route }) => {
       clientTimestamp,
     };
 
-    const success = emit("sendMessage", payload);
+    const success = emit("sendMessage", payload, (response) => {
+        if (response && response.success) {
+             setMessages((prev) =>
+                prev.map((msg) => msg.id === optimisticId
+                    ? { ...msg, id: response.messageId || msg.id, status: "sent", localOnly: false }
+                    : msg
+                )
+             );
+        } else {
+             setMessages((prev) => prev.map((msg) => msg.id === optimisticId ? { ...msg, status: "failed" } : msg));
+        }
+    });
 
     if (!success) {
-      // Failed to send → mark as pending
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === optimisticId ? { ...msg, status: "pending" } : msg,
-        ),
-      );
-      return;
+      setMessages((prev) => prev.map((msg) => msg.id === optimisticId ? { ...msg, status: "pending" } : msg));
     }
-
-    // Listen for confirm
-    socket?.once("messageSent", (data) => {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === optimisticId
-            ? {
-                ...msg,
-                id: data.id,
-                status: "sent", // delivered after server ACK
-                localOnly: false,
-              }
-            : msg,
-        ),
-      );
-    });
   };
   // const attemptSendMessage = ({ optimisticId, message, clientTimestamp }) => {
   //   const payload = {
@@ -767,7 +661,6 @@ const MessageScreen = ({ route }) => {
     return primaryPic?.url || null;
   };
 
-  // Update video call function to use emit
   const onVideoCall = async () => {
     if (!partnerData) {
       Alert.alert("Error", "Cannot start call. Partner data not loaded.");
@@ -780,26 +673,20 @@ const MessageScreen = ({ route }) => {
 
       const url = `https://test.unigate.com.ng/w/vc.php?nexroomid=${roomIdxccd}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
 
-      console.log("Fetching video call URL:", url);
-
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
 
       const response = await res.json();
-      console.log("Video call response:", response);
 
       if (response.success && response.final_url) {
-        console.log("Final video call URL:", response.final_url);
         setCallUrl(response.final_url);
 
-        // Store call data
         await Promise.all([
           AsyncStorage.setItem("callUrl", response.final_url),
           AsyncStorage.setItem("partnerId", partnerData._id),
           AsyncStorage.setItem("partnerName", partnerData.name),
         ]);
 
-        // ✅ EMIT CALL INVITATION USING NEW METHOD
         const callPayload = {
           room: roomIdxccd,
           recipientId: partnerData._id,
@@ -810,61 +697,7 @@ const MessageScreen = ({ route }) => {
           timestamp: Date.now(),
         };
 
-        console.log("📞 Emitting video call invitation:", callPayload);
         emit("callInvitation", callPayload);
-
-        // Send call link as message using emit
-        const callMessage = `${response.final_url}`;
-        const clientTimestamp = Date.now();
-        const optimisticId = `call_link_${clientTimestamp}`;
-
-        const payload = {
-          room: roomIdxccd,
-          recipient: partnerData._id,
-          message: callMessage,
-          clientTimestamp: clientTimestamp,
-        };
-
-        // Optimistic UI update
-        const newMessage = {
-          id: optimisticId,
-          message: callMessage,
-          isSender: true,
-          isSeen: false,
-          messageTime: formatMessageTime(),
-          fromServer: false,
-          clientTimestamp: clientTimestamp,
-        };
-
-        optimisticMessagesRef.current.add(clientTimestamp);
-        setMessages((prev) => [...prev, newMessage]);
-
-        // Emit message using new method
-        const query = emit("sendMessage", payload);
-
-        if (!query) {
-          setConnectionError(true);
-          return;
-        }
-
-        // Handle confirmation
-        const handleMessageSent = (data) => {
-          console.log("📤 Server confirmed call link sent:", data);
-          optimisticMessagesRef.current.delete(clientTimestamp);
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === optimisticId
-                ? { ...msg, id: data.id || msg.id, fromServer: true }
-                : msg,
-            ),
-          );
-        };
-
-        // Listen for confirmation
-        if (socket) {
-          socket.off("messageSent", handleMessageSent);
-          socket.on("messageSent", handleMessageSent);
-        }
 
         if (!connectionError) {
           navigation.navigate("VideoCallScreen", {
@@ -876,10 +709,7 @@ const MessageScreen = ({ route }) => {
 
           setInCall(true);
           setParticipant(partnerData.name);
-        } else {
-          return;
         }
-        // Navigate to call screen
       } else {
         Alert.alert("Call Failed", "Unable to create video call room.");
       }
@@ -893,7 +723,6 @@ const MessageScreen = ({ route }) => {
       setIsProcessingCall(false);
     }
   };
-  // Voice Call function
   const onVoiceCall = async () => {
     if (!partnerData) {
       Alert.alert("Error", "Cannot start call. Partner data not loaded.");
@@ -906,88 +735,33 @@ const MessageScreen = ({ route }) => {
 
       const url = `https://test.unigate.com.ng/w/vvc.php?nexroomid=${roomIdxccd}&partnerid=${partnerData._id}&callerid=${loggedInUserId}&partnerName=${partnerData.name}`;
 
-      console.log("Fetching voice call URL:", url);
-
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
 
       const response = await res.json();
-      console.log("Voice call response:", response);
 
       if (response.success && response.final_url) {
-        console.log("Final voice call URL:", response.final_url);
         setCallUrl(response.final_url);
 
-        // Store call data
         await Promise.all([
           AsyncStorage.setItem("callUrl", response.final_url),
           AsyncStorage.setItem("partnerId", partnerData._id),
           AsyncStorage.setItem("partnerName", partnerData.name),
         ]);
 
-        // ✅ EMIT CALL INVITATION TO RECIPIENT
-        if (socketRef?.current) {
-          const callPayload = {
-            room: roomIdxccd,
-            recipientId: partnerData._id,
-            callerId: loggedInUserId,
-            callerName: partnerData.name,
-            callUrl: response.final_url,
-            callType: "voice",
-            timestamp: Date.now(),
-          };
+        const callPayload = {
+          room: roomIdxccd,
+          recipientId: partnerData._id,
+          callerId: loggedInUserId,
+          callerName: partnerData.name,
+          callUrl: response.final_url,
+          callType: "voice",
+          timestamp: Date.now(),
+        };
 
-          console.log("📞 Emitting voice call invitation:", callPayload);
+        if (socketRef?.current) {
           socketRef.current.emit("callInvitation", callPayload);
         }
-
-        // Send call link as message
-        const callMessage = `${response.final_url}`;
-        const clientTimestamp = Date.now();
-        const optimisticId = `call_link_${clientTimestamp}`;
-
-        const payload = {
-          room: roomIdxccd,
-          recipient: partnerData._id,
-          message: callMessage,
-          clientTimestamp: clientTimestamp,
-        };
-
-        // Optimistic UI update
-        const newMessage = {
-          id: optimisticId,
-          message: callMessage,
-          isSender: true,
-          isSeen: false,
-          messageTime: formatMessageTime(),
-          fromServer: false,
-          clientTimestamp: clientTimestamp,
-        };
-
-        optimisticMessagesRef.current.add(clientTimestamp);
-        setMessages((prev) => [...prev, newMessage]);
-
-        // Emit message
-        const query = socketRef.current.emit("sendMessage", payload);
-        if (!query) {
-          setConnectionError(true);
-          return;
-        }
-        // Handle confirmation
-        const handleMessageSent = (data) => {
-          console.log("📤 Server confirmed call link sent:", data);
-          optimisticMessagesRef.current.delete(clientTimestamp);
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === optimisticId
-                ? { ...msg, id: data.id || msg.id, fromServer: true }
-                : msg,
-            ),
-          );
-        };
-
-        socketRef.current.off("messageSent", handleMessageSent);
-        socketRef.current.on("messageSent", handleMessageSent);
 
         if (!connectionError) {
           navigation.navigate("VideoCallScreen", {
@@ -999,15 +773,13 @@ const MessageScreen = ({ route }) => {
 
           setInCall(true);
           setParticipant(partnerData.name);
-        } else {
-          return;
         }
       } else {
-        alert("Call Failed", "Unable to create voice call room.");
+        Alert.alert("Call Failed", "Unable to create voice call room.");
       }
     } catch (e) {
       console.error("Voice call error:", e);
-      alert("Call Failed", "Unable to initiate voice call. Please try again.");
+      Alert.alert("Call Failed", "Unable to initiate voice call. Please try again.");
     } finally {
       setIsProcessingCall(false);
     }

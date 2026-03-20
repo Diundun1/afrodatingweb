@@ -101,7 +101,7 @@ export default function IncomingCallScreen({ route }) {
 
   return (
     <LinearGradient
-      colors={["#1a1a2e", "#16213e", "#0f3460"]}
+      colors={["#0f172a", "#1f1429", "#111827"]}
       style={styles.container}
     >
       {/* Background decorative elements */}
@@ -123,7 +123,7 @@ export default function IncomingCallScreen({ route }) {
             ]}
           >
             <LinearGradient
-              colors={["#667eea", "#764ba2"]}
+              colors={["#ec4899", "#8b5cf6"]}
               style={styles.avatarGradient}
             >
               <Image
@@ -161,7 +161,7 @@ export default function IncomingCallScreen({ route }) {
             onPress={handleDecline}
           >
             <LinearGradient
-              colors={["#ff6b6b", "#ee5a52"]}
+              colors={["#ef4444", "#dc2626"]}
               style={[styles.button, styles.decline]}
             >
               <Ionicons name="close" size={32} color="#fff" />
@@ -171,7 +171,7 @@ export default function IncomingCallScreen({ route }) {
 
           <TouchableOpacity style={styles.buttonWrapper} onPress={handleAccept}>
             <LinearGradient
-              colors={["#4ecdc4", "#44a08d"]}
+              colors={["#10b981", "#059669"]}
               style={[styles.button, styles.accept]}
             >
               <Ionicons name="call" size={32} color="#fff" />
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#667eea",
+    shadowColor: "#ec4899",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -257,14 +257,14 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 70,
     borderWidth: 2,
-    borderColor: "rgba(102, 126, 234, 0.3)",
+    borderColor: "rgba(236, 72, 153, 0.3)",
     zIndex: -1,
   },
   ring2: {
     width: 160,
     height: 160,
     borderRadius: 80,
-    borderColor: "rgba(102, 126, 234, 0.1)",
+    borderColor: "rgba(236, 72, 153, 0.1)",
   },
   nameText: {
     color: "#fff",
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#4ecdc4",
+    backgroundColor: "#10b981",
     marginRight: 8,
   },
   callStatusText: {
