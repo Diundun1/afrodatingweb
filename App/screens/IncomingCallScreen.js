@@ -23,7 +23,8 @@ export default function IncomingCallScreen({ route }) {
   const navigation = useNavigation();
   const { socketRef } = useSocket();
 
-  const { callerName, callUrl, callerId, room, callType } = route.params || {};
+  const { callerName, callUrl, callerId, partnerId, room, callType } = route.params || {};
+  const actualCallerId = callerId || partnerId;
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(100)).current;
@@ -88,7 +89,7 @@ export default function IncomingCallScreen({ route }) {
     stopRingtone();
     navigation.replace("VideoCallScreen", {
       callUrl,
-      partnerId: callerId,
+      partnerId: actualCallerId,
       isCaller: false,
     });
   };
@@ -96,12 +97,17 @@ export default function IncomingCallScreen({ route }) {
   const handleDecline = () => {
     if (Platform.OS !== "web") Vibration.cancel();
     stopRingtone();
+    const socket = socketRef?.current;
+    if (socket && actualCallerId) {
+      socket.emit("call_ended", { recipientId: actualCallerId });
+      console.log("📞 Emitted call_ended to", actualCallerId);
+    }
     navigation.goBack();
   };
 
   return (
     <LinearGradient
-      colors={["#0f172a", "#1f1429", "#111827"]}
+      colors={["#fd297b", "#ff655b"]}
       style={styles.container}
     >
       {/* Background decorative elements */}
@@ -138,12 +144,12 @@ export default function IncomingCallScreen({ route }) {
           </Animated.View>
 
           <Text style={styles.nameText}>{callerName || "Unknown Caller"}</Text>
-          <Text style={styles.subtitle}>Incoming Call </Text>
+          <Text style={styles.subtitle}>Face to Face Video</Text>
 
           {/* Call status with animation */}
           <View style={styles.callStatus}>
             <View style={styles.pulseDot} />
-            <Text style={styles.callStatusText}>Calling...</Text>
+            <Text style={styles.callStatusText}>Swipe to accept...</Text>
           </View>
         </View>
 
@@ -240,7 +246,7 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#ec4899",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -257,14 +263,14 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 70,
     borderWidth: 2,
-    borderColor: "rgba(236, 72, 153, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.4)",
     zIndex: -1,
   },
   ring2: {
     width: 160,
     height: 160,
     borderRadius: 80,
-    borderColor: "rgba(236, 72, 153, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   nameText: {
     color: "#fff",

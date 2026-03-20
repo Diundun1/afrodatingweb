@@ -459,8 +459,28 @@ export default function VideoCallScreen({ route }) {
           colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.8)"]}
           style={styles.bottomControls}
         >
+          <TouchableOpacity
+            style={[
+              styles.controlButton,
+              isMuted ? styles.controlButtonActive : styles.controlButtonInactive,
+            ]}
+            onPress={toggleMute}
+          >
+            <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color={isMuted ? "#000" : "#fff"} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.endCallButton} onPress={endCall}>
-            <MaterialIcons name="call-end" size={32} color="#fff" />
+            <MaterialIcons name="call-end" size={36} color="#fff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.controlButton,
+              !isVideoOn ? styles.controlButtonActive : styles.controlButtonInactive,
+            ]}
+            onPress={toggleVideo}
+          >
+            <Ionicons name={isVideoOn ? "videocam" : "videocam-off"} size={26} color={!isVideoOn ? "#000" : "#fff"} />
           </TouchableOpacity>
         </LinearGradient>
       </View>
@@ -534,30 +554,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
     paddingBottom: 50,
     paddingTop: 40,
-    gap: 25,
+    gap: 30,
   },
   controlButton: {
     alignItems: "center",
     justifyContent: "center",
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    padding: 10,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   controlButtonInactive: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
   },
   controlButtonActive: {
-    backgroundColor: "rgba(239, 68, 68, 0.8)",
-  },
-  controlButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    marginTop: 5,
-    textAlign: "center",
+    backgroundColor: "#fff",
+    borderColor: "#fff",
   },
   endCallButton: {
     alignItems: "center",
