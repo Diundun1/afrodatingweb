@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "258153858892",
+    "project_id": "diudun-5e8e4",
+    "storage_bucket": "diudun-5e8e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:258153858892:android:8c2ca5f5ce335dc70671e9",
+        "android_client_info": {
+          "package_name": "com.diudun"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOaEvkMstsv_UrAbCczB0cH1u2y-hekvc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
