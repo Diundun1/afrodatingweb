@@ -121,34 +121,14 @@ export default function IncomingCallScreen({ route }) {
 
   const playRingtone = async () => {
     try {
-      // Stop any existing ringtone first
-      await stopRingtone();
-
-      if (!isAudioReady) {
-        console.log("Audio not ready yet, retrying in 100ms");
-        setTimeout(playRingtone, 100);
-        return;
-      }
-
-      console.log("Playing ringtone for incoming call...");
-
-      const { sound } = await Audio.Sound.createAsync(
-        require("https://unigate.com.ng/ringtones/ringtone.mp3"),
-        {
-          isLooping: true,
-          volume: 1.0,
-          shouldPlay: true,
-        },
-        onPlaybackStatusUpdate,
-      );
-
-      soundRef.current = sound;
-      await sound.playAsync();
+      // Use the centralized ringtone module (already imported as startRingtone)
+      // This is much more reliable for web environments
+      console.log("🔔 Starting centralized ringtone...");
+      startRingtone();
       console.log("Ringtone started successfully");
     } catch (err) {
       console.error("Error playing ringtone:", err);
-      // Retry after a short delay
-      setTimeout(playRingtone, 500);
+      // Fallback: If ringtone module fails, we could try standard Alert
     }
   };
 
