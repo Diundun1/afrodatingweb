@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSocket } from "../lib/SocketContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -49,11 +50,13 @@ export default function VideoCallScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Use the hook safely - this will now use the fallback if context is not available
-  const callContext = useCall();
   const { setInCall, setParticipant } = callContext || {
     setInCall: () => {},
     setParticipant: () => {},
   };
+
+  const { socket, emit } = useSocket();
+  const [partnerId, setPartnerId] = useState(null);
 
   useEffect(() => {
     const loadCallData = async () => {
@@ -61,10 +64,12 @@ export default function VideoCallScreen() {
         setLoading(true);
         const storedCallUrl = await AsyncStorage.getItem("callUrl");
         const storedPartnerName = await AsyncStorage.getItem("partnerName");
+        const storedPartnerId = await AsyncStorage.getItem("partnerId");
 
         if (storedCallUrl) {
           setCallUrl(storedCallUrl);
           setPartnerName(storedPartnerName || "Partner");
+          setPartnerId(storedPartnerId);
 
           // Safely call context methods
           if (setInCall) setInCall(true);
@@ -86,6 +91,22 @@ export default function VideoCallScreen() {
 
     loadCallData();
   }, []);
+
+  // Sync call ending
+  useEffect(() => {
+    if (!socket) return;
+
+    const handlePartnerCallEnded = (data) => {
+      console.log("📞 Partner ended the call via socket:", data);
+      handleCallEnded();
+    };
+
+    socket.on("callEnded", handlePartnerCallEnded);
+
+    return () => {
+      socket.off("callEnded", handlePartnerCallEnded);
+    };
+  }, [socket]);
 
   // Direct permission request - navigates back if rejected
   const requestPermissions = async () => {
@@ -247,10 +268,19 @@ export default function VideoCallScreen() {
 
   const endCall = async () => {
     try {
-      console.log("📞 Ending call...");
+      console.log("📞 Sending callEnded signal to partner:", partnerId);
+      // Notify partner that call has ended
+      if (emit && partnerId) {
+        emit("callEnded", {
+          partnerId: partnerId,
+          timestamp: Date.now(),
+        });
+      }
+
+      console.log("📞 Clearing call data...");
       await AsyncStorage.multiRemove(["callUrl", "partnerId", "partnerName"]);
     } catch (e) {
-      console.log("Error clearing storage", e);
+      console.log("Error clearing storage or emitting end event", e);
     }
 
     // Safely call context methods

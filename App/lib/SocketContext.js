@@ -287,6 +287,11 @@ export function SocketProvider({ children }) {
             isCaller: false,
           });
         });
+
+        // 📞 CALL ENDED
+        socket.on("callEnded", (data) => {
+          console.log("📞 Incoming call ended signal received:", data);
+        });
         if (__DEV__) {
           socket.onAny((event, ...args) => {
             console.log(`📡 ${event}`, args);

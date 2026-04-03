@@ -482,12 +482,26 @@ self.addEventListener("push", async (event) => {
           ? [500, 200, 500, 200, 500, 200, 500, 200, 500]
           : [200, 100, 200],
         requireInteraction: isCall ? true : false,
+        actions: isCall
+          ? [
+              {
+                action: "answer",
+                title: "Answer Call",
+                icon: "/icon-192x192.png",
+              },
+              {
+                action: "decline",
+                title: "Decline Call",
+                icon: "/icon-192x192.png",
+              },
+            ]
+          : [],
         data: {
           ...data.data,
           url: isCall ? `/incoming-call` : data.url || "/",
           callUrl: callUrl,
           isCall: isCall,
-          callType: callType, // Pass detected type
+          callType: callType,
           originalMessage: finalMessage,
           timestamp: timestamp,
           senderName: senderName,
@@ -498,7 +512,9 @@ self.addEventListener("push", async (event) => {
       };
 
       const notification = await self.registration.showNotification(
-        isCall ? `Incoming ${callType === "voice" ? "Voice" : "Video"} Call` : data.title || "Diundun",
+        isCall
+          ? `Incoming ${callType === "voice" ? "Voice" : "Video"} Call`
+          : data.title || "Diundun",
         options,
       );
 
@@ -512,18 +528,25 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
   const data = event.notification.data || {};
+  const action = event.action;
 
   // Resolve the Room ID (Fallback to sender ID if room is missing)
   const room = data.room || data.roomId || data.sender?.id || data.sender;
   const isCall = data.isCall;
   const callType = data.callType || "video";
 
-  // 1. Mark notification as opened
+  // 1. Mark notification as opened/dismissed
+  const status = action === "decline" ? "dismissed" : "open";
   if (data.notificationId) {
-    fetch(`/api/push/notifications/${data.notificationId}/open`, {
+    fetch(`/api/v1/push/notifications/${data.notificationId}/${status}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-    }).catch((err) => console.error("Failed to mark as opened:", err));
+    }).catch((err) => console.error(`Failed to mark as ${status}:`, err));
+  }
+
+  // Handle Decline specific action
+  if (action === "decline") {
+    return;
   }
 
   event.waitUntil(
@@ -548,6 +571,7 @@ self.addEventListener("notificationclick", (event) => {
                   callerId: data.sender?.id || data.sender,
                   room: room,
                   callType: callType,
+                  autoAccept: action === "answer",
                 },
               });
             } else {
@@ -571,6 +595,7 @@ self.addEventListener("notificationclick", (event) => {
               callerId: data.sender?.id || data.sender,
               room: room,
               callType: callType,
+              autoAccept: action === "answer" ? "true" : "false",
             }).toString();
             return clients.openWindow(`/incoming-call?${callParams}`);
           } else {

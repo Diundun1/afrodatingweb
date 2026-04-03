@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Audio } from "expo-av";
 import { startRingtone, stopRingtone } from "../../ringtone";
+import { useSocket } from "../lib/SocketContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -28,6 +29,26 @@ export default function IncomingCallScreen({ route }) {
 
   const pulseAnim = new Animated.Value(1);
   const slideAnim = new Animated.Value(100);
+
+  const { socket } = useSocket();
+
+  // Listen for call cancellation from caller
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCallEnded = (data) => {
+      console.log("📞 Caller canceled the call before answer:", data);
+      Vibration.cancel();
+      stopRingtone();
+      navigation.goBack();
+    };
+
+    socket.on("callEnded", handleCallEnded);
+
+    return () => {
+      socket.off("callEnded", handleCallEnded);
+    };
+  }, [socket]);
 
   // Initialize audio system
   useEffect(() => {
