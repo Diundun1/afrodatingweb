@@ -170,9 +170,19 @@ export default function IncomingCallScreen({ route }) {
 
   const handleDecline = async () => {
     console.log("Declining call...");
+
+    // ✅ Notify the caller that the call was declined immediately
+    if (socket && callerId) {
+      console.log("📞 Emitting callEnded to caller:", callerId);
+      socket.emit("callEnded", {
+        partnerId: callerId,
+        room: room,
+      });
+    }
+
     Vibration.cancel();
-    navigation.goBack();
     stopRingtone();
+    navigation.goBack();
   };
 
   return (
