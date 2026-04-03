@@ -1003,11 +1003,11 @@ const MessageScreen = ({ route }) => {
           return;
         }
       } else {
-        alert("Call Failed", "Unable to create voice call room.");
+        Alert.alert("Call Failed", "Unable to create voice call room.");
       }
     } catch (e) {
       console.error("Voice call error:", e);
-      alert("Call Failed", "Unable to initiate voice call. Please try again.");
+      Alert.alert("Call Failed", "Unable to initiate voice call. Please try again.");
     } finally {
       setIsProcessingCall(false);
     }

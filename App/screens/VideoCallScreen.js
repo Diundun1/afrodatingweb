@@ -50,6 +50,7 @@ export default function VideoCallScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Use the hook safely - this will now use the fallback if context is not available
+  const callContext = useCall();
   const { setInCall, setParticipant } = callContext || {
     setInCall: () => {},
     setParticipant: () => {},
